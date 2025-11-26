@@ -1,0 +1,172 @@
+import { useState } from 'react'
+import { Layout } from '@/components/Layout'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Home, UserPlus, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+
+type Page =
+  | 'dashboard'
+  | 'timeline'
+  | 'projection'
+  | 'accounts'
+  | 'categories'
+  | 'goals'
+  | 'settings-profile'
+  | 'settings-household'
+  | 'trash'
+
+interface SettingsHouseholdProps {
+  navigate: (page: Page) => void
+  onLogout: () => void
+}
+
+export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps) {
+  const [hasHousehold] = useState(true)
+  const [inviteEmail, setInviteEmail] = useState('')
+
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    toast.success(`Invitation envoyée à ${inviteEmail}`)
+    setInviteEmail('')
+  }
+
+  const handleDissolve = () => {
+    toast.success('Foyer dissous avec succès')
+  }
+
+  return (
+    <Layout currentPage="settings-household" navigate={navigate} onLogout={onLogout}>
+      <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Paramètres du Foyer</h1>
+          <p className="text-muted-foreground">Gérez votre foyer et vos partenaires</p>
+        </div>
+
+        {hasHousehold ? (
+          <>
+            <Card className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center">
+                  <Home className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">Votre Foyer</h2>
+                  <p className="text-sm text-muted-foreground">Créé le 15 novembre 2025</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">Membres</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-primary text-primary-foreground">A</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">Alex Dupont</p>
+                        <p className="text-sm text-muted-foreground">alex@mimo.fr</p>
+                      </div>
+                      <div className="ml-auto">
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Vous</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-accent text-accent-foreground">S</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">Sarah Martin</p>
+                        <p className="text-sm text-muted-foreground">sarah@mimo.fr</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6 border-destructive/50">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-destructive/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-destructive" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold mb-2">Zone de Danger</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    La dissolution du foyer est irréversible. Les transactions communes seront conservées mais ne
+                    pourront plus être modifiées.
+                  </p>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive">Dissoudre le foyer</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action est irréversible. Cela dissoudra votre foyer et séparera toutes les finances
+                          communes. Les deux partenaires pourront continuer à utiliser Mimo Finance de manière
+                          indépendante.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDissolve} className="bg-destructive hover:bg-destructive/90">
+                          Oui, dissoudre le foyer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            </Card>
+          </>
+        ) : (
+          <Card className="p-6">
+            <div className="text-center space-y-6">
+              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <UserPlus className="w-8 h-8 text-accent" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Créer un Foyer</h2>
+                <p className="text-muted-foreground mb-6">
+                  Invitez votre partenaire pour gérer vos finances ensemble
+                </p>
+                <form onSubmit={handleInvite} className="max-w-md mx-auto space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="inviteEmail">Email du partenaire</Label>
+                    <Input
+                      id="inviteEmail"
+                      type="email"
+                      placeholder="partenaire@exemple.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Envoyer l'invitation
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
+    </Layout>
+  )
+}
