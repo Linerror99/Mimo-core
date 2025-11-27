@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +23,7 @@ interface ProjectionProps {
 }
 
 export function Projection({ navigate, onLogout }: ProjectionProps) {
-  const [transactions] = useKV<Transaction[]>('transactions', [])
+  const [transactions] = useState<Transaction[]>([])
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {

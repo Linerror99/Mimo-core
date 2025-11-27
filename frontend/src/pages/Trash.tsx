@@ -1,4 +1,4 @@
-import { useKV } from '@github/spark/hooks'
+import { useState } from 'react'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,8 +24,8 @@ interface TrashProps {
 }
 
 export function Trash({ navigate, onLogout }: TrashProps) {
-  const [deletedTransactions, setDeletedTransactions] = useKV<Transaction[]>('deleted-transactions', [])
-  const [transactions, setTransactions] = useKV<Transaction[]>('transactions', [])
+  const [deletedTransactions, setDeletedTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
