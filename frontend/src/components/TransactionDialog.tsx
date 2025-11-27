@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,8 +15,8 @@ interface TransactionDialogProps {
 }
 
 export function TransactionDialog({ open, onOpenChange, onSave, transaction }: TransactionDialogProps) {
-  const [accounts] = useKV<Account[]>('accounts', [])
-  const [categories] = useKV<Category[]>('categories', [])
+  const [accounts] = useState<Account[]>([])
+  const [categories] = useState<Category[]>([])
   
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')

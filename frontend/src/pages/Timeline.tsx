@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,8 +24,8 @@ interface TimelineProps {
 }
 
 export function Timeline({ navigate, onLogout }: TimelineProps) {
-  const [transactions, setTransactions] = useKV<Transaction[]>('transactions', [])
-  const [deletedTransactions, setDeletedTransactions] = useKV<Transaction[]>('deleted-transactions', [])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [deletedTransactions, setDeletedTransactions] = useState<Transaction[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>()
   const [currentMonth] = useState(new Date())

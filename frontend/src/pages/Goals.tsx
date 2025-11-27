@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,7 +25,7 @@ interface GoalsProps {
 }
 
 export function Goals({ navigate, onLogout }: GoalsProps) {
-  const [goals, setGoals] = useKV<Goal[]>('goals', [])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>()
 

@@ -1,4 +1,4 @@
-import { useKV } from '@github/spark/hooks'
+import { useState } from 'react'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,10 +25,10 @@ interface DashboardProps {
 }
 
 export function Dashboard({ navigate, onLogout }: DashboardProps) {
-  const [transactions, setTransactions] = useKV<Transaction[]>('transactions', [])
-  const [accounts, setAccounts] = useKV<Account[]>('accounts', [])
-  const [categories, setCategories] = useKV<Category[]>('categories', [])
-  const [goals, setGoals] = useKV<Goal[]>('goals', [])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
 
   const loadSampleData = () => {
     setTransactions(() => sampleTransactions)

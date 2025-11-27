@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,7 +26,7 @@ interface CategoriesProps {
 }
 
 export function Categories({ navigate, onLogout }: CategoriesProps) {
-  const [categories, setCategories] = useKV<Category[]>('categories', [])
+  const [categories, setCategories] = useState<Category[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | undefined>()
 

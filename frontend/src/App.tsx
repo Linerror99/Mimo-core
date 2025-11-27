@@ -1,4 +1,4 @@
-import { useKV } from '@github/spark/hooks'
+import { useState } from 'react'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
@@ -26,26 +26,26 @@ type Page =
   | 'trash'
 
 function App() {
-  const [currentPage, setCurrentPage] = useKV<Page>('current-page', 'login')
-  const [isAuthenticated, setIsAuthenticated] = useKV<boolean>('is-authenticated', false)
+  const [currentPage, setCurrentPage] = useState<Page>('login')
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
 
   const navigate = (page: Page) => {
     setCurrentPage(() => page)
   }
 
   const handleLogin = () => {
-    setIsAuthenticated(() => true)
-    setCurrentPage(() => 'dashboard')
+    setIsAuthenticated(true)
+    setCurrentPage('dashboard')
   }
 
   const handleRegister = () => {
-    setIsAuthenticated(() => true)
-    setCurrentPage(() => 'dashboard')
+    setIsAuthenticated(true)
+    setCurrentPage('dashboard')
   }
 
   const handleLogout = () => {
-    setIsAuthenticated(() => false)
-    setCurrentPage(() => 'login')
+    setIsAuthenticated(false)
+    setCurrentPage('login')
   }
 
   if (!isAuthenticated) {

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,7 +25,7 @@ interface AccountsProps {
 }
 
 export function Accounts({ navigate, onLogout }: AccountsProps) {
-  const [accounts, setAccounts] = useKV<Account[]>('accounts', [])
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | undefined>()
 
