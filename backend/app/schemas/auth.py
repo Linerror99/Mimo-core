@@ -41,12 +41,12 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     """Schema for user data in responses."""
-    id: int
+    id: str
     email: str
     first_name: str
     last_name: str
     is_active: bool
-    household_id: Optional[int] = None
+    household_id: Optional[str] = None
     created_at: datetime
     
     class Config:

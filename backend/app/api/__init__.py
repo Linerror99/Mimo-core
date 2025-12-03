@@ -1,4 +1,4 @@
 """API Routes"""
-from . import health, auth
+from . import health, auth, users
 
-__all__ = ["health", "auth"]
+__all__ = ["health", "auth", "users"]

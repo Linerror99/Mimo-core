@@ -1,176 +1,118 @@
-"""Authentication API endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+"""
+Authentication API endpoints
+"""
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.schemas import (
+from app.schemas.auth import (
     UserCreate,
     UserLogin,
     UserResponse,
     TokenResponse,
-    TokenRefresh,
+    TokenRefresh
 )
-from app.services import auth_service
-from app.models import User
-
-router = APIRouter(prefix="/auth", tags=["Authentication"])
-security = HTTPBearer()
+from app.services.auth_service import AuthService
+from app.api.deps import CurrentUser
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    """Dependency to get the current authenticated user."""
-    token = credentials.credentials
-    payload = auth_service.decode_token(token)
-    
-    if not payload or payload.get("type") != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user_id = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user = await auth_service.get_user_by_id(db, int(user_id))
-    if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return user
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserCreate,
-    db: AsyncSession = Depends(get_db)
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """Register a new user."""
-    # Check if user already exists
-    existing_user = await auth_service.get_user_by_email(db, user_data.email)
-    if existing_user:
+    """
+    Register a new user with INDIVIDUAL household.
+    
+    - **email**: Valid email address (unique)
+    - **password**: Min 8 chars with uppercase, lowercase, number
+    - **first_name**: User first name
+    - **last_name**: User last name
+    """
+    auth_service = AuthService(db)
+    
+    try:
+        user = await auth_service.register(user_data)
+        return user
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail=str(e)
         )
-    
-    # Create new user
-    user = await auth_service.create_user(
-        db=db,
-        email=user_data.email,
-        password=user_data.password,
-        first_name=user_data.first_name,
-        last_name=user_data.last_name
-    )
-    
-    # Generate tokens
-    access_token = auth_service.create_access_token(user.id)
-    refresh_token = auth_service.create_refresh_token(user.id)
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse.model_validate(user)
-    )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 async def login(
-    credentials: UserLogin,
-    db: AsyncSession = Depends(get_db)
+    login_data: UserLogin,
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """Login and get access tokens."""
-    user = await auth_service.authenticate_user(
-        db, 
-        credentials.email, 
-        credentials.password
-    )
+    """
+    Authenticate user and return JWT tokens.
     
-    if not user:
+    - **email**: User email
+    - **password**: User password
+    
+    Returns access_token (15min) and refresh_token (7 days).
+    """
+    auth_service = AuthService(db)
+    
+    try:
+        tokens = await auth_service.login(login_data)
+        return tokens
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail=str(e)
         )
-    
-    # Generate tokens
-    access_token = auth_service.create_access_token(user.id)
-    refresh_token = auth_service.create_refresh_token(user.id)
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse.model_validate(user)
-    )
 
 
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(
-    token_data: TokenRefresh,
-    db: AsyncSession = Depends(get_db)
-):
-    """Refresh access token using refresh token."""
-    payload = auth_service.decode_token(token_data.refresh_token)
-    
-    if not payload or payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user_id = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user = await auth_service.get_user_by_id(db, int(user_id))
-    if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Generate new tokens
-    access_token = auth_service.create_access_token(user.id)
-    refresh_token = auth_service.create_refresh_token(user.id)
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse.model_validate(user)
-    )
-
-
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
-):
-    """Get current user information."""
-    return UserResponse.model_validate(current_user)
-
-
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout")
 async def logout(
-    current_user: User = Depends(get_current_user)
+    request: Request,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """Logout (client should delete tokens)."""
-    # In a production app, you might want to blacklist the token in Redis
-    # For now, we rely on client-side token deletion
-    return None
+    """
+    Logout current user by blacklisting their access token.
+    
+    Requires: Bearer token in Authorization header
+    """
+    # Extract token from Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        auth_service = AuthService(db)
+        await auth_service.logout(token)
+    
+    return {"message": "Successfully logged out"}
+
+
+@router.post("/refresh")
+async def refresh_token(
+    refresh_data: TokenRefresh,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Refresh access token using refresh token.
+    
+    - **refresh_token**: Valid refresh token
+    
+    Returns new access_token.
+    """
+    auth_service = AuthService(db)
+    
+    try:
+        new_access_token = await auth_service.refresh_access_token(refresh_data.refresh_token)
+        return {
+            "access_token": new_access_token,
+            "token_type": "bearer"
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
