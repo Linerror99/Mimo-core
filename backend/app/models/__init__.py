@@ -3,6 +3,7 @@ from .household import Household, HouseholdType
 from .account import Account, AccountType
 from .category import Category, CategoryType
 from .transaction import Transaction, TransactionType, TransactionState, RecurrenceFrequency
+from .recurring_template import RecurringTemplate, Frequency
 
 __all__ = [
     "User", 
@@ -15,5 +16,7 @@ __all__ = [
     "Transaction",
     "TransactionType",
     "TransactionState",
-    "RecurrenceFrequency"
+    "RecurrenceFrequency",
+    "RecurringTemplate",
+    "Frequency"
 ]

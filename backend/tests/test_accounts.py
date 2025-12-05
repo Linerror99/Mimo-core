@@ -212,12 +212,16 @@ class TestAccountEndpoints:
         
         assert response.status_code == 204
         
-        # Verify account is deleted
+        # Verify account is soft deleted (closed)
         get_response = await client.get(
             f"/api/v1/accounts/{account.id}",
             headers={"Authorization": f"Bearer {test_user_token}"}
         )
-        assert get_response.status_code == 404
+        # Account still exists but is_active=false
+        assert get_response.status_code == 200
+        account_data = get_response.json()
+        assert account_data["is_active"] == False or account_data["is_active"] == "false"
+        assert account_data["closed_at"] is not None
     
     async def test_user_cannot_access_other_household_accounts(
         self, 
