@@ -35,6 +35,7 @@ class Category(Base):
     # Relationships
     household = relationship("Household", back_populates="categories")
     parent = relationship("Category", remote_side=[id], backref="children")
+    transactions = relationship("Transaction", back_populates="category")
 
     def __repr__(self):
         return f"<Category {self.name} ({self.type})>"

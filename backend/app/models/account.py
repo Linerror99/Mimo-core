@@ -38,6 +38,7 @@ class Account(Base):
 
     # Relationships
     household = relationship("Household", back_populates="accounts")
+    transactions = relationship("Transaction", foreign_keys="Transaction.account_id", back_populates="account")
 
     def __repr__(self):
         return f"<Account {self.name} ({self.type})>"
