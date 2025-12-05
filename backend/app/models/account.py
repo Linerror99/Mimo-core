@@ -1,0 +1,43 @@
+"""
+Account Model
+
+Represents a bank account (checking, savings, investment, etc.)
+"""
+from datetime import datetime
+from sqlalchemy import Column, String, Numeric, DateTime, Enum as SQLEnum, ForeignKey
+from sqlalchemy.orm import relationship
+import enum
+import uuid
+
+from app.database import Base
+
+
+class AccountType(str, enum.Enum):
+    """Account types"""
+    CHECKING = "CHECKING"  # Compte courant
+    SAVINGS = "SAVINGS"  # Livret épargne
+    INVESTMENT = "INVESTMENT"  # Compte titres
+    LOAN = "LOAN"  # Prêt
+    CASH = "CASH"  # Espèces
+    OTHER = "OTHER"  # Autre
+
+
+class Account(Base):
+    """Account model"""
+    __tablename__ = "accounts"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    household_id = Column(String(36), ForeignKey("households.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(100), nullable=False)
+    type = Column(SQLEnum(AccountType), nullable=False, default=AccountType.CHECKING)
+    initial_balance = Column(Numeric(12, 2), nullable=False, default=0)
+    currency = Column(String(3), nullable=False, default="EUR")
+    is_active = Column(SQLEnum("true", "false", name="boolean_enum"), nullable=False, default="true")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    household = relationship("Household", back_populates="accounts")
+
+    def __repr__(self):
+        return f"<Account {self.name} ({self.type})>"
