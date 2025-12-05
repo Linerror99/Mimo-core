@@ -67,3 +67,43 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
     
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+async def test_user_token(client: AsyncClient, db_session: AsyncSession) -> str:
+    """Create a test user and return authentication token."""
+    # Register a test user
+    register_data = {
+        "email": "test@example.com",
+        "password": "TestPassword123!",
+        "first_name": "Test",
+        "last_name": "User"
+    }
+    
+    register_response = await client.post("/api/v1/auth/register", json=register_data)
+    assert register_response.status_code == 201
+    
+    # Login to get token
+    login_data = {
+        "email": "test@example.com",
+        "password": "TestPassword123!"
+    }
+    
+    login_response = await client.post("/api/v1/auth/login", json=login_data)
+    assert login_response.status_code == 200
+    
+    token_data = login_response.json()
+    return token_data["access_token"]
+
+
+@pytest.fixture(scope="function")
+async def test_user_household_id(client: AsyncClient, test_user_token: str) -> str:
+    """Get the household ID of the test user."""
+    response = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {test_user_token}"}
+    )
+    assert response.status_code == 200
+    
+    user_data = response.json()
+    return user_data["household_id"]
