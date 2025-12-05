@@ -82,12 +82,16 @@ class RecurringTemplateService:
         max_iterations = 1000  # Sécurité
         
         while current_date <= end_date and transactions_created < max_iterations:
+            # Déterminer le montant avec le bon signe
+            transaction_type = TransactionType[template.type] if isinstance(template.type, str) else template.type
+            transaction_amount = template.amount if transaction_type == TransactionType.INCOME else -abs(template.amount)
+            
             # Créer la transaction
             transaction = Transaction(
                 household_id=template.household_id,
                 account_id=template.account_id,
-                amount=template.amount,
-                type=TransactionType[template.type] if isinstance(template.type, str) else template.type,
+                amount=transaction_amount,
+                type=transaction_type,
                 transaction_date=current_date,
                 description=template.description or template.name,
                 category_id=template.category_id,

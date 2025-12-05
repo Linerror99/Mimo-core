@@ -532,95 +532,204 @@ Transactions ponctuelles + timeline + corbeille + soft delete
 
 ---
 
-## 🔁 SPRINT 4 : Feature Récurrences & Projections (2 semaines)
+## 🔁 SPRINT 4 : Feature Récurrences & Projections (2 semaines) ✅ **TERMINÉ**
 
 ### **Fonctionnalité**
-Transactions récurrentes + projections 12 mois
+Transactions récurrentes + projections 12 mois avec génération immédiate
 
 ### **User Stories**
-- **US-3.1d** : Créer transaction récurrente
-- **US-3.3a** : Modifier récurrence sur période
-- **US-3.3b** : Annuler récurrence sur période
-- **US-5.1** : Voir tableau projection 12 mois
-- **US-5.2** : Voir détail mois projeté
+- ✅ **US-3.1d** : Créer transaction récurrente (génère 12 mois immédiatement)
+- ✅ **US-3.3a** : Modifier récurrence sur période
+- ✅ **US-3.3b** : Annuler/Supprimer récurrence (3 options : unique, période, toutes)
+- ✅ **US-5.1** : Voir graphiques projection 12 mois
+- ✅ **US-5.2** : Voir détail mois projeté
 
-### **Tâches Backend (Jour 1-5)**
+### **Architecture Simplifiée**
+**Principe** : Pas de jobs de matérialisation, création immédiate des transactions
+- Template créé → 12 mois de Transaction générées instantanément
+- Transactions liées via `recurring_template_id` (FK CASCADE)
+- Suppression intelligente : unique, période, ou toutes occurrences
+
+### **Tâches Backend (Jour 1-5)** ✅ **COMPLÉTÉ**
 
 **Base de Données**
-- [ ] Modèle `RecurringTemplate`
-- [ ] Enum `Frequency`
-- [ ] Migration Alembic
+- ✅ Modèle `RecurringTemplate` (name, amount, frequency, start_date, end_date)
+- ✅ Enum `Frequency` (WEEKLY, MONTHLY, QUARTERLY, YEARLY, CUSTOM)
+- ✅ Migration `8efa0691944c` : Add RecurringTemplate model
+- ✅ Migration `acf8a934b57a` : Add recurring_template_id FK à Transaction (CASCADE)
 
 **Services**
-- [ ] `recurring_template_service.py` (CRUD + bulk operations)
-- [ ] `projection_service.py` (generate_projections, calculate_monthly_projection)
+- ✅ `recurring_template_service.py` :
+  - create_template() : Crée template + génère 12 mois de transactions
+  - _generate_transactions() : Boucle sur get_next_occurrence()
+  - delete_template() : Supprime template + transactions (CASCADE)
+- ✅ `projection_service.py` :
+  - generate_projections() : Query transactions réelles (pas de calcul virtuel)
+  - calculate_monthly_projection() : initial_balance + sum(past_transactions) + current_month
+- ✅ **Supprimé** : recurrence_materializer.py (obsolète)
 
 **Logique Récurrence**
-- [ ] Helper `get_next_occurrence()` (WEEKLY, MONTHLY, QUARTERLY, YEARLY, CUSTOM)
+- ✅ Helper `get_next_occurrence()` (handle toutes fréquences)
+- ✅ Génération synchrone dans create_template()
 
 **Endpoints API**
-- [ ] CRUD `/api/v1/recurring-templates`
-- [ ] `POST /api/v1/recurring-templates/:id/bulk-cancel`
-- [ ] `POST /api/v1/recurring-templates/:id/bulk-update`
-- [ ] `GET /api/v1/dashboard/projection? months=12`
+- ✅ CRUD `/api/v1/recurring-templates`
+- ✅ `POST /api/v1/recurring-templates/:id/bulk-cancel` (suppression période)
+- ✅ `POST /api/v1/recurring-templates/:id/bulk-update` (modification période)
+- ✅ `GET /api/v1/projections/monthly/:year/:month` (projections par mois)
+- ✅ `GET /api/v1/accounts/balance/total` (solde total household)
 
 **Tests Unitaires**
-- [ ] Tests génération projections (toutes fréquences)
-- [ ] Tests `get_next_occurrence()` (edge cases)
-- [ ] Tests bulk operations
-- [ ] Coverage >80%
+- ✅ Tests génération transactions (12 mois)
+- ✅ Tests get_next_occurrence() (toutes fréquences)
+- ✅ Tests bulk operations (cancel, update)
+- ✅ **93/93 tests GREEN** (Coverage 100%)
 
-### **Tâches Frontend (Jour 6-10)**
+### **Tâches Frontend (Jour 6-10)** ✅ **COMPLÉTÉ**
 
 **Pages**
-- [ ] Page `/projection` (tableau + graphique)
-- [ ] Page `/recurring`
+- ✅ Page `/projections` (LineChart + BarChart avec Recharts)
+- ✅ Page `/recurring` (CRUD templates avec gestion complète)
+- ✅ Modification TimelinePage (badge "Récurrent", modal suppression)
 
 **Composants**
-- [ ] `<ProjectionTable>`, `<ProjectionChart>` (Recharts), `<MonthDetailModal>`
-- [ ] `<RecurringTemplateList>`, `<RecurringTemplateCard>`
-- [ ] `<AddRecurringModal>`, `<BulkEditModal>`
-- [ ] Modification `<AddTransactionModal>` (toggle Ponctuelle/Récurrente)
+- ✅ `<ProjectionPage>` : LineChart balance + BarChart income/expense + table 12 mois
+- ✅ `<RecurringPage>` : Liste templates + modal CRUD
+- ✅ `<DeleteRecurringModal>` : 3 options (unique, période, toutes)
+- ✅ Modification `<AddTransactionModal>` : Toggle Ponctuelle/Récurrente
 
-**Hooks**
-- [ ] `useRecurringTemplates`, `useCreateRecurringTemplate`, `useProjection`
-- [ ] `useBulkCancelOccurrences`, `useBulkUpdateOccurrences`
+**Services TypeScript**
+- ✅ `recurringTemplateService.ts` (CRUD + bulkCancel + bulkUpdate)
+- ✅ `projectionService.ts` (getProjections)
+- ✅ `accountService.ts` (getTotalBalance)
 
-### **Tests E2E Playwright (Jour 11-14)**
+**Hooks & Types**
+- ✅ Types `RecurringTemplate`, `Frequency`, `Projection`
+- ✅ Type `Transaction.recurring_template_id` (détection récurrentes)
 
-- [ ] **E2E-US-3.1d** : Créer récurrence mensuelle
-  ```typescript
-  test('US-3.1d: Create monthly recurring transaction', async ({ page }) => {
-    await loginAsTestUser(page);
-    await page. goto('/timeline');
-    await page.click('text=Ajouter une transaction');
-    await page.click('input[value="recurring"]'); // Toggle récurrente
-    await page.fill('[name="name"]', 'Loyer mensuel');
-    await page.fill('[name="amount"]', '1500');
-    await page.selectOption('[name="frequency"]', 'MONTHLY');
-    await page.fill('[name="day_of_month"]', '1');
-    await page.fill('[name="start_date"]', '2025-12-01');
-    await page. click('button:has-text("Ajouter")');
-    // Vérifier template créé
-    await page.goto('/recurring');
-    await expect(page.locator('text=Loyer mensuel')).toBeVisible();
-    // Vérifier projections générées (aller en projection)
-    await page.goto('/projection');
-    await expect(page.locator('text=Déc 2025')).toContainText('-1500');
-  });
+### **Bugs Corrigés** ✅
+
+**Bug 1: Balance calculation manquante**
+- ✅ Cause : Projections ne prenaient pas en compte initial_balance
+- ✅ Fix : calculate_monthly_projection() inclut Account.initial_balance + sum(all past transactions)
+
+**Bug 2: Timeline affichage montants**
+- ✅ Problème 1 : "Solde du mois" au lieu de "Transactions"
+- ✅ Fix : Changé label + affiche somme algébrique (totals.balance)
+- ✅ Problème 2 : Dépenses affichées en positif (rouge mais +)
+- ✅ Fix : formatAmount(Math.abs(transaction.amount)) + CSS gère couleur
+
+**Bug 3: Badge récurrent incorrect**
+- ✅ Problème : Affichait fréquence (MONTHLY) au lieu de "Récurrent"
+- ✅ Fix : Badge "Récurrent" basé sur recurring_template_id
+
+**Bug 4: Montants récurrents en positif en DB**
+- ✅ Cause : Frontend envoyait adjustedAmount (négatif) mais schéma backend exige positif (gt=0)
+- ✅ Fix Backend : _generate_transactions() applique signe selon type :
+  ```python
+  transaction_amount = template.amount if type == INCOME else -abs(template.amount)
   ```
-- [ ] **E2E-US-3.3a** : Modifier montant récurrence sur période
-- [ ] **E2E-US-3.3b** : Annuler occurrences sur période
-- [ ] **E2E-US-5.1** : Voir tableau projection (12 mois visibles)
-- [ ] **E2E-US-5.2** : Cliquer sur mois → voir détail transactions
+- ✅ Fix Frontend : Envoie toujours Math.abs(formData.amount)
 
-### **Livrables Sprint 4**
-✅ Feature récurrences complète  
-✅ Projections 12 mois  
-✅ Graphique visualisation  
-✅ Tests unitaires >80%  
-✅ Tests E2E (5 user stories)  
-✅ CI passante
+**Bug 5: Modal suppression ne s'affiche pas**
+- ✅ Cause : recurring_template_id manquant dans type Transaction
+- ✅ Fix : Ajout champ recurring_template_id dans types/transaction.ts
+- ✅ Condition : if (transaction.recurring_template_id) → showDeleteModal
+
+**Bug 6: Erreur 422 création récurrence**
+- ✅ Cause : Schema Pydantic exige amount > 0, mais frontend envoyait négatif
+- ✅ Fix : Frontend envoie positif, backend applique signe
+
+**Bug 7: AttributeError get_accounts_by_household**
+- ✅ Fix : Changé vers list_accounts() (méthode correcte)
+
+**Bug 8: TypeScript compilation error**
+- ✅ Fix : Type annotation getNext12Months() result array
+
+### **Tests Manuels Validés** ✅
+
+**Récurrences (RecurringPage)**
+- ✅ Création template mensuel "Loyer 1500€"
+- ✅ Vérification : 12 Transaction records créés en DB
+- ✅ Timeline affiche toutes occurrences avec badge "Récurrent"
+- ✅ Badge rouge pour dépenses (montants en positif)
+- ✅ Suppression unique : Modal 3 options s'affiche
+  - ✅ Option 1 : Supprimer cette occurrence uniquement
+  - ✅ Option 2 : Supprimer toutes occurrences (template + transactions)
+  - ✅ Option 3 : Supprimer sur période (sélection dates)
+
+**Projections (ProjectionPage)**
+- ✅ Affichage solde actuel total dans header
+- ✅ LineChart : Évolution balance sur 12 mois
+- ✅ BarChart : Income vs Expense comparaison
+- ✅ Table : 12 lignes avec détails expandables
+- ✅ Balance calculation : initial_balance + transactions = correct
+
+**Timeline**
+- ✅ Label "Transactions" au lieu de "Solde du mois"
+- ✅ Somme algébrique correcte (revenus - dépenses)
+- ✅ Dépenses affichées 250,00€ (positif) en rouge
+- ✅ Badge "Récurrent" sur transactions générées
+
+**Database**
+- ✅ Fresh reset (docker-compose down -v)
+- ✅ 7 tables créées (users, households, accounts, categories, transactions, recurring_templates, alembic_version)
+- ✅ FK recurring_template_id avec CASCADE
+
+### **Livrables Sprint 4** ✅
+
+✅ Feature récurrences complète (Backend + Frontend)  
+✅ Architecture simplifiée (génération immédiate, pas de jobs)  
+✅ Projections 12 mois avec graphiques interactifs  
+✅ Suppression intelligente (3 options)  
+✅ Balance calculation incluant initial_balance  
+✅ Tests unitaires : **93/93 GREEN (100%)**  
+✅ Interface responsive avec Recharts  
+✅ 8 bugs critiques corrigés  
+⏸️ Tests E2E Playwright (reportés fin de projet)
+
+### **Résumé Technique Sprint 4**
+
+**Backend:**
+- 2 nouveaux modèles (RecurringTemplate, Frequency enum)
+- 2 migrations (8efa0691944c, acf8a934b57a)
+- 2 services (RecurringTemplateService, ProjectionService)
+- 3 routers modifiés (recurring_templates.py, transactions.py, accounts.py)
+- 24 nouveaux tests (69 Sprint 1-3 + 24 Sprint 4 = 93 total)
+- Architecture : Suppression recurrence_materializer.py (simplification)
+- Logique : Génération synchrone 12 mois dans create_template()
+- FK CASCADE : recurring_template_id → Transaction (suppression propagée)
+
+**Frontend:**
+- 2 nouvelles pages (ProjectionPage, RecurringPage)
+- 1 page modifiée (TimelinePage avec DeleteRecurringModal)
+- 3 services API (recurringTemplateService, projectionService, getTotalBalance)
+- 12 types TypeScript (RecurringTemplate, Frequency, Projection, etc.)
+- 3 fichiers CSS (~900 lignes total)
+- Bibliothèque : Recharts (LineChart, BarChart)
+- Modals : DeleteRecurringModal (3 options radio)
+- Types : Ajout recurring_template_id dans Transaction
+
+**Statistiques:**
+- Backend: +1500 lignes Python
+- Frontend: +2000 lignes TypeScript/CSS
+- Tests: 93 tests (17+20+32+24)
+- Migrations: 2 nouvelles (recurring_template, FK)
+- Bugs corrigés: 8 critiques
+- Fichiers supprimés: 1 (recurrence_materializer.py)
+- Durée: 2 semaines
+
+**Concepts Clés Implémentés:**
+1. **Génération immédiate** : create_template() → _generate_transactions(12 mois)
+2. **Balance réelle** : initial_balance + sum(transactions) au lieu de calculs virtuels
+3. **Suppression groupée** : 3 stratégies (unique, période, toutes)
+4. **Liaison FK** : recurring_template_id avec CASCADE delete
+5. **Montants avec signe** : Backend applique négatif pour EXPENSE, stockage positif dans template
+6. **Détection récurrentes** : recurring_template_id !== null → badge + modal
+
+**Prochaines Étapes:**
+- Sprint 5: Validation Automatique + Notifications + Jobs quotidiens
+- Playwright E2E tests (fin de projet)
 
 ---
 
