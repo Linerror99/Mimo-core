@@ -38,11 +38,6 @@ class CategoryResponse(CategoryBase):
     household_id: str
     created_at: datetime
     updated_at: datetime
-    children: List["CategoryResponse"] = []
 
     class Config:
         from_attributes = True
-
-
-# Enable forward references
-CategoryResponse.model_rebuild()

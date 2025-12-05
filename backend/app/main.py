@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api import health, auth, users, accounts
+from app.api import health, auth, users, accounts, categories
 
 app = FastAPI(
     title="DuoFlow Finance API",
@@ -27,6 +27,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Authentication"])
 app.include_router(users.router, prefix=settings.API_V1_PREFIX, tags=["Users"])
 app.include_router(accounts.router, prefix=settings.API_V1_PREFIX, tags=["Accounts"])
+app.include_router(categories.router, prefix=settings.API_V1_PREFIX, tags=["Categories"])
 
 
 @app.get("/")
