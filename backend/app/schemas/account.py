@@ -36,6 +36,7 @@ class AccountResponse(AccountBase):
     id: str
     household_id: str
     is_active: bool
+    current_balance: Decimal = Field(description="Current balance (initial + transactions)")
     created_at: datetime
     updated_at: datetime
 

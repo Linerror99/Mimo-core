@@ -5,7 +5,7 @@ Business logic for account management
 """
 from decimal import Decimal
 from typing import List, Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Account, AccountType
@@ -92,7 +92,43 @@ class AccountService:
         db: AsyncSession,
         account: Account
     ) -> None:
-        """Delete an account"""
+        """
+        Delete an account
+        
+        Note: Will CASCADE delete all associated transactions due to 
+        ondelete="CASCADE" on Transaction.account_id foreign key
+        """
+        from app.models.transaction import Transaction
+        
+        # Compter les transactions actives (non supprimées) liées à ce compte
+        result = await db.execute(
+            select(func.count(Transaction.id))
+            .where(
+                Transaction.account_id == account.id,
+                Transaction.deleted_at.is_(None)
+            )
+        )
+        active_transactions_count = result.scalar_one()
+        
+        # Compter les transactions de destination (virements entrants)
+        result = await db.execute(
+            select(func.count(Transaction.id))
+            .where(
+                Transaction.destination_account_id == account.id,
+                Transaction.deleted_at.is_(None)
+            )
+        )
+        destination_transactions_count = result.scalar_one()
+        
+        total_transactions = active_transactions_count + destination_transactions_count
+        
+        if total_transactions > 0:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=400,
+                detail=f"Impossible de supprimer ce compte : {total_transactions} transaction(s) active(s) y sont associées. Supprimez d'abord les transactions."
+            )
+        
         await db.delete(account)
         await db.commit()
     
@@ -102,8 +138,22 @@ class AccountService:
         account_id: str
     ) -> Decimal:
         """Calculate current account balance (initial + transactions sum)"""
-        # TODO: Will be implemented in Sprint 3 when transactions are added
+        from app.models.transaction import Transaction
+        from sqlalchemy import func
+        
         account = await db.get(Account, account_id)
         if not account:
             return Decimal("0")
-        return account.initial_balance
+        
+        # Calculer la somme des transactions non supprimées pour ce compte
+        result = await db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0))
+            .where(
+                Transaction.account_id == account_id,
+                Transaction.deleted_at.is_(None)
+            )
+        )
+        transactions_sum = result.scalar_one()
+        
+        # Balance = initial_balance + somme transactions
+        return account.initial_balance + Decimal(str(transactions_sum))

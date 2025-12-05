@@ -112,7 +112,7 @@ const AccountsPage: React.FC = () => {
     if (!accounts || accounts.length === 0) return 0;
     return accounts.reduce((sum, account) => {
       if (account.is_active) {
-        return sum + Number(account.initial_balance);
+        return sum + Number(account.current_balance);
       }
       return sum;
     }, 0);
@@ -175,7 +175,7 @@ const AccountsPage: React.FC = () => {
 
               <div className="account-balance">
                 <span className="balance-amount">
-                  {Number(account.initial_balance).toFixed(2)} {account.currency}
+                  {Number(account.current_balance).toFixed(2)} {account.currency}
                 </span>
                 {!account.is_active && (
                   <span className="inactive-badge">Inactif</span>
