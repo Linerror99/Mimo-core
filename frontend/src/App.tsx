@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
@@ -11,6 +11,9 @@ import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
 import { Trash } from './pages/Trash'
 import { Toaster } from '@/components/ui/sonner'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { useAuthStore } from '@/stores/authStore'
+import { useNavigate } from 'react-router-dom'
 
 type Page = 
   | 'login' 
@@ -25,76 +28,150 @@ type Page =
   | 'settings-household' 
   | 'trash'
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('login')
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
+// Helper component to handle legacy navigation
+function LegacyNavigationWrapper({ children }: { children: React.ReactElement }) {
+  const navigate = useNavigate()
+  const { logout } = useAuthStore()
 
-  const navigate = (page: Page) => {
-    setCurrentPage(() => page)
+  const handleNavigate = (page: Page) => {
+    navigate(`/${page}`)
   }
 
-  const handleLogin = () => {
-    setIsAuthenticated(true)
-    setCurrentPage('dashboard')
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login')
   }
 
-  const handleRegister = () => {
-    setIsAuthenticated(true)
-    setCurrentPage('dashboard')
-  }
+  return children({ navigate: handleNavigate, onLogout: handleLogout })
+}
 
-  const handleLogout = () => {
-    setIsAuthenticated(false)
-    setCurrentPage('login')
-  }
-
-  if (!isAuthenticated) {
-    if (currentPage === 'register') {
-      return (
-        <>
-          <Register onRegister={handleRegister} onNavigateToLogin={() => navigate('login')} />
-          <Toaster />
-        </>
-      )
-    }
-    return (
-      <>
-        <Login onLogin={handleLogin} onNavigateToRegister={() => navigate('register')} />
-        <Toaster />
-      </>
-    )
-  }
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard navigate={navigate} onLogout={handleLogout} />
-      case 'timeline':
-        return <Timeline navigate={navigate} onLogout={handleLogout} />
-      case 'projection':
-        return <Projection navigate={navigate} onLogout={handleLogout} />
-      case 'accounts':
-        return <Accounts navigate={navigate} onLogout={handleLogout} />
-      case 'categories':
-        return <Categories navigate={navigate} onLogout={handleLogout} />
-      case 'goals':
-        return <Goals navigate={navigate} onLogout={handleLogout} />
-      case 'settings-profile':
-        return <SettingsProfile navigate={navigate} onLogout={handleLogout} />
-      case 'settings-household':
-        return <SettingsHousehold navigate={navigate} onLogout={handleLogout} />
-      case 'trash':
-        return <Trash navigate={navigate} onLogout={handleLogout} />
-      default:
-        return <Dashboard navigate={navigate} onLogout={handleLogout} />
-    }
-  }
-
+function AppRoutes() {
   return (
-    <>
-      {renderPage()}
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Dashboard navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/timeline" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Timeline navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/projection" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Projection navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/accounts" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Accounts navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/categories" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Categories navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/goals" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Goals navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/settings" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <SettingsProfile navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/settings-profile" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <SettingsProfile navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/settings-household" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <SettingsHousehold navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/trash" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Trash navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
       <Toaster />
-    </>
+    </BrowserRouter>
   )
 }
 

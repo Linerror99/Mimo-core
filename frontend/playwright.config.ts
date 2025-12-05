@@ -34,6 +34,9 @@ export default defineConfig({
     
     /* Video on failure */
     video: 'retain-on-failure',
+    
+    /* Force mobile viewport to ensure BottomNav is visible */
+    viewport: { width: 375, height: 667 },
   },
 
   /* Configure projects for major browsers */

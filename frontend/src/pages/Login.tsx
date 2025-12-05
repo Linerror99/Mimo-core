@@ -1,30 +1,39 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/authStore'
 
-interface LoginProps {
-  onLogin: () => void
-  onNavigateToRegister: () => void
-}
-
-export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
+export function Login() {
+  const navigate = useNavigate()
+  const { login, isLoading, error, clearError } = useAuthStore()
+  
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    clearError()
+    
     if (!email || !password) {
       toast.error('Veuillez remplir tous les champs')
       return
     }
-    toast.success('Connexion réussie !')
-    onLogin()
+    
+    try {
+      await login(email, password)
+      toast.success('Connexion réussie !')
+      navigate('/dashboard')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur de connexion'
+      toast.error(errorMessage)
+    }
   }
 
   return (
@@ -44,10 +53,12 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="nom@exemple.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
               />
             </div>
 
@@ -56,10 +67,12 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
               <div className="relative">
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
@@ -70,6 +83,12 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                 </button>
               </div>
             </div>
+
+            {error && (
+              <div className="text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -87,8 +106,8 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
               </button>
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Se connecter
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              {isLoading ? 'Connexion...' : 'Se connecter'}
             </Button>
           </form>
 
@@ -105,7 +124,7 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
             type="button"
             variant="outline"
             className="w-full mt-6"
-            onClick={onNavigateToRegister}
+            onClick={() => navigate('/register')}
           >
             Créer un compte
           </Button>

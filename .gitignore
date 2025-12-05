@@ -20,6 +20,11 @@ build/
 .npm
 *.log
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
 # IDEs
 .vscode/
 .idea/
@@ -36,3 +41,4 @@ Thumbs.db
 # Database
 *.db
 *.sqlite
+frontend/playwright-report/index.html

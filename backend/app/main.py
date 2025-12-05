@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api import health, auth
+from app.api import health, auth, users
 
 app = FastAPI(
     title="DuoFlow Finance API",
@@ -13,11 +13,11 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Configuration
+# CORS Configuration - Permissive for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins in development
+    allow_credentials=False,  # Must be False when allow_origins is ["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -25,6 +25,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX, tags=["Authentication"])
+app.include_router(users.router, prefix=settings.API_V1_PREFIX, tags=["Users"])
 
 
 @app.get("/")

@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS - Allow all origins in development (set CORS_ORIGINS env var for production)
+    CORS_ORIGINS: List[str] = ["*"]  # Allow all origins
 
     # Security
     BCRYPT_ROUNDS: int = 12

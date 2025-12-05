@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useAuthStore } from '@/stores/authStore'
 
 type Page =
   | 'dashboard'
@@ -42,6 +43,7 @@ const menuItems = [
 
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
   const isMobile = useIsMobile()
+  const { user } = useAuthStore()
 
   const Sidebar = () => (
     <aside className="w-64 bg-card border-r border-border flex flex-col">
@@ -78,11 +80,15 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
               <Avatar className="w-9 h-9">
-                <AvatarFallback className="bg-primary text-primary-foreground">A</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : 'U'}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Alex Dupont</p>
-                <p className="text-xs text-muted-foreground">alex@mimo.fr</p>
+                <p className="text-sm font-medium">
+                  {user ? `${user.first_name} ${user.last_name}` : 'User'}
+                </p>
+                <p className="text-xs text-muted-foreground">{user?.email || 'user@mimo.fr'}</p>
               </div>
             </button>
           </DropdownMenuTrigger>
