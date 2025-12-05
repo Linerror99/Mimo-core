@@ -20,6 +20,7 @@ const AccountsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [showInactive, setShowInactive] = useState(true); // Afficher les comptes fermés par défaut
 
   // Form state
   const [formData, setFormData] = useState<AccountCreate>({
@@ -31,12 +32,12 @@ const AccountsPage: React.FC = () => {
 
   useEffect(() => {
     loadAccounts();
-  }, []);
+  }, [showInactive]);
 
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const data = await accountService.getAccounts();
+      const data = await accountService.getAccounts(showInactive);
       setAccounts(data);
       setError(null);
     } catch (err: any) {
@@ -96,7 +97,7 @@ const AccountsPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce compte ?")) {
+    if (!window.confirm("Voulez-vous fermer ce compte ?\n\nLe compte sera désactivé mais l'historique des transactions sera conservé.")) {
       return;
     }
 
@@ -104,7 +105,7 @@ const AccountsPage: React.FC = () => {
       await accountService.deleteAccount(id);
       await loadAccounts();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression");
+      setError(err.response?.data?.detail || "Erreur lors de la fermeture du compte");
     }
   };
 
@@ -112,7 +113,7 @@ const AccountsPage: React.FC = () => {
     if (!accounts || accounts.length === 0) return 0;
     return accounts.reduce((sum, account) => {
       if (account.is_active) {
-        return sum + Number(account.initial_balance);
+        return sum + Number(account.current_balance);
       }
       return sum;
     }, 0);
@@ -130,9 +131,19 @@ const AccountsPage: React.FC = () => {
     <div className="accounts-page">
       <div className="accounts-header">
         <h1>💳 Mes Comptes</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          + Ajouter un compte
-        </button>
+        <div className="header-actions">
+          <label className="toggle-inactive">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
+            <span>Afficher les comptes fermés</span>
+          </label>
+          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+            + Ajouter un compte
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -175,26 +186,37 @@ const AccountsPage: React.FC = () => {
 
               <div className="account-balance">
                 <span className="balance-amount">
-                  {Number(account.initial_balance).toFixed(2)} {account.currency}
+                  {Number(account.current_balance).toFixed(2)} {account.currency}
                 </span>
-                {!account.is_active && (
+                {!account.is_active && account.closed_at && (
+                  <span className="inactive-badge">
+                    Fermé le {new Date(account.closed_at).toLocaleDateString('fr-FR')}
+                  </span>
+                )}
+                {!account.is_active && !account.closed_at && (
                   <span className="inactive-badge">Inactif</span>
                 )}
               </div>
 
               <div className="account-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleOpenModal(account)}
-                >
-                  Modifier
-                </button>
-                <button
-                  className="btn btn-danger"
-                  onClick={() => handleDelete(account.id)}
-                >
-                  Supprimer
-                </button>
+                {account.is_active ? (
+                  <>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => handleOpenModal(account)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleDelete(account.id)}
+                    >
+                      Fermer
+                    </button>
+                  </>
+                ) : (
+                  <span className="closed-label">Compte fermé</span>
+                )}
               </div>
             </div>
           ))

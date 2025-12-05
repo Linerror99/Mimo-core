@@ -35,7 +35,23 @@ async def create_account(
         account_data=account_data
     )
     
-    return account
+    # Ajouter le current_balance
+    current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
+    account_dict = {
+        "id": account.id,
+        "household_id": account.household_id,
+        "name": account.name,
+        "type": account.type,
+        "initial_balance": account.initial_balance,
+        "currency": account.currency,
+        "is_active": account.is_active == "true",
+        "current_balance": current_balance,
+        "closed_at": account.closed_at,
+        "created_at": account.created_at,
+        "updated_at": account.updated_at
+    }
+    
+    return account_dict
 
 
 @router.get("", response_model=List[AccountResponse])
@@ -57,7 +73,26 @@ async def list_accounts(
         include_inactive=include_inactive
     )
     
-    return accounts
+    # Ajouter le current_balance pour chaque compte
+    accounts_with_balance = []
+    for account in accounts:
+        current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
+        account_dict = {
+            "id": account.id,
+            "household_id": account.household_id,
+            "name": account.name,
+            "type": account.type,
+            "initial_balance": account.initial_balance,
+            "currency": account.currency,
+            "is_active": account.is_active == "true",
+            "current_balance": current_balance,
+            "closed_at": account.closed_at,
+            "created_at": account.created_at,
+            "updated_at": account.updated_at
+        }
+        accounts_with_balance.append(account_dict)
+    
+    return accounts_with_balance
 
 
 @router.get("/{account_id}", response_model=AccountResponse)
@@ -85,7 +120,23 @@ async def get_account(
             detail="Account not found"
         )
     
-    return account
+    # Ajouter le current_balance
+    current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
+    account_dict = {
+        "id": account.id,
+        "household_id": account.household_id,
+        "name": account.name,
+        "type": account.type,
+        "initial_balance": account.initial_balance,
+        "currency": account.currency,
+        "is_active": account.is_active == "true",
+        "current_balance": current_balance,
+        "closed_at": account.closed_at,
+        "created_at": account.created_at,
+        "updated_at": account.updated_at
+    }
+    
+    return account_dict
 
 
 @router.patch("/{account_id}", response_model=AccountResponse)
@@ -120,7 +171,22 @@ async def update_account(
         update_data=update_data
     )
     
-    return updated_account
+    # Ajouter le current_balance
+    current_balance = await AccountService.calculate_balance(db=db, account_id=updated_account.id)
+    account_dict = {
+        "id": updated_account.id,
+        "household_id": updated_account.household_id,
+        "name": updated_account.name,
+        "type": updated_account.type,
+        "initial_balance": updated_account.initial_balance,
+        "currency": updated_account.currency,
+        "is_active": updated_account.is_active == "true",
+        "current_balance": current_balance,
+        "created_at": updated_account.created_at,
+        "updated_at": updated_account.updated_at
+    }
+    
+    return account_dict
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -129,7 +195,11 @@ async def delete_account(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete an account"""
+    """
+    Close an account (soft delete)
+    
+    Sets is_active=false and closed_at=now(). Preserves transaction history.
+    """
     if not current_user.household_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -148,6 +218,6 @@ async def delete_account(
             detail="Account not found"
         )
     
-    await AccountService.delete_account(db=db, account=account)
+    await AccountService.close_account(db=db, account=account)
     
     return None

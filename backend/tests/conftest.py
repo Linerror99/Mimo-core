@@ -107,3 +107,128 @@ async def test_user_household_id(client: AsyncClient, test_user_token: str) -> s
     
     user_data = response.json()
     return user_data["household_id"]
+
+
+@pytest.fixture(scope="function")
+async def test_household_id(db_session: AsyncSession) -> str:
+    """Create a test household and return its ID."""
+    from app.models.household import Household, HouseholdType
+    
+    household = Household(
+        name="Test Household",
+        type=HouseholdType.INDIVIDUAL
+    )
+    db_session.add(household)
+    await db_session.commit()
+    await db_session.refresh(household)
+    
+    return household.id
+
+
+@pytest.fixture(scope="function")
+async def test_account_id(db_session: AsyncSession, test_household_id: str) -> str:
+    """Create a test account and return its ID."""
+    from app.models.account import Account, AccountType
+    from decimal import Decimal
+    
+    account = Account(
+        household_id=test_household_id,
+        name="Test Account",
+        type=AccountType.CHECKING,
+        initial_balance=Decimal("1000.00"),
+        currency="EUR",
+        is_active="true"
+    )
+    db_session.add(account)
+    await db_session.commit()
+    await db_session.refresh(account)
+    
+    return account.id
+
+
+@pytest.fixture(scope="function")
+async def test_account2_id(db_session: AsyncSession, test_household_id: str) -> str:
+    """Create a second test account for transfer tests."""
+    from app.models.account import Account, AccountType
+    from decimal import Decimal
+    
+    account = Account(
+        household_id=test_household_id,
+        name="Test Account 2",
+        type=AccountType.SAVINGS,
+        initial_balance=Decimal("500.00"),
+        currency="EUR",
+        is_active="true"
+    )
+    db_session.add(account)
+    await db_session.commit()
+    await db_session.refresh(account)
+    
+    return account.id
+
+
+@pytest.fixture(scope="function")
+async def test_category_income_id(db_session: AsyncSession, test_household_id: str) -> str:
+    """Create a test income category and return its ID."""
+    from app.models.category import Category, CategoryType
+    
+    category = Category(
+        household_id=test_household_id,
+        name="Test Income",
+        type=CategoryType.INCOME,
+        icon="💰",
+        color="#00FF00"
+    )
+    db_session.add(category)
+    await db_session.commit()
+    await db_session.refresh(category)
+    
+    return category.id
+
+
+@pytest.fixture(scope="function")
+async def test_category_expense_id(db_session: AsyncSession, test_household_id: str) -> str:
+    """Create a test expense category and return its ID."""
+    from app.models.category import Category, CategoryType
+    
+    category = Category(
+        household_id=test_household_id,
+        name="Test Expense",
+        type=CategoryType.EXPENSE,
+        icon="🛒",
+        color="#FF0000"
+    )
+    db_session.add(category)
+    await db_session.commit()
+    await db_session.refresh(category)
+    
+    return category.id
+
+
+@pytest.fixture(scope="function")
+async def test_transaction(
+    db_session: AsyncSession, 
+    test_household_id: str,
+    test_account_id: str,
+    test_category_expense_id: str
+):
+    """Create a test transaction."""
+    from app.models.transaction import Transaction, TransactionType, RecurrenceFrequency
+    from datetime import date
+    from decimal import Decimal
+    
+    transaction = Transaction(
+        household_id=test_household_id,
+        account_id=test_account_id,
+        category_id=test_category_expense_id,
+        description="Test Transaction",
+        amount=Decimal("-100.00"),
+        transaction_date=date.today(),
+        type=TransactionType.EXPENSE,
+        recurrence_frequency=RecurrenceFrequency.NONE
+    )
+    db_session.add(transaction)
+    await db_session.commit()
+    await db_session.refresh(transaction)
+    
+    return transaction

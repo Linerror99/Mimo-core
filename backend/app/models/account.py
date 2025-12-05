@@ -33,11 +33,13 @@ class Account(Base):
     initial_balance = Column(Numeric(12, 2), nullable=False, default=0)
     currency = Column(String(3), nullable=False, default="EUR")
     is_active = Column(SQLEnum("true", "false", name="boolean_enum"), nullable=False, default="true")
+    closed_at = Column(DateTime, nullable=True)  # Soft delete: NULL = actif, DATE = fermé
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     household = relationship("Household", back_populates="accounts")
+    transactions = relationship("Transaction", foreign_keys="Transaction.account_id", back_populates="account")
 
     def __repr__(self):
         return f"<Account {self.name} ({self.type})>"
