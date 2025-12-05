@@ -4,8 +4,8 @@ import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
 import { Timeline } from './pages/Timeline'
 import { Projection } from './pages/Projection'
-import { Accounts } from './pages/Accounts'
-import { Categories } from './pages/Categories'
+import AccountsPage from './pages/AccountsPage'
+import CategoriesPage from './pages/CategoriesPage'
 import { Goals } from './pages/Goals'
 import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
@@ -88,9 +88,7 @@ function AppRoutes() {
         path="/accounts" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Accounts navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AccountsPage />
           </ProtectedRoute>
         } 
       />
@@ -99,9 +97,7 @@ function AppRoutes() {
         path="/categories" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Categories navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <CategoriesPage />
           </ProtectedRoute>
         } 
       />

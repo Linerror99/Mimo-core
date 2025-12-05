@@ -69,7 +69,11 @@ export const useAuthStore = create<AuthState>()(
           
           const data = await response.json();
           
-          // Save tokens first
+          // Save tokens to localStorage for axios interceptor
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('refresh_token', data.refresh_token);
+          
+          // Save tokens to state
           set({
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
@@ -157,6 +161,10 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('Logout error:', error);
         } finally {
+          // Clear localStorage
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          
           // Clear state regardless of API call success
           set({
             user: null,
