@@ -20,6 +20,7 @@ const AccountsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [showInactive, setShowInactive] = useState(true); // Afficher les comptes fermés par défaut
 
   // Form state
   const [formData, setFormData] = useState<AccountCreate>({
@@ -31,12 +32,12 @@ const AccountsPage: React.FC = () => {
 
   useEffect(() => {
     loadAccounts();
-  }, []);
+  }, [showInactive]);
 
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const data = await accountService.getAccounts();
+      const data = await accountService.getAccounts(showInactive);
       setAccounts(data);
       setError(null);
     } catch (err: any) {
@@ -130,9 +131,19 @@ const AccountsPage: React.FC = () => {
     <div className="accounts-page">
       <div className="accounts-header">
         <h1>💳 Mes Comptes</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          + Ajouter un compte
-        </button>
+        <div className="header-actions">
+          <label className="toggle-inactive">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
+            <span>Afficher les comptes fermés</span>
+          </label>
+          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+            + Ajouter un compte
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
