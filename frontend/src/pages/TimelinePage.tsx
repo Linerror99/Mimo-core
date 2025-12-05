@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { transactionService, groupByDate, calculateTotalsByType } from "../services/transactionService";
+import { recurringTemplateService } from "../services/recurringTemplateService";
 import { accountService } from "../services/accountService";
 import { categoryService } from "../services/categoryService";
 import {
@@ -158,9 +159,26 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       } else {
         // Création
         if (isRecurring) {
-          await transactionService.createRecurring({
-            ...recurringFormData,
-            amount: adjustedAmount,
+          // Mapper les champs vers RecurringTemplateCreate
+          const frequencyMap: Record<string, string> = {
+            'DAILY': 'CUSTOM',
+            'WEEKLY': 'WEEKLY',
+            'MONTHLY': 'MONTHLY',
+            'QUARTERLY': 'QUARTERLY',
+            'YEARLY': 'YEARLY'
+          };
+          
+          await recurringTemplateService.create({
+            name: formData.description || `${formData.type === TransactionType.INCOME ? 'Revenu' : 'Dépense'} récurrent`,
+            amount: Math.abs(adjustedAmount),
+            type: formData.type,
+            description: formData.description,
+            frequency: frequencyMap[recurringFormData.recurrence_frequency] || 'MONTHLY',
+            start_date: recurringFormData.start_date,
+            end_date: recurringFormData.end_date || null,
+            day_of_month: recurringFormData.recurrence_frequency === 'MONTHLY' ? new Date().getDate() : undefined,
+            account_id: formData.account_id,
+            category_id: formData.category_id || null,
           });
         } else {
           await transactionService.create({

@@ -19,7 +19,7 @@ from app.schemas.recurring_template import (
 )
 from app.services.recurring_template_service import RecurringTemplateService
 from app.services.projection_service import ProjectionService, get_next_occurrence
-from datetime import date
+from datetime import date, timedelta
 from app.models import Transaction, TransactionType
 from sqlalchemy import select
 
@@ -33,7 +33,7 @@ async def create_recurring_template(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Créer un nouveau template récurrent"""
+    """Créer un template récurrent qui génère automatiquement toutes les transactions sur 12 mois"""
     template = await RecurringTemplateService.create_template(
         db=db,
         household_id=current_user.household_id,
@@ -130,7 +130,7 @@ async def bulk_cancel_occurrences(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Annuler (supprimer) toutes les transactions projetées d'un template sur une période.
+    Annuler (supprimer) toutes les transactions futures d'un template sur une période.
     Utile pour annuler une récurrence temporairement (ex: vacances).
     """
     # Vérifier que le template existe et appartient au household
@@ -146,14 +146,10 @@ async def bulk_cancel_occurrences(
             detail="Recurring template not found"
         )
     
-    # Récupérer toutes les transactions PROJECTED liées à ce template sur la période
+    # Récupérer toutes les transactions futures liées à ce template sur la période
     result = await db.execute(
         select(Transaction).where(
-            Transaction.household_id == current_user.household_id,
-            Transaction.account_id == template.account_id,
-            Transaction.name == template.name,
-            Transaction.amount == template.amount,
-            Transaction.state == "PROJECTED",
+            Transaction.recurring_template_id == template_id,
             Transaction.transaction_date >= cancel_request.start_date,
             Transaction.transaction_date <= cancel_request.end_date,
             Transaction.deleted_at.is_(None)
@@ -172,7 +168,7 @@ async def bulk_cancel_occurrences(
     await db.commit()
     
     return {
-        "message": f"Cancelled {deleted_count} projected occurrences",
+        "message": f"Cancelled {deleted_count} occurrences",
         "deleted_count": deleted_count
     }
 
@@ -185,7 +181,7 @@ async def bulk_update_occurrences(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Modifier le montant de toutes les transactions projetées d'un template sur une période.
+    Modifier le montant de toutes les transactions futures d'un template sur une période.
     Utile pour ajuster temporairement le montant (ex: augmentation loyer).
     """
     # Vérifier que le template existe et appartient au household
@@ -201,13 +197,10 @@ async def bulk_update_occurrences(
             detail="Recurring template not found"
         )
     
-    # Récupérer toutes les transactions PROJECTED liées à ce template sur la période
+    # Récupérer toutes les transactions futures liées à ce template sur la période
     result = await db.execute(
         select(Transaction).where(
-            Transaction.household_id == current_user.household_id,
-            Transaction.account_id == template.account_id,
-            Transaction.name == template.name,
-            Transaction.state == "PROJECTED",
+            Transaction.recurring_template_id == template_id,
             Transaction.transaction_date >= update_request.start_date,
             Transaction.transaction_date <= update_request.end_date,
             Transaction.deleted_at.is_(None)
@@ -225,7 +218,7 @@ async def bulk_update_occurrences(
     await db.commit()
     
     return {
-        "message": f"Updated {updated_count} projected occurrences",
+        "message": f"Updated {updated_count} occurrences",
         "updated_count": updated_count,
         "new_amount": float(update_request.amount)
     }

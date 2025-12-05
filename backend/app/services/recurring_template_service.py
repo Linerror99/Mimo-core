@@ -2,14 +2,16 @@
 Recurring Template Service
 
 Service pour gérer les templates de transactions récurrentes.
+Crée automatiquement toutes les transactions pour les 12 prochains mois.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from typing import List, Optional, Dict, Any
-from datetime import date
+from datetime import date, timedelta
 
-from app.models import RecurringTemplate, Frequency
+from app.models import RecurringTemplate, Frequency, Transaction, TransactionType
+from app.services.projection_service import get_next_occurrence
 
 
 class RecurringTemplateService:
@@ -22,7 +24,7 @@ class RecurringTemplateService:
         data: Dict[str, Any]
     ) -> RecurringTemplate:
         """
-        Créer un template récurrent
+        Créer un template récurrent et générer TOUTES les transactions sur 12 mois
         
         Args:
             db: Session database
@@ -42,9 +44,74 @@ class RecurringTemplateService:
         )
         
         db.add(template)
+        await db.flush()  # Flush pour obtenir l'ID
+        
+        # Générer toutes les transactions sur 12 mois
+        await RecurringTemplateService._generate_transactions(db, template, months=12)
+        
         await db.commit()
         await db.refresh(template)
         return template
+
+    @staticmethod
+    async def _generate_transactions(
+        db: AsyncSession,
+        template: RecurringTemplate,
+        months: int = 12
+    ) -> int:
+        """
+        Générer toutes les transactions d'un template sur X mois
+        
+        Args:
+            db: Session database
+            template: Template récurrent
+            months: Nombre de mois à générer
+            
+        Returns:
+            Nombre de transactions créées
+        """
+        today = date.today()
+        end_date = today + timedelta(days=30 * months)
+        
+        # Si le template a une end_date, utiliser la plus petite
+        if template.end_date and template.end_date < end_date:
+            end_date = template.end_date
+        
+        current_date = template.start_date
+        transactions_created = 0
+        max_iterations = 1000  # Sécurité
+        
+        while current_date <= end_date and transactions_created < max_iterations:
+            # Créer la transaction
+            transaction = Transaction(
+                household_id=template.household_id,
+                account_id=template.account_id,
+                amount=template.amount,
+                type=TransactionType[template.type] if isinstance(template.type, str) else template.type,
+                transaction_date=current_date,
+                description=template.description or template.name,
+                category_id=template.category_id,
+                destination_account_id=template.destination_account_id,
+                recurring_template_id=template.id
+            )
+            db.add(transaction)
+            transactions_created += 1
+            
+            # Calculer la prochaine occurrence
+            next_date = get_next_occurrence(
+                current_date,
+                template.frequency,
+                template.day_of_month,
+                template.day_of_week,
+                template.custom_days,
+                template.start_date
+            )
+            
+            if next_date <= current_date:
+                break
+            current_date = next_date
+        
+        return transactions_created
 
     @staticmethod
     async def get_template(
@@ -143,7 +210,7 @@ class RecurringTemplateService:
         household_id: str
     ) -> None:
         """
-        Supprimer un template (hard delete)
+        Supprimer un template ET toutes ses transactions associées
         
         Args:
             db: Session database
@@ -157,5 +224,6 @@ class RecurringTemplateService:
         if not template:
             raise ValueError(f"Template {template_id} not found")
         
+        # Supprimer toutes les transactions liées (cascade via FK on delete CASCADE)
         await db.delete(template)
         await db.commit()

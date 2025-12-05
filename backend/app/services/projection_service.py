@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from calendar import monthrange
 
-from app.models import RecurringTemplate, Frequency, Transaction
+from app.models import RecurringTemplate, Frequency, Transaction, Account
 
 
 def get_next_occurrence(
@@ -116,7 +116,7 @@ def get_next_occurrence(
 
 
 class ProjectionService:
-    """Service pour générer les projections"""
+    """Service pour générer les projections à partir des vraies transactions"""
 
     @staticmethod
     async def generate_projections(
@@ -126,7 +126,8 @@ class ProjectionService:
         end_date: date
     ) -> List[dict]:
         """
-        Générer des projections pour toutes les récurrences actives
+        Récupérer toutes les transactions futures (PROJECTED) sur une période.
+        Plus besoin de calculer, on lit juste les transactions existantes.
         
         Args:
             db: Session database
@@ -135,42 +136,45 @@ class ProjectionService:
             end_date: Date de fin de projection
             
         Returns:
-            Liste de projections (dict avec template_id, date, montant, etc.)
+            Liste de projections (transactions futures)
         """
-        # Récupérer tous les templates actifs
+        # Récupérer toutes les transactions dans la période (passées ET futures)
         result = await db.execute(
-            select(RecurringTemplate).where(
-                RecurringTemplate.household_id == household_id,
-                RecurringTemplate.is_active == "true"
-            )
+            select(Transaction).where(
+                Transaction.household_id == household_id,
+                Transaction.transaction_date >= start_date,
+                Transaction.transaction_date <= end_date,
+                Transaction.deleted_at.is_(None)
+            ).order_by(Transaction.transaction_date)
         )
-        templates = list(result.scalars().all())
+        transactions = list(result.scalars().all())
         
+        # Convertir en format projection
         projections = []
-        
-        for template in templates:
-            # Générer les occurrences pour ce template
-            occurrences = ProjectionService._generate_occurrences(
-                template=template,
-                start_date=start_date,
-                end_date=end_date
-            )
+        for tx in transactions:
+            # Récupérer le template si c'est une récurrence
+            template_name = tx.description
+            if tx.recurring_template_id:
+                template_result = await db.execute(
+                    select(RecurringTemplate).where(
+                        RecurringTemplate.id == tx.recurring_template_id
+                    )
+                )
+                template = template_result.scalar_one_or_none()
+                if template:
+                    template_name = template.name
             
-            for occurrence_date in occurrences:
-                projections.append({
-                    "template_id": template.id,
-                    "template_name": template.name,
-                    "date": occurrence_date,
-                    "amount": template.amount,
-                    "type": template.type,
-                    "account_id": template.account_id,
-                    "destination_account_id": template.destination_account_id,
-                    "category_id": template.category_id,
-                    "frequency": template.frequency.value
-                })
-        
-        # Trier par date
-        projections.sort(key=lambda x: x["date"])
+            projections.append({
+                "template_id": tx.recurring_template_id or "",
+                "template_name": template_name,
+                "date": tx.transaction_date,
+                "amount": tx.amount,
+                "type": tx.type.value if hasattr(tx.type, 'value') else tx.type,
+                "account_id": tx.account_id,
+                "destination_account_id": tx.destination_account_id,
+                "category_id": tx.category_id,
+                "frequency": "NONE"  # Pour compatibilité
+            })
         
         return projections
 
@@ -233,7 +237,7 @@ class ProjectionService:
         target_year: int
     ) -> dict:
         """
-        Calculer la projection pour un mois donné
+        Calculer la projection pour un mois donné (toutes les transactions du mois + solde initial)
         
         Args:
             db: Session database
@@ -242,32 +246,63 @@ class ProjectionService:
             target_year: Année cible
             
         Returns:
-            Dict avec projections mensuelles (income, expense, balance)
+            Dict avec projections mensuelles (income, expense, balance incluant solde initial des comptes)
         """
-        # Dates de début et fin du mois
-        start_date = date(target_year, target_month, 1)
+        # 1. Récupérer le solde initial de tous les comptes actifs
+        accounts_result = await db.execute(
+            select(Account).where(
+                Account.household_id == household_id,
+                Account.is_active == "true"
+            )
+        )
+        accounts = list(accounts_result.scalars().all())
+        initial_balance = sum(float(acc.initial_balance) for acc in accounts)
         
-        # Dernier jour du mois
+        # 2. Calculer les transactions AVANT ce mois (pour le solde cumulé)
+        first_day_of_month = date(target_year, target_month, 1)
+        
+        # Transactions passées (avant ce mois)
+        past_transactions_result = await db.execute(
+            select(Transaction).where(
+                Transaction.household_id == household_id,
+                Transaction.transaction_date < first_day_of_month,
+                Transaction.deleted_at.is_(None)
+            )
+        )
+        past_transactions = list(past_transactions_result.scalars().all())
+        
+        # Calculer le solde cumulé avant ce mois
+        cumulative_balance = initial_balance
+        for tx in past_transactions:
+            if tx.type.value == "INCOME":
+                cumulative_balance += float(tx.amount)
+            elif tx.type.value == "EXPENSE":
+                cumulative_balance -= float(abs(tx.amount))
+        
+        # 3. Dates de début et fin du mois cible
         last_day = monthrange(target_year, target_month)[1]
         end_date = date(target_year, target_month, last_day)
         
-        # Générer les projections
+        # 4. Récupérer toutes les transactions du mois
         projections = await ProjectionService.generate_projections(
             db=db,
             household_id=household_id,
-            start_date=start_date,
+            start_date=first_day_of_month,
             end_date=end_date
         )
         
-        # Calculer les totaux
-        income = sum(p["amount"] for p in projections if p["type"] == "INCOME")
-        expense = sum(p["amount"] for p in projections if p["type"] == "EXPENSE")
+        # 5. Calculer les totaux du mois
+        income = sum(float(p["amount"]) for p in projections if p["type"] == "INCOME")
+        expense = sum(float(abs(p["amount"])) for p in projections if p["type"] == "EXPENSE")
+        
+        # 6. Solde final = solde cumulé avant + revenus du mois - dépenses du mois
+        final_balance = cumulative_balance + income - expense
         
         return {
             "month": target_month,
             "year": target_year,
             "income": income,
             "expense": expense,
-            "balance": income - expense,
+            "balance": final_balance,  # Solde TOTAL incluant initial_balance + toutes transactions
             "projections": projections
         }

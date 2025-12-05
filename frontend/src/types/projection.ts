@@ -41,7 +41,7 @@ export function formatMonth(month: number, year: number): string {
 
 // Helper function pour générer les 12 prochains mois
 export function getNext12Months(): { month: number; year: number }[] {
-  const result = [];
+  const result: { month: number; year: number }[] = [];
   const now = new Date();
   
   for (let i = 0; i < 12; i++) {

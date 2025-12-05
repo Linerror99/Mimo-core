@@ -6,6 +6,8 @@ import { Timeline } from './pages/TimelinePage'
 import { Projection } from './pages/Projection'
 import AccountsPage from './pages/AccountsPage'
 import CategoriesPage from './pages/CategoriesPage'
+import RecurringPage from './pages/RecurringPage'
+import ProjectionPage from './pages/ProjectionPage'
 import { Goals } from './pages/Goals'
 import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
@@ -23,6 +25,8 @@ type Page =
   | 'projection' 
   | 'accounts' 
   | 'categories' 
+  | 'recurring'
+  | 'projections'
   | 'goals' 
   | 'settings-profile' 
   | 'settings-household' 
@@ -77,9 +81,7 @@ function AppRoutes() {
         path="/projection" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Projection navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <ProjectionPage />
           </ProtectedRoute>
         } 
       />
@@ -98,6 +100,24 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CategoriesPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/recurring" 
+        element={
+          <ProtectedRoute>
+            <RecurringPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/projections" 
+        element={
+          <ProtectedRoute>
+            <ProjectionPage />
           </ProtectedRoute>
         } 
       />

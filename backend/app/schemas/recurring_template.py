@@ -5,7 +5,7 @@ Schemas Pydantic pour validation et sérialisation des templates récurrents.
 """
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
@@ -120,11 +120,14 @@ class RecurringTemplateResponse(RecurringTemplateBase):
     id: str
     household_id: str
     is_active: str
-    created_at: str
-    updated_at: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 
 class BulkCancelRequest(BaseModel):
