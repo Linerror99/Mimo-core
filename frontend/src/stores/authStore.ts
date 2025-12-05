@@ -262,9 +262,11 @@ export const useAuthStore = create<AuthState>()(
       // Refresh access token
       refreshAccessToken: async () => {
         const { refreshToken } = get();
+        const localRefreshToken = localStorage.getItem('refresh_token');
+        const refreshToUse = localRefreshToken || refreshToken;
         
         try {
-          if (!refreshToken) {
+          if (!refreshToUse) {
             throw new Error('No refresh token available');
           }
           
@@ -273,7 +275,7 @@ export const useAuthStore = create<AuthState>()(
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ refresh_token: refreshToken }),
+            body: JSON.stringify({ refresh_token: refreshToUse }),
           });
           
           if (!response.ok) {
@@ -283,6 +285,9 @@ export const useAuthStore = create<AuthState>()(
           }
           
           const data = await response.json();
+          
+          // Update both state and localStorage
+          localStorage.setItem('access_token', data.access_token);
           
           set({
             accessToken: data.access_token,
@@ -296,17 +301,31 @@ export const useAuthStore = create<AuthState>()(
       
       // Check authentication status
       checkAuth: async () => {
-        const { accessToken } = get();
+        // First check localStorage (in case Zustand persist hasn't loaded yet)
+        const localAccessToken = localStorage.getItem('access_token');
+        const localRefreshToken = localStorage.getItem('refresh_token');
         
-        if (!accessToken) {
+        // Get current state
+        const { accessToken, refreshToken } = get();
+        
+        // Use localStorage tokens if available, otherwise use state
+        const tokenToUse = localAccessToken || accessToken;
+        const refreshToUse = localRefreshToken || refreshToken;
+        
+        if (!tokenToUse) {
           set({ isAuthenticated: false, user: null });
           return;
+        }
+        
+        // Sync localStorage tokens to state if they differ
+        if (localAccessToken && localAccessToken !== accessToken) {
+          set({ accessToken: localAccessToken, refreshToken: localRefreshToken });
         }
         
         try {
           const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
+              'Authorization': `Bearer ${tokenToUse}`,
             },
           });
           

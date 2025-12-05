@@ -251,26 +251,69 @@ CRUD complets pour comptes bancaires et catégories avec structure arborescente
 - ✅ Variables CSS globales (--card-bg, --text-primary, etc.)
 - ✅ Système boutons (.btn, .btn-primary, .btn-secondary, .btn-danger)
 
-### **Tests E2E Playwright (À VENIR)**
+### **Bugs Corrigés** ✅
 
-- [ ] **E2E-US-6.3a** : Créer compte
-- [ ] **E2E-US-6.3b** : Modifier compte
-- [ ] **E2E-US-6.3c** : Supprimer compte
-- [ ] **E2E-US-CAT-1** : Créer catégorie
-- [ ] **E2E-US-CAT-2** : Modifier catégorie
-- [ ] **E2E-US-CAT-3** : Supprimer catégorie
+**Authentication & Persistence**
+- ✅ **Bug localStorage** : Tokens sauvegardés dans Zustand mais pas dans localStorage
+  - Fix: Ajout `localStorage.setItem()` dans login/register
+  - Fix: Ajout `localStorage.removeItem()` dans logout
+- ✅ **Bug session refresh** : Utilisateur déconnecté à chaque rechargement de page
+  - Fix: Modification `checkAuth()` pour lire localStorage en priorité
+  - Fix: Ajout état `isChecking` dans `ProtectedRoute` pour éviter redirection prématurée
+  - Fix: Synchronisation localStorage ↔ Zustand state au démarrage
 
-**Notes**
-- ⏸️ Tests E2E Playwright : **Reportés en fin de projet**
-- ✅ Tests unitaires backend : **39/39 GREEN (100%)**
-- 🔄 Validation manuelle : **En cours**
+**Display & Business Logic**
+- ✅ **Bug calculateTotalBalance** : `toFixed is not a function`
+  - Cause: API retourne `initial_balance` en string (Decimal serialization)
+  - Fix: Ajout `Number()` conversion dans calculs et affichage
+- ✅ **Session duration** : Sessions trop courtes (15 minutes)
+  - Fix: `ACCESS_TOKEN_EXPIRE_MINUTES` passé de 15 à 60 minutes
+- ✅ **Business rule** : Solde initial modifiable en édition (incorrect)
+  - Clarification: `initial_balance` = snapshot historique (immutable)
+  - Fix UI: Champ "Solde initial" uniquement en création
+  - Fix UI: Champ "Solde actuel" (read-only) en édition
+  - Backend déjà correct: `AccountUpdate` sans `initial_balance`
 
-### **Livrables Sprint 2**
+**Docker & Development**
+- ⚠️ **Vite HMR** : Hot Module Replacement ne fonctionne pas toujours
+  - Cause: Docker volume sync issues
+  - Workaround: Redémarrer container frontend (`docker-compose restart frontend`)
+
+### **Tests Manuels Validés** ✅
+
+**Comptes (Accounts)**
+- ✅ Création compte avec 6 types disponibles
+- ✅ Affichage liste comptes avec soldes formatés
+- ✅ Calcul total correct (somme tous les comptes)
+- ✅ Modification nom/type compte (balance non modifiable ✓)
+- ✅ Suppression compte avec confirmation
+- ✅ Formulaires conditionnels (create vs edit)
+
+**Catégories (Categories)**
+- ✅ Création catégories revenus/dépenses
+- ✅ Création sous-catégories (structure arborescente)
+- ✅ Color picker (10 couleurs)
+- ✅ Icon picker (16 icônes)
+- ✅ Filtres ALL/INCOME/EXPENSE
+- ✅ Modification catégorie
+- ✅ Suppression catégorie
+
+**Authentication**
+- ✅ Session persiste après rechargement page
+- ✅ Token valide 60 minutes
+- ✅ Redirection correcte (protected routes)
+- ✅ Déconnexion nettoie localStorage
+
+### **Livrables Sprint 2** ✅
+
 ✅ Feature comptes & catégories complète (Backend + Frontend)  
 ✅ Tests unitaires backend : **39/39 GREEN (100%)**  
 ✅ Interface utilisateur responsive et intuitive  
 ✅ Isolation données par household  
 ✅ Structure arborescente catégories fonctionnelle  
+✅ Tous les bugs critiques corrigés  
+✅ Session persistence fonctionnelle  
+✅ Business rules correctement implémentées  
 ⏸️ Tests E2E Playwright (reportés fin de projet)
 
 ### **Résumé Technique Sprint 2**
@@ -282,6 +325,7 @@ CRUD complets pour comptes bancaires et catégories avec structure arborescente
 - 2 routers API (accounts.py, categories.py)
 - 20 nouveaux tests (9 accounts + 11 categories)
 - Relations cascade et isolation household
+- JWT config: 60 min access token, 7 days refresh token
 
 **Frontend:**
 - 2 nouvelles pages (AccountsPage, CategoriesPage)
@@ -290,13 +334,20 @@ CRUD complets pour comptes bancaires et catégories avec structure arborescente
 - 2 fichiers CSS (~600 lignes total)
 - Formulaires avec validation
 - Pickers interactifs (couleur, icône)
+- Fix persistence: authStore + localStorage sync
+- Fix ProtectedRoute: async auth check avec loading state
 
 **Statistiques:**
 - Backend: +800 lignes Python
 - Frontend: +1200 lignes TypeScript/CSS
 - Tests: 39 tests (17 Sprint 1 + 20 Sprint 2)
 - Migration: 1 nouvelle migration Alembic
+- Bugs corrigés: 5 majeurs (auth, display, business logic)
 - Durée: 2 semaines
+
+**Prochaines Étapes:**
+- Sprint 3: Transactions (CRUD + timeline + corbeille)
+- Playwright E2E tests (fin de projet)
 
 ---
 
