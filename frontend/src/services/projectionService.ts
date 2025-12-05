@@ -1,0 +1,71 @@
+/**
+ * Projection Service
+ * 
+ * Service pour récupérer les projections financières via l'API.
+ */
+import { Projection, MonthlyProjection } from '../types/projection';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+class ProjectionService {
+  /**
+   * Générer les projections sur une période
+   */
+  async generate(startDate: string, endDate: string): Promise<Projection[]> {
+    const token = localStorage.getItem('access_token');
+    const url = `${API_URL}/api/v1/projections?start_date=${startDate}&end_date=${endDate}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch projections');
+    }
+    
+    return response.json();
+  }
+
+  /**
+   * Récupérer les projections pour un mois spécifique
+   */
+  async getMonthly(month: number, year: number): Promise<MonthlyProjection> {
+    const token = localStorage.getItem('access_token');
+    const url = `${API_URL}/api/v1/projections/monthly/${year}/${month}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch monthly projection');
+    }
+    
+    return response.json();
+  }
+
+  /**
+   * Récupérer les projections pour les 12 prochains mois
+   */
+  async getNext12Months(): Promise<MonthlyProjection[]> {
+    const now = new Date();
+    const projections: MonthlyProjection[] = [];
+    
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
+      
+      const projection = await this.getMonthly(month, year);
+      projections.push(projection);
+    }
+    
+    return projections;
+  }
+}
+
+export const projectionService = new ProjectionService();
