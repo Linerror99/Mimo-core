@@ -108,11 +108,11 @@ const AccountsPage: React.FC = () => {
     }
   };
 
-  const calculateTotalBalance = () => {
+  const calculateTotalBalance = (): number => {
     if (!accounts || accounts.length === 0) return 0;
     return accounts.reduce((sum, account) => {
       if (account.is_active) {
-        return sum + account.initial_balance;
+        return sum + Number(account.initial_balance);
       }
       return sum;
     }, 0);
@@ -141,7 +141,7 @@ const AccountsPage: React.FC = () => {
         <div className="summary-card">
           <h3>Total</h3>
           <p className="total-amount">
-            {Number(calculateTotalBalance()).toFixed(2)} €
+            {calculateTotalBalance().toFixed(2)} €
           </p>
           <span className="summary-label">{accounts.length} compte(s)</span>
         </div>
@@ -175,7 +175,7 @@ const AccountsPage: React.FC = () => {
 
               <div className="account-balance">
                 <span className="balance-amount">
-                  {account.initial_balance.toFixed(2)} {account.currency}
+                  {Number(account.initial_balance).toFixed(2)} {account.currency}
                 </span>
                 {!account.is_active && (
                   <span className="inactive-badge">Inactif</span>
@@ -250,21 +250,38 @@ const AccountsPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="initial_balance">Solde initial</label>
-                <input
-                  type="number"
-                  id="initial_balance"
-                  value={formData.initial_balance}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      initial_balance: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  step="0.01"
-                />
-              </div>
+              {!editingAccount && (
+                <div className="form-group">
+                  <label htmlFor="initial_balance">Solde initial</label>
+                  <input
+                    type="number"
+                    id="initial_balance"
+                    value={formData.initial_balance}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        initial_balance: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    step="0.01"
+                  />
+                  <small style={{ color: '#666', fontSize: '0.85em' }}>
+                    Le solde initial ne pourra plus être modifié après création
+                  </small>
+                </div>
+              )}
+
+              {editingAccount && (
+                <div className="form-group">
+                  <label>Solde actuel</label>
+                  <div style={{ padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}>
+                    <strong>{Number(editingAccount.initial_balance).toFixed(2)} {editingAccount.currency}</strong>
+                    <small style={{ display: 'block', color: '#666', marginTop: '4px' }}>
+                      Le solde est calculé automatiquement selon vos transactions
+                    </small>
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="currency">Devise</label>
