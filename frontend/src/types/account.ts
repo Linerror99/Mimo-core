@@ -20,6 +20,7 @@ export interface Account {
   current_balance: number;
   currency: string;
   is_active: boolean;
+  closed_at: string | null;
   created_at: string;
   updated_at: string;
 }

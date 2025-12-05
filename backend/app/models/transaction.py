@@ -53,11 +53,11 @@ class Transaction(Base):
     
     # Relations
     household_id = Column(String, ForeignKey("households.id", ondelete="CASCADE"), nullable=False, index=True)
-    account_id = Column(String, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id = Column(String, ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
     category_id = Column(String, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)
     
     # Pour les virements (TRANSFER)
-    destination_account_id = Column(String, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=True, index=True)
+    destination_account_id = Column(String, ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True, index=True)
     
     # Détails transaction
     amount = Column(Numeric(10, 2), nullable=False)  # Montant (positif pour INCOME, négatif pour EXPENSE)

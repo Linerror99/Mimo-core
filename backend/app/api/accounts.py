@@ -46,6 +46,7 @@ async def create_account(
         "currency": account.currency,
         "is_active": account.is_active == "true",
         "current_balance": current_balance,
+        "closed_at": account.closed_at,
         "created_at": account.created_at,
         "updated_at": account.updated_at
     }
@@ -85,6 +86,7 @@ async def list_accounts(
             "currency": account.currency,
             "is_active": account.is_active == "true",
             "current_balance": current_balance,
+            "closed_at": account.closed_at,
             "created_at": account.created_at,
             "updated_at": account.updated_at
         }
@@ -129,6 +131,7 @@ async def get_account(
         "currency": account.currency,
         "is_active": account.is_active == "true",
         "current_balance": current_balance,
+        "closed_at": account.closed_at,
         "created_at": account.created_at,
         "updated_at": account.updated_at
     }
@@ -192,7 +195,11 @@ async def delete_account(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete an account"""
+    """
+    Close an account (soft delete)
+    
+    Sets is_active=false and closed_at=now(). Preserves transaction history.
+    """
     if not current_user.household_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -211,6 +218,6 @@ async def delete_account(
             detail="Account not found"
         )
     
-    await AccountService.delete_account(db=db, account=account)
+    await AccountService.close_account(db=db, account=account)
     
     return None

@@ -88,49 +88,25 @@ class AccountService:
         return account
     
     @staticmethod
-    async def delete_account(
+    async def close_account(
         db: AsyncSession,
         account: Account
-    ) -> None:
+    ) -> Account:
         """
-        Delete an account
+        Close an account (soft delete)
         
-        Note: Will CASCADE delete all associated transactions due to 
-        ondelete="CASCADE" on Transaction.account_id foreign key
+        Sets is_active to False and closed_at to current timestamp.
+        Preserves all transaction history.
         """
-        from app.models.transaction import Transaction
+        from datetime import datetime
         
-        # Compter les transactions actives (non supprimées) liées à ce compte
-        result = await db.execute(
-            select(func.count(Transaction.id))
-            .where(
-                Transaction.account_id == account.id,
-                Transaction.deleted_at.is_(None)
-            )
-        )
-        active_transactions_count = result.scalar_one()
+        account.is_active = "false"
+        account.closed_at = datetime.utcnow()
         
-        # Compter les transactions de destination (virements entrants)
-        result = await db.execute(
-            select(func.count(Transaction.id))
-            .where(
-                Transaction.destination_account_id == account.id,
-                Transaction.deleted_at.is_(None)
-            )
-        )
-        destination_transactions_count = result.scalar_one()
-        
-        total_transactions = active_transactions_count + destination_transactions_count
-        
-        if total_transactions > 0:
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=400,
-                detail=f"Impossible de supprimer ce compte : {total_transactions} transaction(s) active(s) y sont associées. Supprimez d'abord les transactions."
-            )
-        
-        await db.delete(account)
         await db.commit()
+        await db.refresh(account)
+        
+        return account
     
     @staticmethod
     async def calculate_balance(

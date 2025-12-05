@@ -96,7 +96,7 @@ const AccountsPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce compte ?")) {
+    if (!window.confirm("Voulez-vous fermer ce compte ?\n\nLe compte sera désactivé mais l'historique des transactions sera conservé.")) {
       return;
     }
 
@@ -104,7 +104,7 @@ const AccountsPage: React.FC = () => {
       await accountService.deleteAccount(id);
       await loadAccounts();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression");
+      setError(err.response?.data?.detail || "Erreur lors de la fermeture du compte");
     }
   };
 
@@ -177,24 +177,35 @@ const AccountsPage: React.FC = () => {
                 <span className="balance-amount">
                   {Number(account.current_balance).toFixed(2)} {account.currency}
                 </span>
-                {!account.is_active && (
+                {!account.is_active && account.closed_at && (
+                  <span className="inactive-badge">
+                    Fermé le {new Date(account.closed_at).toLocaleDateString('fr-FR')}
+                  </span>
+                )}
+                {!account.is_active && !account.closed_at && (
                   <span className="inactive-badge">Inactif</span>
                 )}
               </div>
 
               <div className="account-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleOpenModal(account)}
-                >
-                  Modifier
-                </button>
-                <button
-                  className="btn btn-danger"
-                  onClick={() => handleDelete(account.id)}
-                >
-                  Supprimer
-                </button>
+                {account.is_active ? (
+                  <>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => handleOpenModal(account)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleDelete(account.id)}
+                    >
+                      Fermer
+                    </button>
+                  </>
+                ) : (
+                  <span className="closed-label">Compte fermé</span>
+                )}
               </div>
             </div>
           ))
