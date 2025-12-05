@@ -1,17 +1,16 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Eye, EyeOff, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/authStore'
 
-interface RegisterProps {
-  onRegister: () => void
-  onNavigateToLogin: () => void
-}
-
-export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
+export function Register() {
+  const navigate = useNavigate()
+  const { register, isLoading, error, clearError } = useAuthStore()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -35,8 +34,10 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
     return { strength, label: 'Excellent', color: 'bg-success' }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    clearError()
+    
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
       toast.error('Veuillez remplir tous les champs')
       return
@@ -49,8 +50,15 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
       toast.error('Veuillez accepter les conditions générales')
       return
     }
-    toast.success('Compte créé avec succès !')
-    onRegister()
+    
+    try {
+      await register(email, password, firstName, lastName)
+      toast.success('Compte créé avec succès !')
+      navigate('/dashboard')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur d\'inscription'
+      toast.error(errorMessage)
+    }
   }
 
   const strength = passwordStrength()
@@ -73,18 +81,22 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
                 <Label htmlFor="firstName">Prénom</Label>
                 <Input
                   id="firstName"
+                  name="firstName"
                   placeholder="Alex"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Nom</Label>
                 <Input
                   id="lastName"
+                  name="lastName"
                   placeholder="Dupont"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -93,10 +105,12 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="nom@exemple.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
               />
             </div>
 
@@ -105,10 +119,12 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
               <div className="relative">
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
@@ -138,10 +154,12 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
               <div className="relative">
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
@@ -177,14 +195,20 @@ export function Register({ onRegister, onNavigateToLogin }: RegisterProps) {
               </label>
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              S'inscrire
+            {error && (
+              <div className="text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              {isLoading ? 'Inscription...' : 'S\'inscrire'}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Déjà un compte ?{' '}
-            <button onClick={onNavigateToLogin} className="text-primary hover:underline font-medium">
+            <button onClick={() => navigate('/login')} className="text-primary hover:underline font-medium">
               Se connecter
             </button>
           </div>

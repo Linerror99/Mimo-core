@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { User, Mail } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/authStore'
+import { useNavigate } from 'react-router-dom'
 
 type Page =
   | 'dashboard'
@@ -25,28 +27,50 @@ interface SettingsProfileProps {
 }
 
 export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
-  const [firstName, setFirstName] = useState('Alex')
-  const [lastName, setLastName] = useState('Dupont')
-  const [email, setEmail] = useState('alex@mimo.fr')
+  const { user, updateProfile, changePassword, isLoading } = useAuthStore()
+  const routerNavigate = useNavigate()
+  
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.first_name)
+      setLastName(user.last_name)
+      setEmail(user.email)
+    }
+  }, [user])
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    toast.success('Profil mis à jour avec succès')
+    try {
+      await updateProfile(firstName, lastName)
+      toast.success('Profil mis à jour avec succès')
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour du profil')
+    }
   }
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPassword !== confirmPassword) {
       toast.error('Les mots de passe ne correspondent pas')
       return
     }
-    toast.success('Mot de passe modifié avec succès')
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
+    try {
+      await changePassword(currentPassword, newPassword)
+      toast.success('Mot de passe modifié avec succès')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors du changement de mot de passe'
+      toast.error(errorMessage)
+    }
   }
 
   return (
@@ -82,11 +106,23 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
                   <User className="w-4 h-4 inline mr-2" />
                   Prénom
                 </Label>
-                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                <Input 
+                  id="firstName" 
+                  name="firstName"
+                  value={firstName} 
+                  onChange={(e) => setFirstName(e.target.value)}
+                  disabled={isLoading}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Nom</Label>
-                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                <Input 
+                  id="lastName" 
+                  name="lastName"
+                  value={lastName} 
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={isLoading}
+                />
               </div>
             </div>
             <div className="space-y-2">
@@ -94,9 +130,19 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
                 <Mail className="w-4 h-4 inline mr-2" />
                 Email
               </Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input 
+                id="email" 
+                name="email"
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)}
+                disabled
+              />
+              <p className="text-sm text-muted-foreground">L'email ne peut pas être modifié</p>
             </div>
-            <Button type="submit">Enregistrer les modifications</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Enregistrement...' : 'Enregistrer les modifications'}
+            </Button>
           </form>
         </Card>
 
@@ -107,30 +153,38 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
               <Label htmlFor="currentPassword">Mot de passe actuel</Label>
               <Input
                 id="currentPassword"
+                name="oldPassword"
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">Nouveau mot de passe</Label>
               <Input
                 id="newPassword"
+                name="newPassword"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirmer le nouveau mot de passe</Label>
               <Input
                 id="confirmPassword"
+                name="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
-            <Button type="submit">Changer le mot de passe</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Changement...' : 'Changer le mot de passe'}
+            </Button>
           </form>
         </Card>
       </div>

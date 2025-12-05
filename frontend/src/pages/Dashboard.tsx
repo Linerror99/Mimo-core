@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { User, Home as HomeIcon, TrendingUp, Clock, Check, Database } from 'luci
 import { toast } from 'sonner'
 import { sampleTransactions, sampleAccounts, sampleCategories, sampleGoals } from '@/lib/sampleData'
 import type { Transaction, Account, Category, Goal } from '@/types'
+import { useAuthStore } from '@/stores/authStore'
 
 type Page =
   | 'dashboard'
@@ -25,6 +26,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ navigate, onLogout }: DashboardProps) {
+  const { user } = useAuthStore()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -73,7 +75,9 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-semibold mb-2">Dashboard</h1>
+            <h1 className="text-3xl font-semibold mb-2">
+              Welcome{user ? `, ${user.first_name}` : ''}
+            </h1>
             <p className="text-muted-foreground">Aperçu de votre situation financière</p>
           </div>
           {(!transactions || transactions.length === 0) && (
