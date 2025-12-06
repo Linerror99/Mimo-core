@@ -44,4 +44,22 @@ export const accountService = {
   async deleteAccount(id: string): Promise<void> {
     await api.delete(`/accounts/${id}`);
   },
+
+  /**
+   * Get total balance for all active accounts
+   */
+  async getTotalBalance(): Promise<{
+    total_balance: number;
+    accounts_count: number;
+    accounts: Array<{
+      id: string;
+      name: string;
+      type: string;
+      initial_balance: number;
+      current_balance: number;
+    }>;
+  }> {
+    const response = await api.get("/accounts/balance/total");
+    return response.data;
+  },
 };

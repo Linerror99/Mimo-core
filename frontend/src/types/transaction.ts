@@ -41,6 +41,7 @@ export interface Transaction {
   recurrence_frequency: RecurrenceFrequency;
   recurrence_end_date: string | null;
   parent_transaction_id: string | null;
+  recurring_template_id: string | null;  // ID du template récurrent (si générée par template)
   
   is_active: boolean;
   deleted_at: string | null;  // ISO datetime string

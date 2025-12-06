@@ -75,6 +75,7 @@ class Transaction(Base):
     )
     recurrence_end_date = Column(Date, nullable=True)  # Date de fin de récurrence (optionnel)
     parent_transaction_id = Column(String, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True)
+    recurring_template_id = Column(String, ForeignKey("recurring_templates.id", ondelete="CASCADE"), nullable=True, index=True)  # Lien vers le template récurrent
     
     # Métadonnées
     is_active = Column(Boolean, default=True, nullable=False)
@@ -91,6 +92,7 @@ class Transaction(Base):
     # Récurrence : transaction parente et enfants
     parent_transaction = relationship("Transaction", remote_side=[id], foreign_keys=[parent_transaction_id])
     child_transactions = relationship("Transaction", back_populates="parent_transaction", foreign_keys=[parent_transaction_id])
+    recurring_template = relationship("RecurringTemplate", foreign_keys=[recurring_template_id])
 
     @property
     def state(self) -> TransactionState:

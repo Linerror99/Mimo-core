@@ -221,3 +221,47 @@ async def delete_account(
     await AccountService.close_account(db=db, account=account)
     
     return None
+
+
+@router.get("/balance/total")
+async def get_total_balance(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Récupérer le solde total du household (tous comptes actifs).
+    Solde = solde initial + toutes transactions réalisées jusqu'à aujourd'hui.
+    """
+    if not current_user.household_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to a household"
+        )
+    
+    # Récupérer tous les comptes actifs
+    accounts = await AccountService.list_accounts(
+        db=db,
+        household_id=current_user.household_id,
+        include_inactive=False
+    )
+    
+    # Calculer le solde total
+    total_balance = 0.0
+    accounts_detail = []
+    
+    for account in accounts:
+        balance = await AccountService.calculate_balance(db=db, account_id=account.id)
+        total_balance += float(balance)
+        accounts_detail.append({
+            "id": account.id,
+            "name": account.name,
+            "type": account.type,
+            "initial_balance": float(account.initial_balance),
+            "current_balance": float(balance)
+        })
+    
+    return {
+        "total_balance": total_balance,
+        "accounts_count": len(accounts),
+        "accounts": accounts_detail
+    }

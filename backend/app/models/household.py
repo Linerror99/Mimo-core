@@ -27,6 +27,7 @@ class Household(Base):
     accounts = relationship("Account", back_populates="household", cascade="all, delete-orphan")
     categories = relationship("Category", back_populates="household", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="household", cascade="all, delete-orphan")
+    recurring_templates = relationship("RecurringTemplate", back_populates="household", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Household(id={self.id}, name={self.name}, type={self.type})>"
