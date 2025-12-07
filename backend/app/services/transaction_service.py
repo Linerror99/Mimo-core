@@ -5,11 +5,15 @@ Business logic for transaction operations
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
+from sqlalchemy.orm import selectinload
 from datetime import datetime, date
 from typing import Optional, List
 
 from app.models.transaction import Transaction, TransactionType, TransactionState, RecurrenceFrequency
+from app.models.account import Account
+from app.models.household import Household
 from app.schemas.transaction import TransactionCreate, TransactionUpdate, RecurringTransactionCreate
+from app.services.notification_service import NotificationService
 
 
 class TransactionService:
@@ -60,6 +64,27 @@ class TransactionService:
         await self.db.commit()
         await self.db.refresh(transaction)
         
+        # Si la transaction est PENDING, créer des notifications pour tous les membres du foyer
+        if state == TransactionState.PENDING:
+            # Charger le household avec ses membres
+            result = await self.db.execute(
+                select(Account)
+                .options(selectinload(Account.household).selectinload(Household.members))
+                .where(Account.id == transaction_data.account_id)
+            )
+            account = result.scalar_one_or_none()
+            
+            if account and account.household:
+                for member in account.household.members:
+                    await NotificationService.create_validation_notification(
+                        db=self.db,
+                        user_id=member.id,
+                        household_id=account.household_id,
+                        transaction_id=transaction.id,
+                        transaction_description=transaction.description,
+                        transaction_amount=float(transaction.amount)
+                    )
+        
         return transaction
     
     async def create_recurring_transaction(
@@ -104,6 +129,27 @@ class TransactionService:
         self.db.add(transaction)
         await self.db.commit()
         await self.db.refresh(transaction)
+        
+        # Si la transaction est PENDING, créer des notifications pour tous les membres du foyer
+        if state == TransactionState.PENDING:
+            # Charger le household avec ses membres
+            result = await self.db.execute(
+                select(Account)
+                .options(selectinload(Account.household).selectinload(Household.members))
+                .where(Account.id == transaction_data.account_id)
+            )
+            account = result.scalar_one_or_none()
+            
+            if account and account.household:
+                for member in account.household.members:
+                    await NotificationService.create_validation_notification(
+                        db=self.db,
+                        user_id=member.id,
+                        household_id=account.household_id,
+                        transaction_id=transaction.id,
+                        transaction_description=transaction.description,
+                        transaction_amount=float(transaction.amount)
+                    )
         
         return transaction
     
