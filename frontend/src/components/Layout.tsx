@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { Home, List, TrendingUp, CreditCard, Folder, Target, Settings, Trash2, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -12,6 +12,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useAuthStore } from '@/stores/authStore'
+import { NotificationBell } from '@/components/NotificationBell'
+import { ValidationModal } from '@/components/ValidationModal'
+import { Notification } from '@/types/notification'
 
 type Page =
   | 'dashboard'
@@ -44,14 +47,31 @@ const menuItems = [
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
   const isMobile = useIsMobile()
   const { user } = useAuthStore()
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
+
+  const handleNotificationClick = (notification: Notification) => {
+    setSelectedNotification(notification)
+    setIsValidationModalOpen(true)
+  }
+
+  const handleValidationComplete = () => {
+    setIsValidationModalOpen(false)
+    setSelectedNotification(null)
+  }
 
   const Sidebar = () => (
     <aside className="w-64 bg-card border-r border-border flex flex-col">
       <div className="p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-primary rounded-xl mb-2">
-          <span className="text-xl font-bold text-primary-foreground">M</span>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center w-12 h-12 bg-primary rounded-xl">
+              <span className="text-xl font-bold text-primary-foreground">M</span>
+            </div>
+            <span className="text-lg font-semibold">Mimo Finance</span>
+          </div>
+          <NotificationBell onNotificationClick={handleNotificationClick} />
         </div>
-        <span className="text-lg font-semibold">Mimo Finance</span>
       </div>
 
       <nav className="flex-1 px-3 space-y-1">
@@ -175,6 +195,14 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
       {!isMobile && <Sidebar />}
       <main className={`flex-1 ${isMobile ? 'pb-20' : ''}`}>{children}</main>
       {isMobile && <BottomNav />}
+      {selectedNotification && (
+        <ValidationModal
+          notification={selectedNotification}
+          isOpen={isValidationModalOpen}
+          onClose={() => setIsValidationModalOpen(false)}
+          onSuccess={handleValidationComplete}
+        />
+      )}
     </div>
   )
 }

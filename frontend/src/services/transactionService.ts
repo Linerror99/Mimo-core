@@ -94,6 +94,31 @@ export const transactionService = {
   async permanentDelete(id: string): Promise<void> {
     await api.delete(`/transactions/${id}/permanent`);
   },
+
+  /**
+   * Lister les transactions en attente de validation (PENDING)
+   */
+  async listPending(): Promise<Transaction[]> {
+    const response = await api.get<Transaction[]>('/transactions/pending');
+    return response.data;
+  },
+
+  /**
+   * Valider une transaction PENDING → REALIZED
+   */
+  async validate(id: string, newAmount?: number): Promise<Transaction> {
+    const params = newAmount ? `?new_amount=${newAmount}` : '';
+    const response = await api.patch<Transaction>(`/transactions/${id}/validate${params}`);
+    return response.data;
+  },
+
+  /**
+   * Reporter une transaction PENDING à une nouvelle date
+   */
+  async postpone(id: string, newDate: string): Promise<Transaction> {
+    const response = await api.patch<Transaction>(`/transactions/${id}/postpone?new_date=${newDate}`);
+    return response.data;
+  },
 };
 
 /**

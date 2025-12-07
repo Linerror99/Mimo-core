@@ -138,6 +138,26 @@ async def list_trash(
     return transactions
 
 
+@router.get("/pending", response_model=List[TransactionResponse])
+async def list_pending_transactions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lister les transactions en attente de validation (PENDING)
+    
+    Returns:
+        Liste des transactions PENDING du foyer
+    """
+    service = TransactionService(db)
+    
+    transactions = await service.list_pending_transactions(
+        household_id=current_user.household_id
+    )
+    
+    return [TransactionResponse.model_validate(t) for t in transactions]
+
+
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: str,
@@ -303,26 +323,6 @@ async def permanent_delete_transaction(
         )
     
     return None
-
-
-@router.get("/pending", response_model=List[TransactionResponse])
-async def list_pending_transactions(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Lister les transactions en attente de validation (PENDING)
-    
-    Returns:
-        Liste des transactions PENDING du foyer
-    """
-    service = TransactionService(db)
-    
-    transactions = await service.list_pending_transactions(
-        household_id=current_user.household_id
-    )
-    
-    return [TransactionResponse.model_validate(t) for t in transactions]
 
 
 @router.patch("/{transaction_id}/validate", response_model=TransactionResponse)
