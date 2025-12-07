@@ -4,6 +4,7 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from httpx import AsyncClient, ASGITransport
+from unittest.mock import AsyncMock, patch
 
 from app.main import app
 from app.database import Base, get_db
@@ -35,6 +36,18 @@ def event_loop() -> Generator:
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_redis():
+    """Mock Redis client pour tous les tests."""
+    mock = AsyncMock()
+    # Mock des méthodes Redis utilisées dans auth_service
+    mock.get = AsyncMock(return_value=None)  # Token pas blacklisté par défaut
+    mock.setex = AsyncMock(return_value=True)
+    
+    with patch("app.services.auth_service.redis_client", mock):
+        yield mock
 
 
 @pytest.fixture(scope="function")
@@ -232,3 +245,53 @@ async def test_transaction(
     await db_session.refresh(transaction)
     
     return transaction
+
+
+@pytest.fixture(scope="function")
+async def test_user(db_session: AsyncSession, test_household_id: str):
+    """Create a test user object."""
+    from app.models.user import User
+    
+    user = User(
+        first_name="Test",
+        last_name="User",
+        email="testuser@example.com",
+        password_hash="hashed_password",
+        household_id=test_household_id
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    
+    return user
+
+
+@pytest.fixture(scope="function")
+async def test_household(db_session: AsyncSession, test_household_id: str):
+    """Get test household object."""
+    from sqlalchemy import select
+    from app.models.household import Household
+    
+    result = await db_session.execute(
+        select(Household).where(Household.id == test_household_id)
+    )
+    return result.scalar_one()
+
+
+@pytest.fixture(scope="function")
+async def test_account(db_session: AsyncSession, test_account_id: str):
+    """Get test account object."""
+    from sqlalchemy import select
+    from app.models.account import Account
+    
+    result = await db_session.execute(
+        select(Account).where(Account.id == test_account_id)
+    )
+    return result.scalar_one()
+
+
+@pytest.fixture(scope="function")
+async def test_user_headers(test_user_token: str) -> dict:
+    """Get authorization headers for test user."""
+    return {"Authorization": f"Bearer {test_user_token}"}
+

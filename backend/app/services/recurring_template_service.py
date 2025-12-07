@@ -86,6 +86,15 @@ class RecurringTemplateService:
             transaction_type = TransactionType[template.type] if isinstance(template.type, str) else template.type
             transaction_amount = template.amount if transaction_type == TransactionType.INCOME else -abs(template.amount)
             
+            # Déterminer l'état de la transaction selon sa date
+            from app.models import TransactionState
+            if current_date < today:
+                state = TransactionState.REALIZED
+            elif current_date == today:
+                state = TransactionState.PENDING
+            else:
+                state = TransactionState.PROJECTED
+            
             # Créer la transaction
             transaction = Transaction(
                 household_id=template.household_id,
@@ -93,6 +102,7 @@ class RecurringTemplateService:
                 amount=transaction_amount,
                 type=transaction_type,
                 transaction_date=current_date,
+                state=state,
                 description=template.description or template.name,
                 category_id=template.category_id,
                 destination_account_id=template.destination_account_id,

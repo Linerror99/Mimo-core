@@ -23,8 +23,9 @@ class TransactionType(str, enum.Enum):
 
 class TransactionState(str, enum.Enum):
     """État de la transaction basé sur sa date"""
-    REALIZED = "REALIZED"  # Transaction passée (date <= aujourd'hui)
+    REALIZED = "REALIZED"  # Transaction passée et validée
     PROJECTED = "PROJECTED"  # Transaction future (date > aujourd'hui)
+    PENDING = "PENDING"  # Transaction du jour en attente de validation
 
 
 class RecurrenceFrequency(str, enum.Enum):
@@ -63,6 +64,7 @@ class Transaction(Base):
     amount = Column(Numeric(10, 2), nullable=False)  # Montant (positif pour INCOME, négatif pour EXPENSE)
     transaction_date = Column(Date, nullable=False, index=True)  # Date de la transaction
     type = Column(Enum(TransactionType), nullable=False, index=True)
+    state = Column(Enum(TransactionState), nullable=False, default=TransactionState.REALIZED, index=True)  # État de la transaction
     description = Column(String(255), nullable=False)
     notes = Column(Text, nullable=True)
     
@@ -93,25 +95,6 @@ class Transaction(Base):
     parent_transaction = relationship("Transaction", remote_side=[id], foreign_keys=[parent_transaction_id])
     child_transactions = relationship("Transaction", back_populates="parent_transaction", foreign_keys=[parent_transaction_id])
     recurring_template = relationship("RecurringTemplate", foreign_keys=[recurring_template_id])
-
-    @property
-    def state(self) -> TransactionState:
-        """
-        Calcule l'état de la transaction selon sa date
-        
-        Returns:
-            REALIZED si date <= aujourd'hui
-            PROJECTED si date > aujourd'hui
-        """
-        today = date.today()
-        if self.transaction_date <= today:
-            return TransactionState.REALIZED
-        return TransactionState.PROJECTED
-
-    @property
-    def is_recurring(self) -> bool:
-        """Vérifie si la transaction est récurrente"""
-        return self.recurrence_frequency != RecurrenceFrequency.NONE
 
     def __repr__(self):
         return f"<Transaction {self.id} {self.type} {self.amount} on {self.transaction_date}>"

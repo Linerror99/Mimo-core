@@ -303,3 +303,98 @@ async def permanent_delete_transaction(
         )
     
     return None
+
+
+@router.get("/pending", response_model=List[TransactionResponse])
+async def list_pending_transactions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lister les transactions en attente de validation (PENDING)
+    
+    Returns:
+        Liste des transactions PENDING du foyer
+    """
+    service = TransactionService(db)
+    
+    transactions = await service.list_pending_transactions(
+        household_id=current_user.household_id
+    )
+    
+    return [TransactionResponse.model_validate(t) for t in transactions]
+
+
+@router.patch("/{transaction_id}/validate", response_model=TransactionResponse)
+async def validate_transaction(
+    transaction_id: str,
+    new_amount: Optional[float] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Valider une transaction PENDING (la marquer comme REALIZED)
+    
+    Args:
+        transaction_id: ID de la transaction
+        new_amount: Nouveau montant (optionnel)
+        
+    Returns:
+        Transaction validée
+        
+    Raises:
+        404: Transaction non trouvée
+    """
+    service = TransactionService(db)
+    
+    transaction = await service.validate_transaction(
+        transaction_id=transaction_id,
+        household_id=current_user.household_id,
+        new_amount=new_amount
+    )
+    
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+    
+    return TransactionResponse.model_validate(transaction)
+
+
+@router.patch("/{transaction_id}/postpone", response_model=TransactionResponse)
+async def postpone_transaction(
+    transaction_id: str,
+    new_date: date,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reporter une transaction PENDING à une nouvelle date
+    
+    Args:
+        transaction_id: ID de la transaction
+        new_date: Nouvelle date
+        
+    Returns:
+        Transaction reportée
+        
+    Raises:
+        404: Transaction non trouvée
+    """
+    service = TransactionService(db)
+    
+    transaction = await service.postpone_transaction(
+        transaction_id=transaction_id,
+        household_id=current_user.household_id,
+        new_date=new_date
+    )
+    
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+    
+    return TransactionResponse.model_validate(transaction)
+

@@ -33,6 +33,15 @@ class TransactionService:
         Returns:
             Transaction créée
         """
+        # Déterminer l'état selon la date
+        today = date.today()
+        if transaction_data.transaction_date < today:
+            state = TransactionState.REALIZED
+        elif transaction_data.transaction_date == today:
+            state = TransactionState.PENDING
+        else:
+            state = TransactionState.PROJECTED
+        
         transaction = Transaction(
             household_id=household_id,
             account_id=transaction_data.account_id,
@@ -42,6 +51,7 @@ class TransactionService:
             amount=transaction_data.amount,
             transaction_date=transaction_data.transaction_date,
             type=transaction_data.type,
+            state=state,
             notes=transaction_data.notes,
             recurrence_frequency=RecurrenceFrequency.NONE
         )
@@ -67,6 +77,15 @@ class TransactionService:
         Returns:
             Transaction récurrente créée
         """
+        # Déterminer l'état selon la date
+        today = date.today()
+        if transaction_data.transaction_date < today:
+            state = TransactionState.REALIZED
+        elif transaction_data.transaction_date == today:
+            state = TransactionState.PENDING
+        else:
+            state = TransactionState.PROJECTED
+        
         transaction = Transaction(
             household_id=household_id,
             account_id=transaction_data.account_id,
@@ -76,6 +95,7 @@ class TransactionService:
             amount=transaction_data.amount,
             transaction_date=transaction_data.transaction_date,
             type=transaction_data.type,
+            state=state,
             notes=transaction_data.notes,
             recurrence_frequency=transaction_data.recurrence_frequency,
             recurrence_end_date=transaction_data.recurrence_end_date
@@ -335,3 +355,107 @@ class TransactionService:
         )
         
         return list(result.scalars().all())
+    
+    async def validate_transaction(
+        self,
+        transaction_id: str,
+        household_id: str,
+        new_amount: Optional[float] = None
+    ) -> Optional[Transaction]:
+        """
+        Valider une transaction PENDING (la marquer comme REALIZED)
+        Permet optionnellement de modifier le montant
+        
+        Args:
+            transaction_id: ID de la transaction
+            household_id: ID du foyer
+            new_amount: Nouveau montant (optionnel)
+            
+        Returns:
+            Transaction validée, ou None si non trouvée
+        """
+        transaction = await self.get_transaction(transaction_id, household_id)
+        
+        if not transaction:
+            return None
+        
+        # Modifier le montant si fourni
+        if new_amount is not None:
+            transaction.amount = new_amount
+        
+        # Marquer comme validée
+        transaction.state = TransactionState.REALIZED
+        transaction.updated_at = datetime.utcnow()
+        
+        await self.db.commit()
+        await self.db.refresh(transaction)
+        
+        return transaction
+    
+    async def postpone_transaction(
+        self,
+        transaction_id: str,
+        household_id: str,
+        new_date: date
+    ) -> Optional[Transaction]:
+        """
+        Reporter une transaction PENDING à une nouvelle date
+        
+        Args:
+            transaction_id: ID de la transaction
+            household_id: ID du foyer
+            new_date: Nouvelle date
+            
+        Returns:
+            Transaction reportée, ou None si non trouvée
+        """
+        transaction = await self.get_transaction(transaction_id, household_id)
+        
+        if not transaction:
+            return None
+        
+        transaction.transaction_date = new_date
+        
+        # Recalculer l'état selon la nouvelle date
+        today = date.today()
+        if new_date < today:
+            transaction.state = TransactionState.REALIZED
+        elif new_date == today:
+            transaction.state = TransactionState.PENDING
+        else:
+            transaction.state = TransactionState.PROJECTED
+        
+        transaction.updated_at = datetime.utcnow()
+        
+        await self.db.commit()
+        await self.db.refresh(transaction)
+        
+        return transaction
+    
+    async def list_pending_transactions(
+        self,
+        household_id: str
+    ) -> List[Transaction]:
+        """
+        Lister toutes les transactions PENDING d'un foyer
+        
+        Args:
+            household_id: ID du foyer
+            
+        Returns:
+            Liste des transactions en attente de validation
+        """
+        result = await self.db.execute(
+            select(Transaction)
+            .where(
+                and_(
+                    Transaction.household_id == household_id,
+                    Transaction.state == TransactionState.PENDING,
+                    Transaction.deleted_at.is_(None)
+                )
+            )
+            .order_by(Transaction.transaction_date.asc())
+        )
+        
+        return list(result.scalars().all())
+

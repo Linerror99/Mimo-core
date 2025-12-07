@@ -50,7 +50,7 @@ class TestTransactionService:
         assert transaction.description == "Salaire mensuel"
         assert transaction.amount == Decimal("3000.00")
         assert transaction.type == TransactionType.INCOME
-        assert transaction.state == TransactionState.REALIZED
+        assert transaction.state == TransactionState.PENDING  # Sprint 5: today = PENDING
         assert transaction.recurrence_frequency == RecurrenceFrequency.NONE
         
     async def test_create_expense_transaction(
@@ -79,7 +79,7 @@ class TestTransactionService:
         
         assert transaction.amount == Decimal("-150.50")
         assert transaction.type == TransactionType.EXPENSE
-        assert transaction.state == TransactionState.REALIZED
+        assert transaction.state == TransactionState.PENDING  # Sprint 5: today = PENDING
         
     async def test_create_future_transaction_is_projected(
         self, 
