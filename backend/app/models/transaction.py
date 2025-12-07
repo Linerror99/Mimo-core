@@ -38,6 +38,12 @@ class RecurrenceFrequency(str, enum.Enum):
     YEARLY = "YEARLY"  # Annuelle
 
 
+class TransactionOwnerType(str, enum.Enum):
+    """Type de propriétaire de la transaction (pour mode couple)"""
+    PERSONAL = "PERSONAL"  # Transaction personnelle (un des membres)
+    SHARED = "SHARED"  # Transaction commune (partagée)
+
+
 class Transaction(Base):
     """
     Transaction financière
@@ -79,6 +85,10 @@ class Transaction(Base):
     parent_transaction_id = Column(String, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True)
     recurring_template_id = Column(String, ForeignKey("recurring_templates.id", ondelete="CASCADE"), nullable=True, index=True)  # Lien vers le template récurrent
     
+    # Propriété (pour mode couple)
+    owner_type = Column(Enum(TransactionOwnerType), nullable=True)  # NULL si INDIVIDUAL, PERSONAL/SHARED si COUPLE
+    owner_user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True, index=True)  # Si PERSONAL, quel user?
+    
     # Métadonnées
     is_active = Column(Boolean, default=True, nullable=False)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete (corbeille)
@@ -90,6 +100,7 @@ class Transaction(Base):
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
     category = relationship("Category", back_populates="transactions")
     destination_account = relationship("Account", foreign_keys=[destination_account_id])
+    owner_user = relationship("User", foreign_keys=[owner_user_id])  # User propriétaire (si PERSONAL)
     
     # Récurrence : transaction parente et enfants
     parent_transaction = relationship("Transaction", remote_side=[id], foreign_keys=[parent_transaction_id])
