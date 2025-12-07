@@ -69,7 +69,7 @@ class TestTransactionAPI:
         assert data["description"] == "Salaire mensuel"
         assert float(data["amount"]) == 3000.00
         assert data["type"] == "INCOME"
-        assert data["state"] == "REALIZED"
+        assert data["state"] == "PENDING"  # Sprint 5: today = PENDING
         
     async def test_create_expense_transaction(
         self,

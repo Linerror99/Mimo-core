@@ -69,9 +69,9 @@ class TestTransactionAPI:
         assert response.status_code == 201
         data = response.json()
         assert data["description"] == "Salaire mensuel"
-        assert data["amount"] == "3000.00"
+        assert float(data["amount"]) == 3000.00
         assert data["type"] == "INCOME"
-        assert data["state"] == "REALIZED"
+        assert data["state"] == "PENDING"  # Sprint 5: today = PENDING
         assert data["recurrence_frequency"] == "NONE"
     
     async def test_create_expense_transaction(

@@ -12,7 +12,8 @@ export enum TransactionType {
 
 export enum TransactionState {
   REALIZED = 'REALIZED',  // Transaction passée (date <= aujourd'hui)
-  PROJECTED = 'PROJECTED'  // Transaction future (date > aujourd'hui)
+  PROJECTED = 'PROJECTED',  // Transaction future (date > aujourd'hui)
+  PENDING = 'PENDING'  // Transaction du jour, en attente de validation
 }
 
 export enum RecurrenceFrequency {
@@ -104,12 +105,14 @@ export const TRANSACTION_TYPE_ICONS: Record<TransactionType, string> = {
 
 export const TRANSACTION_STATE_LABELS: Record<TransactionState, string> = {
   [TransactionState.REALIZED]: 'Réalisée',
-  [TransactionState.PROJECTED]: 'Projetée'
+  [TransactionState.PROJECTED]: 'Projetée',
+  [TransactionState.PENDING]: 'En attente'
 };
 
 export const TRANSACTION_STATE_COLORS: Record<TransactionState, string> = {
   [TransactionState.REALIZED]: '#10B981',  // green
-  [TransactionState.PROJECTED]: '#6366F1'  // indigo
+  [TransactionState.PROJECTED]: '#6366F1',  // indigo
+  [TransactionState.PENDING]: '#F59E0B'  // amber
 };
 
 export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {

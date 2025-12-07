@@ -3,10 +3,13 @@ import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { User, Home as HomeIcon, TrendingUp, Clock, Check, Database } from 'lucide-react'
+import { ValidationModal } from '@/components/ValidationModal'
+import { User, Home as HomeIcon, TrendingUp, Clock, Check, Database, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { sampleTransactions, sampleAccounts, sampleCategories, sampleGoals } from '@/lib/sampleData'
 import type { Transaction, Account, Category, Goal } from '@/types'
+import { transactionService } from '@/services/transactionService'
+import { Notification } from '@/types/notification'
 import { useAuthStore } from '@/stores/authStore'
 
 type Page =
@@ -31,6 +34,45 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([])
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
+
+  useEffect(() => {
+    fetchPendingTransactions()
+  }, [])
+
+  const fetchPendingTransactions = async () => {
+    try {
+      const pending = await transactionService.listPending()
+      setPendingTransactions(pending)
+    } catch (error) {
+      console.error('Failed to fetch pending transactions:', error)
+    }
+  }
+
+  const handleValidateClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction)
+    setIsValidationModalOpen(true)
+  }
+
+  const handleValidateAll = async () => {
+    try {
+      await Promise.all(
+        pendingTransactions.map((t) => transactionService.validate(t.id))
+      )
+      toast.success('Toutes les transactions ont été validées')
+      fetchPendingTransactions()
+    } catch (error) {
+      toast.error('Échec de la validation groupée')
+    }
+  }
+
+  const handleValidationSuccess = () => {
+    fetchPendingTransactions()
+    setIsValidationModalOpen(false)
+    setSelectedTransaction(null)
+  }
 
   const loadSampleData = () => {
     setTransactions(() => sampleTransactions)
@@ -47,7 +89,6 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
   const myWalletTotal = personalBalance + sharedBalance / 2
   const partnerWalletTotal = partnerBalance + sharedBalance / 2
 
-  const pendingTransactions = (transactions || []).filter((t) => t.status === 'pending').slice(0, 2)
   const recentTransactions = (transactions || []).slice(0, 5)
 
   const formatAmount = (amount: number) => {
@@ -144,44 +185,68 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
         </div>
 
         {pendingTransactions.length > 0 && (
-          <Card className="p-6">
+          <Card className="p-6 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-warning" />
-                <h2 className="text-xl font-semibold">Transactions à valider aujourd'hui</h2>
-                <Badge variant="secondary">{pendingTransactions.length}</Badge>
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                <h2 className="text-xl font-semibold">Transactions à valider</h2>
+                <Badge variant="secondary" className="bg-amber-100 text-amber-900 border-amber-300">
+                  {pendingTransactions.length}
+                </Badge>
               </div>
-              <Button size="sm">Tout valider</Button>
+              {pendingTransactions.length > 1 && (
+                <Button size="sm" onClick={handleValidateAll} className="bg-amber-600 hover:bg-amber-700">
+                  Tout valider
+                </Button>
+              )}
             </div>
             <div className="space-y-3">
-              {pendingTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      {transaction.attribution === 'shared' ? (
-                        <HomeIcon className="w-5 h-5 text-primary" />
-                      ) : (
-                        <User className="w-5 h-5 text-primary" />
-                      )}
+              {pendingTransactions.map((transaction) => {
+                const isExpense = transaction.amount < 0
+                const displayAmount = Math.abs(transaction.amount)
+                
+                return (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-900"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950 flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{transaction.description}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            {new Date(transaction.transaction_date).toLocaleDateString('fr-FR')}
+                          </Badge>
+                          <Badge 
+                            variant={isExpense ? 'destructive' : 'default'}
+                            className="text-xs"
+                          >
+                            {isExpense ? 'Dépense' : 'Revenu'}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{transaction.name}</p>
-                      <Badge variant="secondary" className="mt-1">
-                        {transaction.attribution === 'shared' ? 'Commun' : 'Personnel'}
-                      </Badge>
+                    <div className="flex items-center gap-4">
+                      <p className={`font-mono-amounts text-lg font-semibold ${
+                        isExpense ? 'text-destructive' : 'text-success'
+                      }`}>
+                        {isExpense ? '-' : '+'}
+                        {formatAmount(displayAmount)}
+                      </p>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleValidateClick(transaction)}
+                        className="bg-amber-600 hover:bg-amber-700"
+                      >
+                        Valider
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <p className="font-mono-amounts text-lg font-semibold text-destructive">
-                      -{formatAmount(Math.abs(transaction.amount))}
-                    </p>
-                    <Button size="sm">Valider</Button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </Card>
         )}
@@ -242,6 +307,26 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
             <p className="text-muted-foreground">Graphique de projection sur 6 mois</p>
           </div>
         </Card>
+
+        {selectedTransaction && (
+          <ValidationModal
+            notification={{
+              id: '',
+              user_id: user?.id || '',
+              type: 'validation_needed',
+              message: `Valider la transaction: ${selectedTransaction.description}`,
+              related_transaction_id: selectedTransaction.id,
+              is_read: false,
+              created_at: new Date().toISOString()
+            }}
+            isOpen={isValidationModalOpen}
+            onClose={() => {
+              setIsValidationModalOpen(false)
+              setSelectedTransaction(null)
+            }}
+            onSuccess={handleValidationSuccess}
+          />
+        )}
       </div>
     </Layout>
   )

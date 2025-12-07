@@ -4,6 +4,7 @@ from .account import Account, AccountType
 from .category import Category, CategoryType
 from .transaction import Transaction, TransactionType, TransactionState, RecurrenceFrequency
 from .recurring_template import RecurringTemplate, Frequency
+from .notification import Notification, NotificationType
 
 __all__ = [
     "User", 
@@ -18,5 +19,7 @@ __all__ = [
     "TransactionState",
     "RecurrenceFrequency",
     "RecurringTemplate",
-    "Frequency"
+    "Frequency",
+    "Notification",
+    "NotificationType"
 ]
