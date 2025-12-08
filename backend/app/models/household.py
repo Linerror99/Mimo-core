@@ -11,12 +11,23 @@ class HouseholdType(str, Enum):
     COUPLE = "couple"
 
 
+class HouseholdStatus(str, Enum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+    MERGED_INTO_COUPLE = "merged_into_couple"
+
+
 class Household(Base):
     __tablename__ = "households"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     type: Mapped[HouseholdType] = mapped_column(SQLEnum(HouseholdType), nullable=False, default=HouseholdType.INDIVIDUAL)
+    
+    # Status (pour mode couple)
+    status: Mapped[HouseholdStatus] = mapped_column(SQLEnum(HouseholdStatus), nullable=False, default=HouseholdStatus.ACTIVE)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    merged_into_household_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

@@ -18,6 +18,7 @@ class NotificationType(str, enum.Enum):
     VALIDATION_REQUIRED = "VALIDATION_REQUIRED"  # Transaction à valider
     REMINDER = "REMINDER"  # Rappel général
     INFO = "INFO"  # Information
+    HOUSEHOLD_DISSOLVED = "HOUSEHOLD_DISSOLVED"  # Foyer dissous (Sprint 6)
 
 
 class Notification(Base):

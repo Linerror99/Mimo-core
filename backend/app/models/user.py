@@ -25,6 +25,8 @@ class User(Base):
     # Relationships
     household: Mapped["Household"] = relationship("Household", back_populates="members")
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    sent_invitations: Mapped[list["Invitation"]] = relationship("Invitation", foreign_keys="Invitation.inviter_user_id", back_populates="inviter")
+    received_invitations: Mapped[list["Invitation"]] = relationship("Invitation", foreign_keys="Invitation.invitee_user_id", back_populates="invitee")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, name={self.first_name} {self.last_name})>"
