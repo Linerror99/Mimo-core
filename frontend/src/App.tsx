@@ -11,6 +11,7 @@ import ProjectionPage from './pages/ProjectionPage'
 import { Goals } from './pages/Goals'
 import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
+import Settings from './pages/Settings'
 import { Trash } from './pages/TrashPage'
 import { Toaster } from '@/components/ui/sonner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -162,6 +163,15 @@ function AppRoutes() {
             <LegacyNavigationWrapper>
               {({ navigate, onLogout }) => <SettingsHousehold navigate={navigate} onLogout={onLogout} />}
             </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/settings/invitations" 
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         } 
       />

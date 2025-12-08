@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Literal
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import uuid
 
 from app.models import (
@@ -72,6 +73,14 @@ class InvitationService:
         await self.db.commit()
         await self.db.refresh(invitation)
         
+        # Charger les relations inviter et invitee
+        stmt = select(Invitation).where(Invitation.id == invitation.id).options(
+            selectinload(Invitation.inviter),
+            selectinload(Invitation.invitee)
+        )
+        result = await self.db.execute(stmt)
+        invitation = result.scalar_one()
+        
         return invitation
 
     async def accept_invitation(self, invitation_id: str) -> Invitation:
@@ -102,6 +111,14 @@ class InvitationService:
         await self.db.commit()
         await self.db.refresh(invitation)
         
+        # Charger les relations inviter et invitee
+        stmt = select(Invitation).where(Invitation.id == invitation.id).options(
+            selectinload(Invitation.inviter),
+            selectinload(Invitation.invitee)
+        )
+        result = await self.db.execute(stmt)
+        invitation = result.scalar_one()
+        
         return invitation
 
     async def reject_invitation(self, invitation_id: str) -> Invitation:
@@ -128,6 +145,14 @@ class InvitationService:
         await self.db.commit()
         await self.db.refresh(invitation)
         
+        # Charger les relations inviter et invitee
+        stmt = select(Invitation).where(Invitation.id == invitation.id).options(
+            selectinload(Invitation.inviter),
+            selectinload(Invitation.invitee)
+        )
+        result = await self.db.execute(stmt)
+        invitation = result.scalar_one()
+        
         return invitation
 
     async def get_user_invitations(
@@ -152,7 +177,10 @@ class InvitationService:
         else:
             raise ValueError("type must be 'sent' or 'received'")
         
-        stmt = stmt.order_by(Invitation.created_at.desc())
+        stmt = stmt.options(
+            selectinload(Invitation.inviter),
+            selectinload(Invitation.invitee)
+        ).order_by(Invitation.created_at.desc())
         
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -181,8 +209,11 @@ class InvitationService:
         await self.db.commit()
 
     async def _get_invitation(self, invitation_id: str) -> Invitation:
-        """Récupérer une invitation par ID."""
-        stmt = select(Invitation).where(Invitation.id == invitation_id)
+        """Récupérer une invitation par ID avec relations chargées."""
+        stmt = select(Invitation).where(Invitation.id == invitation_id).options(
+            selectinload(Invitation.inviter),
+            selectinload(Invitation.invitee)
+        )
         invitation = (await self.db.execute(stmt)).scalar_one_or_none()
         
         if not invitation:

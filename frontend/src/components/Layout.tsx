@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react'
-import { Home, List, TrendingUp, CreditCard, Folder, Target, Settings, Trash2, LogOut, User } from 'lucide-react'
+import { Home, List, TrendingUp, CreditCard, Folder, Target, Settings, Trash2, LogOut, User, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -122,6 +122,10 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
             <DropdownMenuItem onClick={() => navigate('settings-household')}>
               <Settings className="w-4 h-4 mr-2" />
               Foyer
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.href = '/settings/invitations'}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Invitations
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onLogout}>

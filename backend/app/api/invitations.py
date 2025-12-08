@@ -127,7 +127,6 @@ async def create_invitation(
 @router.post("/{invitation_id}/accept", response_model=InvitationResponse)
 async def accept_invitation(
     invitation_id: str,
-    request: InvitationAcceptRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -157,7 +156,28 @@ async def accept_invitation(
         if invitation.invitee_user_id != current_user.id:
             raise HTTPException(status_code=400, detail="Only the invitee can accept this invitation")
         
+        # Accepter l'invitation (change le statut)
         invitation = await service.accept_invitation(invitation_id=invitation_id)
+        
+        # Fusionner les foyers des 2 utilisateurs
+        from app.services.household_service import HouseholdService
+        household_service = HouseholdService(db)
+        
+        # Récupérer les household_ids des 2 utilisateurs
+        inviter_household_id = invitation.inviter.household_id
+        invitee_household_id = invitation.invitee.household_id
+        
+        if inviter_household_id and invitee_household_id:
+            # Générer le nom du nouveau household à partir des prénoms des 2 users
+            inviter_first_name = invitation.inviter.first_name
+            invitee_first_name = invitation.invitee.first_name
+            new_household_name = f"{inviter_first_name} & {invitee_first_name}"
+            
+            await household_service.merge_households(
+                household1_id=inviter_household_id,
+                household2_id=invitee_household_id,
+                new_household_name=new_household_name
+            )
         
         return InvitationResponse(
             id=invitation.id,
@@ -182,7 +202,6 @@ async def accept_invitation(
 @router.post("/{invitation_id}/reject", response_model=InvitationResponse)
 async def reject_invitation(
     invitation_id: str,
-    request: InvitationRejectRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

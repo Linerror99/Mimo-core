@@ -342,9 +342,11 @@ class HouseholdService:
         shared_per_person = shared_total / num_members
         
         # Calculer les balances finales
-        # Chaque membre: initial_balance + ses transactions personal + sa part des shared
-        user1_balance = initial_balance + user1_personal + shared_per_person
-        user2_balance = initial_balance + user2_personal + shared_per_person
+        # Chaque membre: ses transactions personal + sa part des shared
+        # (initial_balance n'est PAS ajouté aux wallets personnels car il représente
+        # le solde initial des comptes du household, pas des dépenses personnelles)
+        user1_balance = user1_personal + shared_per_person
+        user2_balance = user2_personal + shared_per_person
         
         # Total balance du household
         # = initial_balance + toutes les transactions (PERSONAL + SHARED + NULL)
