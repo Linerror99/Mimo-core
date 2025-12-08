@@ -40,6 +40,7 @@ class Household(Base):
     transactions = relationship("Transaction", back_populates="household", cascade="all, delete-orphan")
     recurring_templates = relationship("RecurringTemplate", back_populates="household", cascade="all, delete-orphan")
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="household", cascade="all, delete-orphan")
+    goals = relationship("Goal", back_populates="household", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Household(id={self.id}, name={self.name}, type={self.type})>"

@@ -504,4 +504,54 @@ class TransactionService:
         )
         
         return list(result.scalars().all())
+    
+    async def cancel_transaction(
+        self,
+        transaction_id: str,
+        household_id: str,
+        reason: Optional[str] = None
+    ) -> Transaction:
+        """
+        Annuler une transaction (PROJECTED ou PENDING uniquement)
+        
+        Une transaction annulée passe à l'état CANCELLED:
+        - Reste visible dans l'historique (barrée dans l'UI)
+        - Ne peut pas annuler une transaction REALIZED (passée)
+        
+        Args:
+            transaction_id: ID de la transaction
+            household_id: ID du foyer
+            reason: Raison de l'annulation (optionnel, stocké dans notes)
+            
+        Returns:
+            Transaction annulée
+            
+        Raises:
+            ValueError: Si transaction REALIZED ou non trouvée
+        """
+        transaction = await self.get_transaction(transaction_id, household_id)
+        
+        if not transaction:
+            raise ValueError(f"Transaction {transaction_id} introuvable")
+        
+        # Ne peut pas annuler une transaction réalisée
+        if transaction.state == TransactionState.REALIZED:
+            raise ValueError(
+                "Une transaction réalisée ne peut pas être annulée. "
+                "Utilisez la suppression définitive si nécessaire."
+            )
+        
+        # Passer à CANCELLED
+        transaction.state = TransactionState.CANCELLED
+        
+        # Ajouter la raison dans notes si fournie
+        if reason:
+            transaction.notes = reason
+        
+        transaction.updated_at = datetime.utcnow()
+        
+        await self.db.commit()
+        await self.db.refresh(transaction)
+        
+        return transaction
 

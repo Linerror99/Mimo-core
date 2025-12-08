@@ -383,3 +383,114 @@ class TestTransactionService:
             household_id=test_household_id
         )
         assert transaction is None
+    
+    # ===== CANCEL Tests =====
+    
+    async def test_cancel_projected_transaction(
+        self,
+        db_session: AsyncSession,
+        test_household_id: str,
+        test_account_id: str,
+        test_category_expense_id: str
+    ):
+        """Test annulation transaction projetée"""
+        service = TransactionService(db_session)
+        
+        # Créer transaction future
+        future_date = date.today() + timedelta(days=30)
+        transaction_data = TransactionCreate(
+            description="Abonnement Netflix",
+            amount=Decimal("-15.99"),
+            transaction_date=future_date,
+            type=TransactionType.EXPENSE,
+            account_id=test_account_id,
+            category_id=test_category_expense_id
+        )
+        
+        transaction = await service.create_transaction(
+            household_id=test_household_id,
+            transaction_data=transaction_data
+        )
+        
+        assert transaction.state == TransactionState.PROJECTED
+        
+        # Annuler
+        cancelled = await service.cancel_transaction(
+            transaction_id=transaction.id,
+            household_id=test_household_id,
+            reason="Abonnement résilié"
+        )
+        
+        assert cancelled.state == TransactionState.CANCELLED
+        assert cancelled.notes == "Abonnement résilié"
+    
+    async def test_cancel_pending_transaction(
+        self,
+        db_session: AsyncSession,
+        test_household_id: str,
+        test_account_id: str,
+        test_category_expense_id: str
+    ):
+        """Test annulation transaction en attente (aujourd'hui)"""
+        service = TransactionService(db_session)
+        
+        transaction_data = TransactionCreate(
+            description="Courses",
+            amount=Decimal("-80.00"),
+            transaction_date=date.today(),
+            type=TransactionType.EXPENSE,
+            account_id=test_account_id,
+            category_id=test_category_expense_id
+        )
+        
+        transaction = await service.create_transaction(
+            household_id=test_household_id,
+            transaction_data=transaction_data
+        )
+        
+        assert transaction.state == TransactionState.PENDING
+        
+        # Annuler
+        cancelled = await service.cancel_transaction(
+            transaction_id=transaction.id,
+            household_id=test_household_id,
+            reason="Finalement pas fait"
+        )
+        
+        assert cancelled.state == TransactionState.CANCELLED
+    
+    async def test_cannot_cancel_realized_transaction(
+        self,
+        db_session: AsyncSession,
+        test_household_id: str,
+        test_account_id: str,
+        test_category_expense_id: str
+    ):
+        """Test erreur si annulation transaction réalisée (passée)"""
+        service = TransactionService(db_session)
+        
+        # Créer transaction passée
+        past_date = date.today() - timedelta(days=10)
+        transaction_data = TransactionCreate(
+            description="Courses passées",
+            amount=Decimal("-100.00"),
+            transaction_date=past_date,
+            type=TransactionType.EXPENSE,
+            account_id=test_account_id,
+            category_id=test_category_expense_id
+        )
+        
+        transaction = await service.create_transaction(
+            household_id=test_household_id,
+            transaction_data=transaction_data
+        )
+        
+        assert transaction.state == TransactionState.REALIZED
+        
+        # Tenter annulation
+        with pytest.raises(ValueError, match="réalisée ne peut pas être annulée"):
+            await service.cancel_transaction(
+                transaction_id=transaction.id,
+                household_id=test_household_id,
+                reason="Test"
+            )
