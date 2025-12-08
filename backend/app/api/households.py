@@ -22,6 +22,70 @@ class DissolveHouseholdResponse(BaseModel):
     new_households: list[dict]
 
 
+class HouseholdMemberResponse(BaseModel):
+    """Response pour un membre du household."""
+    id: str
+    email: str
+    first_name: str
+    last_name: str
+
+
+class CurrentHouseholdResponse(BaseModel):
+    """Response pour le household actuel."""
+    household: dict
+    members: list[HouseholdMemberResponse]
+
+
+@router.get("/me", response_model=CurrentHouseholdResponse)
+async def get_current_household(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Récupérer le household actuel de l'utilisateur avec la liste des membres.
+    
+    **Returns**: Household actuel + liste des membres
+    """
+    from sqlalchemy import select
+    from app.models import Household, User as UserModel
+    
+    # Récupérer le household
+    stmt = select(Household).where(Household.id == current_user.household_id)
+    result = await db.execute(stmt)
+    household = result.scalar_one_or_none()
+    
+    if not household:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Household not found",
+        )
+    
+    # Récupérer tous les membres du household
+    stmt = select(UserModel).where(UserModel.household_id == household.id)
+    result = await db.execute(stmt)
+    members = result.scalars().all()
+    
+    return {
+        "household": {
+            "id": household.id,
+            "name": household.name,
+            "type": household.type.value,
+            "status": household.status.value,
+            "created_at": household.created_at.isoformat(),
+            "updated_at": household.updated_at.isoformat(),
+        },
+        "members": [
+            {
+                "id": member.id,
+                "email": member.email,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+            }
+            for member in members
+        ],
+    }
+
+
 @router.post("/{household_id}/dissolve", response_model=DissolveHouseholdResponse)
 async def dissolve_household(
     household_id: str,

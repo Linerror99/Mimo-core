@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Home, UserPlus, AlertTriangle } from 'lucide-react'
+import { Home, UserPlus, AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import householdService from '@/services/householdService'
+import apiClient from '@/services/api'
+import type { Household, HouseholdMember } from '@/services/householdService'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,8 +39,37 @@ interface SettingsHouseholdProps {
 }
 
 export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps) {
-  const [hasHousehold] = useState(true)
+  const [household, setHousehold] = useState<Household | null>(null)
+  const [members, setMembers] = useState<HouseholdMember[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [isDissolving, setIsDissolving] = useState(false)
+
+  // Charger les données du household au montage
+  useEffect(() => {
+    loadHouseholdData()
+  }, [])
+
+  const loadHouseholdData = async () => {
+    setIsLoading(true)
+    try {
+      // Récupérer d'abord l'utilisateur courant pour avoir son ID
+      const userResponse = await apiClient.get('/users/me')
+      const currentUser = userResponse.data
+      setCurrentUserId(currentUser.id)
+      
+      // Récupérer le household et ses membres
+      const data = await householdService.getCurrentHousehold()
+      setHousehold(data.household)
+      setMembers(data.members)
+    } catch (error) {
+      console.error('Failed to load household data:', error)
+      toast.error('Erreur de chargement des données du foyer')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,8 +77,33 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
     setInviteEmail('')
   }
 
-  const handleDissolve = () => {
-    toast.success('Foyer dissous avec succès')
+  const handleDissolve = async () => {
+    if (!household) {
+      toast.error('Aucun foyer à dissoudre')
+      return
+    }
+
+    setIsDissolving(true)
+    try {
+      const result = await householdService.dissolveHousehold(household.id)
+      
+      toast.success('Foyer dissous avec succès', {
+        description: `Vous avez maintenant un compte individuel. Balance initiale: ${result.new_households[0].initial_balance.toFixed(2)}€`,
+      })
+      
+      // TODO: Refresh user context to update household status
+      // For now, we could navigate to dashboard or reload
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+    } catch (error: any) {
+      console.error('Failed to dissolve household:', error)
+      toast.error('Échec de la dissolution', {
+        description: error.response?.data?.detail || 'Une erreur est survenue lors de la dissolution du foyer',
+      })
+    } finally {
+      setIsDissolving(false)
+    }
   }
 
   return (
@@ -57,7 +114,11 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
           <p className="text-muted-foreground">Gérez votre foyer et vos partenaires</p>
         </div>
 
-        {hasHousehold ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : household && household.type === 'couple' ? (
           <>
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-6">
@@ -65,8 +126,14 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
                   <Home className="w-6 h-6 text-accent" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold">Votre Foyer</h2>
-                  <p className="text-sm text-muted-foreground">Créé le 15 novembre 2025</p>
+                  <h2 className="text-xl font-semibold">{household.name}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Créé le {new Date(household.created_at).toLocaleDateString('fr-FR', { 
+                      day: 'numeric', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })}
+                  </p>
                 </div>
               </div>
 
@@ -74,27 +141,33 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
                 <div>
                   <h3 className="text-sm font-semibold text-muted-foreground mb-3">Membres</h3>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-primary text-primary-foreground">A</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">Alex Dupont</p>
-                        <p className="text-sm text-muted-foreground">alex@mimo.fr</p>
-                      </div>
-                      <div className="ml-auto">
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Vous</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-accent text-accent-foreground">S</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">Sarah Martin</p>
-                        <p className="text-sm text-muted-foreground">sarah@mimo.fr</p>
-                      </div>
-                    </div>
+                    {members.length > 0 ? (
+                      members.map((member) => {
+                        const isCurrentUser = member.id === currentUserId
+                        const initials = `${member.first_name[0]}${member.last_name[0]}`.toUpperCase()
+                        
+                        return (
+                          <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                            <Avatar className="w-10 h-10">
+                              <AvatarFallback className={isCurrentUser ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}>
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{member.first_name} {member.last_name}</p>
+                              <p className="text-sm text-muted-foreground">{member.email}</p>
+                            </div>
+                            {isCurrentUser && (
+                              <div className="ml-auto">
+                                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Vous</span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Chargement des membres...</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -113,7 +186,9 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
                   </p>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive">Dissoudre le foyer</Button>
+                      <Button variant="destructive" disabled={isDissolving}>
+                        {isDissolving ? 'Dissolution en cours...' : 'Dissoudre le foyer'}
+                      </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -125,9 +200,13 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDissolve} className="bg-destructive hover:bg-destructive/90">
-                          Oui, dissoudre le foyer
+                        <AlertDialogCancel disabled={isDissolving}>Annuler</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleDissolve} 
+                          disabled={isDissolving}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          {isDissolving ? 'Dissolution en cours...' : 'Oui, dissoudre le foyer'}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
