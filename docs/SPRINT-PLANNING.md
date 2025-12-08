@@ -930,116 +930,163 @@ Système automatique validation transactions + notifications + job quotidien
 
 ---
 
-## 👥 SPRINT 6 : Feature Mode Couple (2 semaines)
+## 👥 SPRINT 6 : Feature Mode Couple (2 semaines) ✅ **TERMINÉ**
 
 ### **Fonctionnalité**
-Invitation + fusion foyers + portefeuilles tracés
+Invitation + fusion foyers + portefeuilles tracés + dissolution
 
 ### **User Stories**
-- **US-1.2a** : Inviter nouveau user (via email)
-- **US-1.2b** : Inviter user existant (notification in-app)
-- **US-1.2c** : Accepter invitation
-- **US-1.3** : Dissoudre foyer
-- **US-1. 4** : Consulter foyer archivé
-- **US-2.1** : Voir 3 portefeuilles (si couple)
-- **US-2. 2** : Attribuer transaction (personnel/commun)
+- ✅ **US-1.2a** : Inviter nouveau user (via email)
+- ✅ **US-1.2b** : Inviter user existant (notification in-app)
+- ✅ **US-1.2c** : Accepter invitation
+- ✅ **US-1.3** : Dissoudre foyer
+- ✅ **US-1.4** : Consulter foyer archivé (backend)
+- ✅ **US-2.1** : Voir 3 portefeuilles (si couple)
+- ⏸️ **US-2.2** : Attribuer transaction (reporté Sprint 7)
 
-### **Tâches Backend (Jour 1-6)**
+### **Tâches Backend (Jour 1-6)** ✅
 
 **Base de Données**
-- [ ] Modèles : `Invitation`, `TransactionSplit`
-- [ ] Ajout champs `owner_type`, `owner_id` dans Transaction
-- [ ] Migration Alembic
+- ✅ Modèles : `Invitation`, `NotificationType.HOUSEHOLD_DISSOLVED`
+- ✅ Ajout champs `owner_type`, `owner_user_id`, `original_owner_user_id` dans Account/Transaction
+- ✅ Migration Alembic (5 migrations totales)
 
 **Services**
-- [ ] `invitation_service.py` (create, verify, accept, reject)
-- [ ] `household_service.py` (merge, dissolve, calculate_wallets)
-- [ ] `email_service.py` (envoyer email invitation)
+- ✅ `invitation_service.py` (create, verify, accept, reject)
+- ✅ `household_service.py` (merge, dissolve, calculate_wallets)
+- ✅ Correction bug wallet calculation (Phase 9)
 
 **Logique Fusion/Dissolution**
-- [ ] Fusion : créer COUPLE, migrer données, archiver anciens
-- [ ] Dissolution : archiver COUPLE, créer 2 INDIVIDUAL, répartir
+- ✅ Fusion : créer COUPLE, migrer données (comptes avec original_owner_user_id)
+- ✅ Dissolution : archiver COUPLE, créer 2 INDIVIDUAL, redistribuer comptes/transactions
+- ✅ Redistribution intelligente : PERSONAL migré, SHARED REALIZED archivé, SHARED PROJECTED supprimé
+- ✅ Calcul wallets finaux avant dissolution (initial_balance nouveaux foyers)
 
 **Endpoints API**
-- [ ] CRUD `/api/v1/invitations`
-- [ ] `POST /api/v1/households/:id/dissolve`
-- [ ] `GET /api/v1/households/archived`
-- [ ] `GET /api/v1/dashboard/wallets`
+- ✅ CRUD `/api/v1/invitations`
+- ✅ `POST /api/v1/households/:id/dissolve`
+- ✅ `GET /api/v1/households/archived`
+- ✅ `GET /api/v1/households/me` (household + membres)
+- ✅ `GET /api/v1/wallets` (3 portefeuilles si couple)
 
 **Tests Unitaires**
-- [ ] Tests fusion complète
-- [ ] Tests dissolution + répartition
-- [ ] Tests calcul 3 portefeuilles
-- [ ] Coverage >80%
+- ✅ Tests dissolution complète (4 tests : success, not_couple, not_member, not_active)
+- ✅ Tests fusion + wallets (validés en production)
+- ✅ Tests invitations CRUD
+- ✅ Coverage >80%
 
-### **Tâches Frontend (Jour 7-11)**
+### **Tâches Frontend (Jour 7-11)** ✅
 
 **Pages**
-- [ ] Page `/settings/household`
-- [ ] Page `/archived`
-- [ ] Page `/join? code=XXX`
+- ✅ Page `/settings/household` (complète avec dissolution)
+- ⏸️ Page `/archived` (reporté)
+- ⏸️ Page `/join?code=XXX` (reporté)
 
 **Composants**
-- [ ] `<WalletCards>` (3 cartes si couple)
-- [ ] `<InvitePartnerButton>`, `<InvitationModal>`
-- [ ] `<DissolveHouseholdButton>`, `<DissolveConfirmDialog>`
-- [ ] `<AcceptInvitationDialog>`
-- [ ] Modification `<AddTransactionModal>` (champ Attribution si couple)
-- [ ] Modification `<TransactionItem>` (logo attribution)
+- ✅ `<WalletCards>` (3 cartes si couple)
+- ✅ `<InvitePartnerButton>`, `<InvitationModal>`, `<InvitationList>`
+- ✅ `<DissolveHouseholdButton>`, `<DissolveConfirmDialog>` avec loading state
+- ✅ `<AcceptInvitationDialog>`, `<RejectInvitationButton>`
+- ⏸️ Modification `<AddTransactionModal>` (champ Attribution - reporté)
+- ⏸️ Modification `<TransactionItem>` (logo attribution - reporté)
+
+**Services**
+- ✅ `householdService.ts` (dissolveHousehold, getCurrentHousehold, getArchivedHouseholds)
+- ✅ `invitationService.ts` (create, accept, reject, cancel)
 
 **Hooks**
-- [ ] `useHousehold`, `useWallets`, `useInvitations`
-- [ ] `useCreateInvitation`, `useAcceptInvitation`, `useDissolveHousehold`
+- ✅ Intégration API réelle (plus de données mockées)
+- ✅ Gestion états loading/error avec toast notifications
+- ✅ Affichage dynamique membres avec initiales
 
-### **Tests E2E Playwright (Jour 12-14)**
+### **Bugs Corrigés** ✅
 
-- [ ] **E2E-US-1. 2a** : Inviter nouveau user (vérifier email envoyé - mock)
-- [ ] **E2E-US-1.2b+c** : Inviter user existant + accepter
-  ```typescript
-  test('US-1.2b+c: Invite existing user and accept', async ({ page, context }) => {
-    // User 1 (Alex) invite User 2 (Sarah)
-    await loginAsUser(page, 'alex@test.com');
-    await page.goto('/settings/household');
-    await page. click('text=Inviter un partenaire');
-    await page. fill('[name="email"]', 'sarah@test.com');
-    await page.click('button:has-text("Envoyer invitation")');
-    await expect(page.locator('text=Invitation envoyée')).toBeVisible();
-    
-    // User 2 (Sarah) accepte
-    const page2 = await context.newPage();
-    await loginAsUser(page2, 'sarah@test.com');
-    await page2.goto('/dashboard');
-    // Vérifier notification invitation
-    await page2.click('[aria-label="Notifications"]');
-    await expect(page2.locator('text=Alex vous invite')).toBeVisible();
-    await page2.click('button:has-text("Accepter")');
-    await expect(page2.locator('text=Félicitations')).toBeVisible();
-    
-    // Vérifier fusion (household COUPLE)
-    await page2. goto('/dashboard');
-    await expect(page2.locator('text=Alex & Sarah')).toBeVisible();
-    // Vérifier 3 portefeuilles
-    await expect(page2.locator('text=Mon Portefeuille')).toBeVisible();
-    await expect(page2.locator('text=Portefeuille Sarah')).toBeVisible();
-    await expect(page2.locator('text=Portefeuille Commun')).toBeVisible();
-  });
-  ```
-- [ ] **E2E-US-1.3** : Dissoudre foyer (vérifier retour compte individuel)
-- [ ] **E2E-US-1.4** : Consulter foyer archivé (lecture seule)
-- [ ] **E2E-US-2. 1** : Voir 3 portefeuilles (si couple)
-- [ ] **E2E-US-2.2** : Ajouter transaction commune (attribution)
+**Phase 9: Bug wallet calculation critique**
+- ✅ Problème: Wallets après fusion ne comptaient pas initial_balance des comptes
+- ✅ Solution: Ajout `original_owner_user_id` dans Account
+- ✅ Migration: Colonne + mise à jour données existantes
+- ✅ Service: `calculate_wallets()` inclut initial_balance par owner
+- ✅ Service: `merge_households()` préserve original_owner_user_id
+- ✅ Validation production: 3233.51€ et 2170.01€ (attendu ✅)
+- ✅ Tests: 11 tests (8 wallet + 3 régression)
 
-### **Livrables Sprint 6**
-✅ Feature mode couple complète  
-✅ Fusion/dissolution foyers  
-✅ Portefeuilles tracés  
-✅ Tests unitaires >80%  
-✅ Tests E2E (7 user stories)  
-✅ CI passante
+**Bugs dissolution**
+- ✅ Fix: `await self.db.delete()` → `self.db.delete()` (pas async)
+- ✅ Fix: Migration enum `HOUSEHOLD_DISSOLVED` manquante
+- ✅ Fix: `household_id` dans notifications de dissolution
+
+### **Migrations Alembic** ✅
+
+1. ✅ `a0ce9c541234` - Add invitation model
+2. ✅ `b1df0d652345` - Add owner_type and owner_user_id to transactions
+3. ✅ `c2ef1e763456` - Add original_owner_user_id to accounts (Phase 9)
+4. ✅ `0a7adba857ab` - Update existing accounts with original_owner_user_id
+5. ✅ `41b674e8ec28` - Add HOUSEHOLD_DISSOLVED to notificationtype enum
+
+### **Tests Manuels Validés** ✅
+
+**Invitations**
+- ✅ User 1 invite User 2 (email existant)
+- ✅ User 2 reçoit notification in-app
+- ✅ User 2 accepte → Fusion automatique
+- ✅ Household COUPLE créé avec nom "User1 & User2"
+- ✅ Wallets affichés correctement (3 portefeuilles)
+
+**Dissolution**
+- ✅ Bouton "Dissoudre le foyer" accessible
+- ✅ Dialog de confirmation avec avertissement
+- ✅ Dissolution réussie → 2 nouveaux foyers INDIVIDUAL
+- ✅ Household COUPLE archivé
+- ✅ Comptes redistribués par original_owner_user_id
+- ✅ Transactions PERSONAL migrées
+- ✅ Transactions SHARED REALIZED conservées dans archivé
+- ✅ Transactions SHARED PROJECTED supprimées
+- ✅ Notifications envoyées aux 2 membres
+- ✅ Toast success avec balance initiale affichée
+
+### **Livrables Sprint 6** ✅
+
+✅ Feature mode couple complète (Front + Back)
+✅ Système d'invitations (création, acceptation, rejet, annulation)
+✅ Fusion automatique foyers → COUPLE
+✅ Dissolution foyers → 2 INDIVIDUAL (redistribution intelligente)
+✅ Consultation foyers archivés (backend endpoint)
+✅ 3 portefeuilles (Mon, Partenaire, Commun)
+✅ Calcul wallets avec initial_balance (bug critique résolu)
+✅ Tests unitaires backend: 4 tests dissolution + tests wallet
+✅ 5 migrations Alembic
+✅ Validation manuelle complète (invitations + dissolution)
+✅ Seed script à jour avec original_owner_user_id
+⏸️ Tests E2E Playwright (reportés fin de projet)
+⏸️ Attribution transactions (modal + display - reporté Sprint 7)
+
+### **Résumé Technique Sprint 6**
+
+**Backend:**
+- 1 nouveau modèle (Invitation)
+- 2 nouveaux services (InvitationService, dissolution dans HouseholdService)
+- 5 migrations Alembic
+- 3 nouveaux endpoints (/invitations, /households/:id/dissolve, /households/me)
+- Tests unitaires: 4 tests dissolution + tests invitations
+- Bug fix critique: wallet calculation avec original_owner_user_id
+
+**Frontend:**
+- 1 service (householdService.ts)
+- 1 service existant modifié (invitationService.ts)
+- 2 composants majeurs (SettingsHousehold, InvitationList)
+- Intégration API complète (dissolution + household/me)
+- UX: Loading states, error handling, toast notifications
+
+**Décisions Techniques:**
+- Soft delete transactions SHARED PROJECTED lors dissolution
+- Conservation transactions SHARED REALIZED dans household archivé (historique)
+- Migration transactions PERSONAL vers nouveau household du propriétaire
+- Calcul wallet final AVANT dissolution pour initial_balance précis
+- Enum PostgreSQL géré via migrations Alembic
 
 ---
 
-## 📁 SPRINT 7 : Feature Fichiers & Objectifs (2 semaines)
+## 📁 SPRINT 7 : Feature Attribution Transactions + Objectifs (2 semaines)
 
 ### **Fonctionnalité**
 Upload avatars + objectifs épargne + export PDF
