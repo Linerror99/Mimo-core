@@ -101,12 +101,33 @@ class HouseholdService:
             .values(household_id=new_household.id)
         )
         
-        # Étape 4: Migrer les accounts
-        await self.db.execute(
-            update(Account)
-            .where(Account.household_id.in_([household1_id, household2_id]))
-            .values(household_id=new_household.id)
-        )
+        # Étape 4: Migrer les accounts AVEC tracking du propriétaire d'origine
+        # Crucial pour :
+        # 1. Calcul correct des wallets (inclure initial_balance du bon user)
+        # 2. Affichage "Tes comptes" vs "Ses comptes" dans l'UI
+        # 3. Dissolution future : rendre les comptes à leur propriétaire
+        
+        # Accounts de household1 → original_owner_user_id = user1
+        if user1_id:
+            await self.db.execute(
+                update(Account)
+                .where(Account.household_id == household1_id)
+                .values(
+                    household_id=new_household.id,
+                    original_owner_user_id=user1_id,
+                )
+            )
+        
+        # Accounts de household2 → original_owner_user_id = user2
+        if user2_id:
+            await self.db.execute(
+                update(Account)
+                .where(Account.household_id == household2_id)
+                .values(
+                    household_id=new_household.id,
+                    original_owner_user_id=user2_id,
+                )
+            )
         
         # Étape 5: Migrer les transactions avec attribution owner
         # Transactions de household1 → owner_user_id = user1
@@ -299,8 +320,16 @@ class HouseholdService:
         stmt = select(Account).where(Account.household_id == household_id)
         accounts = list((await self.db.execute(stmt)).scalars().all())
         
-        # Solde initial de tous les comptes
-        initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in accounts)
+        # Solde initial total de tous les comptes
+        total_initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in accounts)
+        
+        # NOUVEAU: Soldes initiaux PAR PROPRIÉTAIRE
+        # Crucial pour calcul correct après fusion (inclure le solde des comptes du user)
+        user1_accounts = [acc for acc in accounts if acc.original_owner_user_id == user1.id]
+        user2_accounts = [acc for acc in accounts if acc.original_owner_user_id == user2.id]
+        
+        user1_initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in user1_accounts)
+        user2_initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in user2_accounts)
         
         # Calculer les transactions PERSONAL pour chaque user
         # User 1 personal transactions
@@ -342,15 +371,15 @@ class HouseholdService:
         shared_per_person = shared_total / num_members
         
         # Calculer les balances finales
-        # Chaque membre: ses transactions personal + sa part des shared
-        # (initial_balance n'est PAS ajouté aux wallets personnels car il représente
-        # le solde initial des comptes du household, pas des dépenses personnelles)
-        user1_balance = user1_personal + shared_per_person
-        user2_balance = user2_personal + shared_per_person
+        # CORRECTIF BUG: Inclure initial_balance des comptes du user dans son wallet personnel
+        # Avant: user1_balance = user1_personal + shared_per_person (manque initial_balance!)
+        # Après: user1_balance = initial_balance de ses comptes + transactions personal + part shared
+        user1_balance = user1_initial_balance + user1_personal + shared_per_person
+        user2_balance = user2_initial_balance + user2_personal + shared_per_person
         
         # Total balance du household
         # = initial_balance + toutes les transactions (PERSONAL + SHARED + NULL)
-        total_balance = initial_balance + user1_personal + user2_personal + shared_total + null_transactions
+        total_balance = total_initial_balance + user1_personal + user2_personal + shared_total + null_transactions
         
         return {
             "total_balance": float(total_balance),

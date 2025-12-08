@@ -69,8 +69,12 @@ class TestWalletCalculation:
 
     @pytest.fixture
     async def account(self, db_session, couple_household):
-        """Créer un compte pour le household."""
-        household, _, _ = couple_household
+        """Créer un compte pour le household.
+        
+        NOUVEAU: On attribue le compte au user1 pour test correct des wallets.
+        Avec original_owner_user_id, le initial_balance est ajouté au wallet du propriétaire.
+        """
+        household, user1, _ = couple_household
         
         account = Account(
             id="acc1",
@@ -78,6 +82,7 @@ class TestWalletCalculation:
             name="Compte Joint",
             initial_balance=Decimal("2000.00"),
             type=AccountType.CHECKING,
+            original_owner_user_id=user1.id,  # NOUVEAU: Track propriétaire
         )
         db_session.add(account)
         await db_session.commit()
@@ -86,7 +91,12 @@ class TestWalletCalculation:
         return account
 
     async def test_calculate_wallets_empty(self, db_session, couple_household, account):
-        """Test: Calcul wallets sans transactions (seulement balance compte)."""
+        """Test: Calcul wallets sans transactions (seulement balance compte).
+        
+        CORRECTIF BUG: Avec original_owner_user_id, le wallet du propriétaire inclut initial_balance.
+        User1 possède le compte (2000€), donc son wallet = 2000€ (balance initiale) + 0€ (transactions).
+        User2 n'a pas de compte, donc wallet = 0€.
+        """
         household, user1, user2 = couple_household
         service = HouseholdService(db_session)
         
@@ -95,12 +105,13 @@ class TestWalletCalculation:
         # Total balance = balance du compte (2000€)
         assert result["total_balance"] == 2000.00
         
-        # Chaque membre a: 0 personal + 0 shared = 0€ (initial_balance n'est pas dans les wallets personnels)
+        # User1 possède le compte: initial_balance (2000€) + personal (0€) + shared (0€) = 2000€
         assert result["members"][user1.id]["user_name"] == "Alex Dupont"
-        assert result["members"][user1.id]["balance"] == 0.00
+        assert result["members"][user1.id]["balance"] == 2000.00
         assert result["members"][user1.id]["personal_balance"] == 0.00
         assert result["members"][user1.id]["shared_contribution"] == 0.00
         
+        # User2 n'a pas de compte: initial_balance (0€) + personal (0€) + shared (0€) = 0€
         assert result["members"][user2.id]["user_name"] == "Sarah Martin"
         assert result["members"][user2.id]["balance"] == 0.00
         assert result["members"][user2.id]["personal_balance"] == 0.00
@@ -111,7 +122,10 @@ class TestWalletCalculation:
         assert result["shared"]["split_per_person"] == 0.00
 
     async def test_calculate_wallets_personal_only(self, db_session, couple_household, account):
-        """Test: Calcul avec transactions PERSONAL uniquement."""
+        """Test: Calcul avec transactions PERSONAL uniquement.
+        
+        CORRECTIF BUG: User1 possède le compte (2000€ initial), donc son wallet inclut ce montant.
+        """
         household, user1, user2 = couple_household
         
         # User1: -50€ (essence)
@@ -154,12 +168,12 @@ class TestWalletCalculation:
         # Total balance = 2000 - 50 - 100 = 1850€
         assert result["total_balance"] == 1850.00
         
-        # User1: -50 personal + 0 shared = -50€
-        assert result["members"][user1.id]["balance"] == -50.00
+        # User1: initial_balance (2000€) + personal (-50€) + shared (0€) = 1950€
+        assert result["members"][user1.id]["balance"] == 1950.00
         assert result["members"][user1.id]["personal_balance"] == -50.00
         assert result["members"][user1.id]["shared_contribution"] == 0.00
         
-        # User2: -100 personal + 0 shared = -100€
+        # User2: initial_balance (0€) + personal (-100€) + shared (0€) = -100€
         assert result["members"][user2.id]["balance"] == -100.00
         assert result["members"][user2.id]["personal_balance"] == -100.00
         assert result["members"][user2.id]["shared_contribution"] == 0.00
@@ -195,11 +209,12 @@ class TestWalletCalculation:
         # Total balance = 2000 - 1200 = 800€
         assert result["total_balance"] == 800.00
         
-        # Chaque user: 0 personal + (-1200/2) = -600€
-        assert result["members"][user1.id]["balance"] == -600.00
+        # User1: initial_balance (2000€) + personal (0€) + shared (-600€) = 1400€
+        assert result["members"][user1.id]["balance"] == 1400.00
         assert result["members"][user1.id]["personal_balance"] == 0.00
         assert result["members"][user1.id]["shared_contribution"] == -600.00
         
+        # User2: initial_balance (0€) + personal (0€) + shared (-600€) = -600€
         assert result["members"][user2.id]["balance"] == -600.00
         assert result["members"][user2.id]["personal_balance"] == 0.00
         assert result["members"][user2.id]["shared_contribution"] == -600.00
@@ -268,12 +283,12 @@ class TestWalletCalculation:
         # Total balance = 2000 - 50 + 3000 - 1200 = 3750€
         assert result["total_balance"] == 3750.00
         
-        # User1: -50 (personal) + (-600) (shared/2) = -650€
-        assert result["members"][user1.id]["balance"] == -650.00
+        # User1: initial_balance (2000€) + personal (-50€) + shared (-600€) = 1350€
+        assert result["members"][user1.id]["balance"] == 1350.00
         assert result["members"][user1.id]["personal_balance"] == -50.00
         assert result["members"][user1.id]["shared_contribution"] == -600.00
         
-        # User2: 3000 (personal) + (-600) (shared/2) = 2400€
+        # User2: initial_balance (0€) + personal (3000€) + shared (-600€) = 2400€
         assert result["members"][user2.id]["balance"] == 2400.00
         assert result["members"][user2.id]["personal_balance"] == 3000.00
         assert result["members"][user2.id]["shared_contribution"] == -600.00
@@ -329,9 +344,9 @@ class TestWalletCalculation:
         # Total: 2000 - 100 (ignore deleted -500) = 1900€
         assert result["total_balance"] == 1900.00
         
-        # User1: -100 personal = -100€ (deleted ignored)
+        # User1: initial_balance (2000€) + personal (-100€) = 1900€ (deleted ignored)
         assert result["members"][user1.id]["personal_balance"] == -100.00
-        assert result["members"][user1.id]["balance"] == -100.00
+        assert result["members"][user1.id]["balance"] == 1900.00
 
     async def test_calculate_wallets_not_couple_raises_error(self, db_session):
         """Test: Erreur si household n'est pas COUPLE."""

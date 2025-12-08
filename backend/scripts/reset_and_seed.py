@@ -112,6 +112,7 @@ async def seed_database():
                 name="Compte Courant N26",
                 type=AccountType.CHECKING,
                 initial_balance=Decimal("1000.00"),
+                original_owner_user_id=user1.id,  # NOUVEAU: Track du propriétaire
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
@@ -270,6 +271,7 @@ async def seed_database():
                 name="Compte Épargne",
                 type=AccountType.SAVINGS,
                 initial_balance=Decimal("500.00"),
+                original_owner_user_id=user2.id,  # NOUVEAU: Track du propriétaire
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
