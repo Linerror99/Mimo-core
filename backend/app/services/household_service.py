@@ -404,3 +404,215 @@ class HouseholdService:
                 "split_per_person": float(shared_per_person),
             },
         }
+
+    async def dissolve_household(
+        self,
+        household_id: str,
+        initiated_by_user_id: str,
+    ) -> dict:
+        """
+        Dissoudre un household COUPLE et créer 2 households INDIVIDUAL.
+        
+        Cette méthode effectue :
+        1. Validation (COUPLE + ACTIVE)
+        2. Archivage du household COUPLE actuel (status = ARCHIVED)
+        3. Création de 2 nouveaux households INDIVIDUAL
+        4. Répartition des comptes (chacun récupère ses comptes via original_owner_user_id)
+        5. Répartition des transactions :
+           - PERSONAL → copie vers nouveau household du propriétaire
+           - SHARED RÉALISÉES → restent dans household archivé
+           - SHARED PROJETÉES → annulées (state = CANCELLED)
+        6. Calcul soldes initiaux (portefeuille personnel + 50% du commun)
+        7. Création notifications
+        
+        Args:
+            household_id: ID du household à dissoudre
+            initiated_by_user_id: ID du user qui initie la dissolution
+            
+        Returns:
+            dict: {
+                "archived_household": {...},
+                "new_households": [{...}, {...}]
+            }
+            
+        Raises:
+            ValueError: Si validations échouent
+        """
+        from decimal import Decimal
+        from app.models import TransactionState, RecurrenceFrequency
+        
+        # Validation 1: Household existe et est COUPLE
+        household = await self._get_household(household_id)
+        
+        if household.type != HouseholdType.COUPLE:
+            raise ValueError("Seuls les households COUPLE peuvent être dissous")
+        
+        if household.status != HouseholdStatus.ACTIVE:
+            raise ValueError("Seuls les households ACTIVE peuvent être dissous")
+        
+        # Récupérer les 2 membres
+        stmt = select(User).where(User.household_id == household_id)
+        members = list((await self.db.execute(stmt)).scalars().all())
+        
+        if len(members) != 2:
+            raise ValueError("Le household COUPLE doit avoir exactement 2 membres")
+        
+        user1, user2 = members[0], members[1]
+        
+        # Valider que l'initiateur est bien membre
+        if initiated_by_user_id not in [user1.id, user2.id]:
+            raise ValueError("Seul un membre du household peut initier la dissolution")
+        
+        # Calculer les wallets AVANT dissolution pour répartir le portefeuille commun
+        wallets = await self.calculate_wallets(household_id)
+        user1_final_balance = Decimal(str(wallets["members"][user1.id]["balance"]))
+        user2_final_balance = Decimal(str(wallets["members"][user2.id]["balance"]))
+        
+        # Étape 1: Archiver le household COUPLE
+        household.status = HouseholdStatus.ARCHIVED
+        household.updated_at = datetime.utcnow()
+        
+        # Étape 2: Créer 2 nouveaux households INDIVIDUAL
+        household_user1 = Household(
+            id=str(uuid.uuid4()),
+            name=f"{user1.first_name} {user1.last_name}",
+            type=HouseholdType.INDIVIDUAL,
+            status=HouseholdStatus.ACTIVE,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        self.db.add(household_user1)
+        
+        household_user2 = Household(
+            id=str(uuid.uuid4()),
+            name=f"{user2.first_name} {user2.last_name}",
+            type=HouseholdType.INDIVIDUAL,
+            status=HouseholdStatus.ACTIVE,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        self.db.add(household_user2)
+        
+        await self.db.flush()  # Obtenir IDs pour FK
+        
+        # Étape 3: Migrer les users vers leurs nouveaux households
+        user1.household_id = household_user1.id
+        user2.household_id = household_user2.id
+        
+        # Étape 4: Répartir les comptes (chacun récupère SES comptes via original_owner_user_id)
+        stmt = select(Account).where(Account.household_id == household_id)
+        accounts = list((await self.db.execute(stmt)).scalars().all())
+        
+        for account in accounts:
+            if account.original_owner_user_id == user1.id:
+                account.household_id = household_user1.id
+            elif account.original_owner_user_id == user2.id:
+                account.household_id = household_user2.id
+            else:
+                # Compte créé APRÈS fusion (compte commun) → donner à user1 par défaut
+                account.household_id = household_user1.id
+                account.original_owner_user_id = user1.id
+        
+        # Étape 5: Répartir les transactions
+        stmt = select(Transaction).where(Transaction.household_id == household_id)
+        transactions = list((await self.db.execute(stmt)).scalars().all())
+        
+        for transaction in transactions:
+            # Transactions PERSONAL → migrer vers household du propriétaire
+            if transaction.owner_type == TransactionOwnerType.PERSONAL:
+                if transaction.owner_user_id == user1.id:
+                    transaction.household_id = household_user1.id
+                elif transaction.owner_user_id == user2.id:
+                    transaction.household_id = household_user2.id
+            
+            # Transactions SHARED
+            elif transaction.owner_type == TransactionOwnerType.SHARED:
+                # Si RÉALISÉE → reste dans household archivé
+                if transaction.state == TransactionState.REALIZED:
+                    pass  # Reste dans household archivé
+                
+                # Si PROJETÉE → supprimer (plus d'obligation future partagée)
+                else:
+                    await self.db.delete(transaction)
+        
+        # Étape 6: Migrer les catégories (chacune vers les 2 households)
+        stmt = select(Category).where(Category.household_id == household_id)
+        categories = list((await self.db.execute(stmt)).scalars().all())
+        
+        # Dupliquer chaque catégorie pour les 2 nouveaux households
+        for category in categories:
+            # Catégorie pour user1
+            cat1 = Category(
+                id=str(uuid.uuid4()),
+                household_id=household_user1.id,
+                name=category.name,
+                type=category.type,
+                color=category.color,
+                icon=category.icon,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            self.db.add(cat1)
+            
+            # Catégorie pour user2
+            cat2 = Category(
+                id=str(uuid.uuid4()),
+                household_id=household_user2.id,
+                name=category.name,
+                type=category.type,
+                color=category.color,
+                icon=category.icon,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            self.db.add(cat2)
+        
+        # Étape 7: Créer notifications
+        notif1 = Notification(
+            id=str(uuid.uuid4()),
+            user_id=user1.id,
+            household_id=household_user1.id,  # Nouveau foyer individuel de user1
+            type=NotificationType.HOUSEHOLD_DISSOLVED,
+            title="Foyer dissous",
+            message=f"Le foyer '{household.name}' a été dissous. Vous avez maintenant un compte individuel.",
+            created_at=datetime.utcnow(),
+        )
+        self.db.add(notif1)
+        
+        notif2 = Notification(
+            id=str(uuid.uuid4()),
+            user_id=user2.id,
+            household_id=household_user2.id,  # Nouveau foyer individuel de user2
+            type=NotificationType.HOUSEHOLD_DISSOLVED,
+            title="Foyer dissous",
+            message=f"Le foyer '{household.name}' a été dissous. Vous avez maintenant un compte individuel.",
+            created_at=datetime.utcnow(),
+        )
+        self.db.add(notif2)
+        
+        await self.db.commit()
+        await self.db.refresh(household)
+        await self.db.refresh(household_user1)
+        await self.db.refresh(household_user2)
+        
+        return {
+            "archived_household": {
+                "id": household.id,
+                "name": household.name,
+                "status": household.status.value,
+            },
+            "new_households": [
+                {
+                    "id": household_user1.id,
+                    "name": household_user1.name,
+                    "owner": f"{user1.first_name} {user1.last_name}",
+                    "initial_balance": float(user1_final_balance),
+                },
+                {
+                    "id": household_user2.id,
+                    "name": household_user2.name,
+                    "owner": f"{user2.first_name} {user2.last_name}",
+                    "initial_balance": float(user2_final_balance),
+                },
+            ],
+        }
