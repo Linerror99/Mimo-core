@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ValidationModal } from '@/components/ValidationModal'
+import { WalletCards } from '@/components/WalletCards'
 import { User, Home as HomeIcon, TrendingUp, Clock, Check, Database, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { sampleTransactions, sampleAccounts, sampleCategories, sampleGoals } from '@/lib/sampleData'
@@ -129,60 +130,8 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-0">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <User className="w-5 h-5" />
-              </div>
-              <Badge variant="secondary" className="bg-white/20 text-white border-0">
-                Mon Portefeuille
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-3xl font-bold font-mono-amounts">{formatAmount(myWalletTotal)}</p>
-              <div className="text-sm opacity-90 space-y-1">
-                <p>Personnel: {formatAmount(personalBalance)}</p>
-                <p>Part commune: {formatAmount(sharedBalance / 2)}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 bg-gradient-to-br from-primary/70 to-primary/60 text-primary-foreground border-0">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <User className="w-5 h-5" />
-              </div>
-              <Badge variant="secondary" className="bg-white/20 text-white border-0">
-                Partenaire
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-3xl font-bold font-mono-amounts">{formatAmount(partnerWalletTotal)}</p>
-              <div className="text-sm opacity-90 space-y-1">
-                <p>Personnel: {formatAmount(partnerBalance)}</p>
-                <p>Part commune: {formatAmount(sharedBalance / 2)}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 bg-gradient-to-br from-accent to-accent/80 text-accent-foreground border-0">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <HomeIcon className="w-5 h-5" />
-              </div>
-              <Badge variant="secondary" className="bg-white/20 text-white border-0">
-                Commun
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-3xl font-bold font-mono-amounts">{formatAmount(sharedBalance)}</p>
-              <div className="text-sm opacity-90 space-y-1">
-                <p>100€ chacun</p>
-              </div>
-            </div>
-          </Card>
-        </div>
+        {/* Portefeuilles - Utilise WalletCards (Sprint 6) */}
+        <WalletCards />
 
         {pendingTransactions.length > 0 && (
           <Card className="p-6 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">

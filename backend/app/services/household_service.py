@@ -237,3 +237,139 @@ class HouseholdService:
             raise ValueError("Household not found")
         
         return household
+
+    async def calculate_wallets(self, household_id: str) -> dict:
+        """
+        Calculer les 3 portefeuilles pour un household COUPLE.
+        
+        Retourne un dictionnaire avec les balances de chaque membre et du commun:
+        {
+            "total_balance": float,
+            "members": {
+                "user1_id": {
+                    "user_id": str,
+                    "balance": float,
+                    "personal_balance": float,
+                    "shared_contribution": float,
+                },
+                "user2_id": {...}
+            },
+            "shared": {
+                "balance": float,
+                "split_per_person": float,
+            }
+        }
+        
+        Logique:
+        - Initial Balance: Somme des initial_balance de tous les comptes du household
+        - Personal Transactions: Somme des transactions avec owner_type=PERSONAL + owner_user_id=user
+        - Shared Transactions: Somme des transactions avec owner_type=SHARED
+        - Shared Contribution: Shared Transactions / nombre de membres
+        - Balance Membre: Initial Balance + Personal Transactions + Shared Contribution
+        - Total Balance: Initial Balance + All Transactions (PERSONAL + SHARED + NULL)
+        
+        Args:
+            household_id: ID du household COUPLE
+            
+        Returns:
+            dict: Dictionnaire avec les 3 vues de portefeuilles
+            
+        Raises:
+            ValueError: Si le household n'existe pas ou n'est pas COUPLE
+        """
+        from sqlalchemy import func
+        from decimal import Decimal
+        
+        # Récupérer le household
+        household = await self._get_household(household_id)
+        
+        if household.type != HouseholdType.COUPLE:
+            raise ValueError("Wallet calculation is only available for COUPLE households")
+        
+        # Récupérer les membres (users)
+        stmt = select(User).where(User.household_id == household_id)
+        members = list((await self.db.execute(stmt)).scalars().all())
+        
+        if len(members) != 2:
+            raise ValueError("COUPLE household must have exactly 2 members")
+        
+        user1, user2 = members[0], members[1]
+        
+        # Récupérer tous les comptes du household et leur solde initial
+        stmt = select(Account).where(Account.household_id == household_id)
+        accounts = list((await self.db.execute(stmt)).scalars().all())
+        
+        # Solde initial de tous les comptes
+        initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in accounts)
+        
+        # Calculer les transactions PERSONAL pour chaque user
+        # User 1 personal transactions
+        stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.household_id == household_id,
+            Transaction.owner_type == TransactionOwnerType.PERSONAL,
+            Transaction.owner_user_id == user1.id,
+            Transaction.deleted_at.is_(None),
+        )
+        user1_personal = Decimal(str((await self.db.execute(stmt)).scalar()))
+        
+        # User 2 personal transactions
+        stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.household_id == household_id,
+            Transaction.owner_type == TransactionOwnerType.PERSONAL,
+            Transaction.owner_user_id == user2.id,
+            Transaction.deleted_at.is_(None),
+        )
+        user2_personal = Decimal(str((await self.db.execute(stmt)).scalar()))
+        
+        # Calculer les transactions SHARED
+        stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.household_id == household_id,
+            Transaction.owner_type == TransactionOwnerType.SHARED,
+            Transaction.deleted_at.is_(None),
+        )
+        shared_total = Decimal(str((await self.db.execute(stmt)).scalar()))
+        
+        # Calculer les transactions NULL (mode INDIVIDUAL avant fusion)
+        stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.household_id == household_id,
+            Transaction.owner_type.is_(None),
+            Transaction.deleted_at.is_(None),
+        )
+        null_transactions = Decimal(str((await self.db.execute(stmt)).scalar()))
+        
+        # Split 50/50 pour SHARED
+        num_members = Decimal("2.00")
+        shared_per_person = shared_total / num_members
+        
+        # Calculer les balances finales
+        # Chaque membre: initial_balance + ses transactions personal + sa part des shared
+        user1_balance = initial_balance + user1_personal + shared_per_person
+        user2_balance = initial_balance + user2_personal + shared_per_person
+        
+        # Total balance du household
+        # = initial_balance + toutes les transactions (PERSONAL + SHARED + NULL)
+        total_balance = initial_balance + user1_personal + user2_personal + shared_total + null_transactions
+        
+        return {
+            "total_balance": float(total_balance),
+            "members": {
+                user1.id: {
+                    "user_id": user1.id,
+                    "user_name": f"{user1.first_name} {user1.last_name}",
+                    "balance": float(user1_balance),
+                    "personal_balance": float(user1_personal),
+                    "shared_contribution": float(shared_per_person),
+                },
+                user2.id: {
+                    "user_id": user2.id,
+                    "user_name": f"{user2.first_name} {user2.last_name}",
+                    "balance": float(user2_balance),
+                    "personal_balance": float(user2_personal),
+                    "shared_contribution": float(shared_per_person),
+                },
+            },
+            "shared": {
+                "balance": float(shared_total),
+                "split_per_person": float(shared_per_person),
+            },
+        }
