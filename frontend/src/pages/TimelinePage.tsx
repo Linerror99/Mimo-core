@@ -22,6 +22,7 @@ import {
 } from "../types/transaction";
 import { Account } from "../types/account";
 import { Category } from "../types/category";
+import { ExportButton } from "../components/ExportButton";
 import "../styles/Timeline.css";
 
 type Page =
@@ -344,6 +345,11 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           <button className="btn btn-secondary" onClick={goToToday}>
             Aujourd'hui
           </button>
+          <ExportButton 
+            year={currentMonth.getFullYear()} 
+            month={currentMonth.getMonth() + 1}
+            className="export-btn"
+          />
         </div>
 
         {/* Résumé des totaux */}

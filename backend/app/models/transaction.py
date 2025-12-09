@@ -26,6 +26,7 @@ class TransactionState(str, enum.Enum):
     REALIZED = "REALIZED"  # Transaction passée et validée
     PROJECTED = "PROJECTED"  # Transaction future (date > aujourd'hui)
     PENDING = "PENDING"  # Transaction du jour en attente de validation
+    CANCELLED = "CANCELLED"  # Transaction annulée (visible mais barrée)
 
 
 class RecurrenceFrequency(str, enum.Enum):

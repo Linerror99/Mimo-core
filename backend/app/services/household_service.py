@@ -531,9 +531,12 @@ class HouseholdService:
                 if transaction.state == TransactionState.REALIZED:
                     pass  # Reste dans household archivé
                 
-                # Si PROJETÉE → supprimer (plus d'obligation future partagée)
+                # Si PROJETÉE ou PENDING → supprimer (plus d'obligation future partagée)
                 else:
-                    self.db.delete(transaction)  # Marquer pour suppression (pas async)
+                    await self.db.delete(transaction)
+        
+        # Flush pour appliquer les suppressions avant de continuer
+        await self.db.flush()
         
         # Étape 6: Migrer les catégories (chacune vers les 2 households)
         stmt = select(Category).where(Category.household_id == household_id)

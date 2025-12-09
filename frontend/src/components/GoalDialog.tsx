@@ -3,57 +3,79 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { Goal } from '@/types'
+import { Textarea } from '@/components/ui/textarea'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { type Goal, type GoalCreate, type GoalUpdate } from '@/services/goalService'
+import { User, Home } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
 
 interface GoalDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (goal: Goal) => void
+  onSave: (goal: GoalCreate | GoalUpdate, currentAmount?: number) => void
   goal?: Goal
 }
 
-const GOAL_ICONS = ['🏠', '🚗', '✈️', '💍', '🎓', '💰', '🏖️', '🎯', '📱', '🎮']
-
 export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps) {
+  const user = useAuthStore((state) => state.user)
+  const [goalType, setGoalType] = useState<'personal' | 'household'>('personal')
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [targetAmount, setTargetAmount] = useState('')
   const [currentAmount, setCurrentAmount] = useState('')
-  const [deadline, setDeadline] = useState('')
-  const [icon, setIcon] = useState(GOAL_ICONS[0])
+  const [targetDate, setTargetDate] = useState('')
 
   useEffect(() => {
     if (goal) {
+      setGoalType(goal.user_id ? 'personal' : 'household')
       setName(goal.name)
-      setTargetAmount(goal.targetAmount.toString())
-      setCurrentAmount(goal.currentAmount.toString())
-      setDeadline(goal.deadline.split('T')[0])
-      setIcon(goal.icon)
+      setDescription(goal.description || '')
+      setTargetAmount(goal.target_amount.toString())
+      setCurrentAmount(goal.current_amount.toString())
+      setTargetDate(goal.target_date.split('T')[0])
     } else {
+      setGoalType('personal')
       setName('')
+      setDescription('')
       setTargetAmount('')
       setCurrentAmount('0')
-      setDeadline('')
-      setIcon(GOAL_ICONS[0])
+      setTargetDate('')
     }
   }, [goal, open])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const newGoal: Goal = {
-      id: goal?.id || Date.now().toString(),
-      name,
-      targetAmount: parseFloat(targetAmount),
-      currentAmount: parseFloat(currentAmount || '0'),
-      deadline,
-      icon,
-      userId: 'current-user',
+    const currentAmountValue = parseFloat(currentAmount || '0')
+    
+    if (goal) {
+      // Mode édition - envoyer GoalUpdate
+      const updateData: GoalUpdate = {
+        name,
+        description: description || undefined,
+        target_amount: parseFloat(targetAmount),
+        target_date: targetDate,
+      }
+      onSave(updateData, currentAmountValue)
+    } else {
+      // Mode création - envoyer GoalCreate
+      const createData: GoalCreate = {
+        goal_type: goalType,
+        name,
+        description: description || undefined,
+        target_amount: parseFloat(targetAmount),
+        current_amount: currentAmountValue,
+        target_date: targetDate,
+      }
+      onSave(createData, currentAmountValue)
     }
-    onSave(newGoal)
+    
+    // Reset form
+    setGoalType('personal')
     setName('')
+    setDescription('')
     setTargetAmount('')
     setCurrentAmount('0')
-    setDeadline('')
-    setIcon(GOAL_ICONS[0])
+    setTargetDate('')
   }
 
   return (
@@ -63,6 +85,37 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
           <DialogTitle>{goal ? "Modifier l'objectif" : 'Nouvel objectif'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Type d'objectif</Label>
+            <RadioGroup 
+              value={goalType} 
+              onValueChange={(value: 'personal' | 'household') => setGoalType(value)}
+              disabled={goal ? true : false} // Désactiver la modification du type en édition
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="personal" id="personal" />
+                <Label htmlFor="personal" className="cursor-pointer font-normal">
+                  <User className="inline w-4 h-4 mr-1" />
+                  Personnel
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem 
+                  value="household" 
+                  id="household" 
+                  disabled={!user?.is_in_couple} // Désactiver si pas en couple
+                />
+                <Label 
+                  htmlFor="household" 
+                  className={`font-normal ${!user?.is_in_couple ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <Home className="inline w-4 h-4 mr-1" />
+                  Foyer {!user?.is_in_couple && '(nécessite d\'être en couple)'}
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Nom de l'objectif</Label>
             <Input
@@ -75,27 +128,20 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
           </div>
 
           <div className="space-y-2">
-            <Label>Icône</Label>
-            <div className="grid grid-cols-5 gap-2">
-              {GOAL_ICONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setIcon(emoji)}
-                  className={`w-full aspect-square rounded-lg flex items-center justify-center text-2xl transition-colors ${
-                    icon === emoji ? 'bg-primary/20 border-2 border-primary' : 'bg-secondary hover:bg-secondary/80'
-                  }`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
+            <Label htmlFor="description">Description (optionnelle)</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Décrivez votre objectif..."
+              rows={3}
+            />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="targetAmount">Montant cible (€)</Label>
+            <Label htmlFor="target_amount">Montant cible (€)</Label>
             <Input
-              id="targetAmount"
+              id="target_amount"
               type="number"
               step="0.01"
               value={targetAmount}
@@ -106,9 +152,9 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="currentAmount">Montant actuel (€)</Label>
+            <Label htmlFor="current_amount">Montant actuel (€)</Label>
             <Input
-              id="currentAmount"
+              id="current_amount"
               type="number"
               step="0.01"
               value={currentAmount}
@@ -118,12 +164,12 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="deadline">Date limite</Label>
+            <Label htmlFor="target_date">Date limite</Label>
             <Input
-              id="deadline"
+              id="target_date"
               type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
               required
             />
           </div>

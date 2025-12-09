@@ -6,6 +6,7 @@ from .transaction import Transaction, TransactionType, TransactionState, Recurre
 from .recurring_template import RecurringTemplate, Frequency
 from .notification import Notification, NotificationType
 from .invitation import Invitation, InvitationType, InvitationStatus
+from .goal import Goal
 
 __all__ = [
     "User", 
@@ -27,5 +28,6 @@ __all__ = [
     "NotificationType",
     "Invitation",
     "InvitationType",
-    "InvitationStatus"
+    "InvitationStatus",
+    "Goal"
 ]

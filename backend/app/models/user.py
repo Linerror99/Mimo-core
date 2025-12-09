@@ -13,6 +13,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)  # URL de la photo de profil
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
     # Foreign key to household
@@ -27,6 +28,7 @@ class User(Base):
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     sent_invitations: Mapped[list["Invitation"]] = relationship("Invitation", foreign_keys="Invitation.inviter_user_id", back_populates="inviter")
     received_invitations: Mapped[list["Invitation"]] = relationship("Invitation", foreign_keys="Invitation.invitee_user_id", back_populates="invitee")
+    goals: Mapped[list["Goal"]] = relationship("Goal", foreign_keys="Goal.user_id", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, name={self.first_name} {self.last_name})>"

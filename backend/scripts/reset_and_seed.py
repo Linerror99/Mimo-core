@@ -39,6 +39,7 @@ from app.models import (
     TransactionState,
     TransactionOwnerType,
     RecurrenceFrequency,
+    Goal,
 )
 from app.services.auth import AuthService
 
@@ -79,10 +80,11 @@ async def seed_database():
     async with AsyncSessionLocal() as db:
         try:
             # ============================================================
-            # USER 1: Moi Toi
+            # USER 1: Moi Toi (INDIVIDUAL household)
             # ============================================================
             print("\n👤 Creating User 1: Moi Toi")
             
+            # Create INDIVIDUAL household for user
             household1 = Household(
                 id="household-moi-toi",
                 name="Moi Toi",
@@ -95,7 +97,7 @@ async def seed_database():
             
             user1 = User(
                 id="user-moi-toi",
-                household_id=household1.id,
+                household_id=household1.id,  # User is linked to household
                 email="moi.toi@test.com",
                 password_hash=AuthService.hash_password("password123"),
                 first_name="Moi",
@@ -105,20 +107,20 @@ async def seed_database():
             )
             db.add(user1)
             
-            # Compte bancaire User 1
+            # Account
             account1 = Account(
                 id="account-moi-toi-1",
                 household_id=household1.id,
                 name="Compte Courant N26",
                 type=AccountType.CHECKING,
                 initial_balance=Decimal("1000.00"),
-                original_owner_user_id=user1.id,  # NOUVEAU: Track du propriétaire
+                original_owner_user_id=user1.id,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
             db.add(account1)
             
-            # Catégories User 1
+            # Categories
             categories1 = [
                 Category(
                     id="cat-salaire-1",
@@ -148,11 +150,9 @@ async def seed_database():
             for cat in categories1:
                 db.add(cat)
             
-            # Transactions User 1 (5 transactions)
+            # Transactions
             today = date.today()
-            
             transactions1 = [
-                # Salaire (passé)
                 Transaction(
                     id="tx-moi-1",
                     household_id=household1.id,
@@ -167,7 +167,6 @@ async def seed_database():
                     owner_type=TransactionOwnerType.PERSONAL,
                     owner_user_id=user1.id,
                 ),
-                # Courses (passé)
                 Transaction(
                     id="tx-moi-2",
                     household_id=household1.id,
@@ -182,7 +181,6 @@ async def seed_database():
                     owner_type=TransactionOwnerType.PERSONAL,
                     owner_user_id=user1.id,
                 ),
-                # Essence (passé)
                 Transaction(
                     id="tx-moi-3",
                     household_id=household1.id,
@@ -197,7 +195,6 @@ async def seed_database():
                     owner_type=TransactionOwnerType.PERSONAL,
                     owner_user_id=user1.id,
                 ),
-                # Restaurant (aujourd'hui - projeté)
                 Transaction(
                     id="tx-moi-4",
                     household_id=household1.id,
@@ -212,7 +209,6 @@ async def seed_database():
                     owner_type=TransactionOwnerType.PERSONAL,
                     owner_user_id=user1.id,
                 ),
-                # Netflix (futur)
                 Transaction(
                     id="tx-moi-5",
                     household_id=household1.id,
@@ -231,20 +227,53 @@ async def seed_database():
             for tx in transactions1:
                 db.add(tx)
             
-            print(f"   ✅ Created household: {household1.name}")
-            print(f"   ✅ Created user: {user1.email}")
+            # Goals (personal only, no household_id on goal)
+            goals1 = [
+                Goal(
+                    id="goal-vacances-bali",
+                    user_id=user1.id,
+                    household_id=None,
+                    created_by=user1.id,
+                    name="Vacances à Bali",
+                    description="Voyage de rêve à Bali pour 2 semaines",
+                    target_amount=Decimal("3000.00"),
+                    current_amount=Decimal("800.00"),
+                    target_date=date.today() + timedelta(days=180),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+                Goal(
+                    id="goal-macbook",
+                    user_id=user1.id,
+                    household_id=None,
+                    created_by=user1.id,
+                    name="MacBook Pro",
+                    description="Nouveau laptop pour le travail",
+                    target_amount=Decimal("2500.00"),
+                    current_amount=Decimal("1200.00"),
+                    target_date=date.today() + timedelta(days=90),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+            ]
+            for goal in goals1:
+                db.add(goal)
+            
+            print(f"   ✅ Created user: {user1.email} with INDIVIDUAL household")
             print(f"   ✅ Created account: {account1.name} ({account1.initial_balance}€)")
             print(f"   ✅ Created {len(categories1)} categories")
             print(f"   ✅ Created {len(transactions1)} transactions")
+            print(f"   ✅ Created {len(goals1)} personal goals")
             
             # ============================================================
-            # USER 2: Il Elle
+            # USER 2: Il Elle (INDIVIDUAL household)
             # ============================================================
             print("\n👤 Creating User 2: Il Elle")
             
+            # Create INDIVIDUAL household for user
             household2 = Household(
                 id="household-il-elle",
-                name="Il Elle Nous Vous",
+                name="Il Elle",
                 type=HouseholdType.INDIVIDUAL,
                 status=HouseholdStatus.ACTIVE,
                 created_at=datetime.utcnow(),
@@ -254,30 +283,30 @@ async def seed_database():
             
             user2 = User(
                 id="user-il-elle",
-                household_id=household2.id,
+                household_id=household2.id,  # User is linked to household
                 email="il.elle@test.com",
                 password_hash=AuthService.hash_password("password123"),
                 first_name="Il",
-                last_name="elle nous vous",
+                last_name="Elle",
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
             db.add(user2)
             
-            # Compte bancaire User 2
+            # Account
             account2 = Account(
                 id="account-il-elle-1",
                 household_id=household2.id,
                 name="Compte Épargne",
                 type=AccountType.SAVINGS,
                 initial_balance=Decimal("500.00"),
-                original_owner_user_id=user2.id,  # NOUVEAU: Track du propriétaire
+                original_owner_user_id=user2.id,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
             db.add(account2)
             
-            # Catégories User 2 (copie simple)
+            # Categories
             categories2 = [
                 Category(
                     id="cat-salaire-2",
@@ -299,9 +328,8 @@ async def seed_database():
             for cat in categories2:
                 db.add(cat)
             
-            # Transactions User 2 (3 transactions)
+            # Transactions
             transactions2 = [
-                # Salaire (passé)
                 Transaction(
                     id="tx-il-1",
                     household_id=household2.id,
@@ -316,7 +344,6 @@ async def seed_database():
                     owner_type=TransactionOwnerType.PERSONAL,
                     owner_user_id=user2.id,
                 ),
-                # Shopping (passé)
                 Transaction(
                     id="tx-il-2",
                     household_id=household2.id,
@@ -331,7 +358,6 @@ async def seed_database():
                     owner_type=TransactionOwnerType.PERSONAL,
                     owner_user_id=user2.id,
                 ),
-                # Spotify (futur)
                 Transaction(
                     id="tx-il-3",
                     household_id=household2.id,
@@ -350,11 +376,43 @@ async def seed_database():
             for tx in transactions2:
                 db.add(tx)
             
-            print(f"   ✅ Created household: {household2.name}")
-            print(f"   ✅ Created user: {user2.email}")
+            # Goals
+            goals2 = [
+                Goal(
+                    id="goal-iphone",
+                    user_id=user2.id,
+                    household_id=None,
+                    created_by=user2.id,
+                    name="iPhone 16 Pro",
+                    description="Nouveau téléphone",
+                    target_amount=Decimal("1200.00"),
+                    current_amount=Decimal("300.00"),
+                    target_date=date.today() + timedelta(days=120),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+                Goal(
+                    id="goal-fonds-urgence",
+                    user_id=user2.id,
+                    household_id=None,
+                    created_by=user2.id,
+                    name="Fonds d'urgence",
+                    description="3 mois de salaire en épargne de sécurité",
+                    target_amount=Decimal("5400.00"),
+                    current_amount=Decimal("900.00"),
+                    target_date=date.today() + timedelta(days=365),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+            ]
+            for goal in goals2:
+                db.add(goal)
+            
+            print(f"   ✅ Created user: {user2.email} with INDIVIDUAL household")
             print(f"   ✅ Created account: {account2.name} ({account2.initial_balance}€)")
             print(f"   ✅ Created {len(categories2)} categories")
             print(f"   ✅ Created {len(transactions2)} transactions")
+            print(f"   ✅ Created {len(goals2)} personal goals")
             
             # Commit all
             await db.commit()
@@ -366,17 +424,24 @@ async def seed_database():
             print("\n   User 1:")
             print("   Email:    moi.toi@test.com")
             print("   Password: password123")
+            print("   Status:   INDIVIDUAL household (1 member)")
             print("   Balance:  1000€ initial + transactions = ~3233.51€")
             print("\n   User 2:")
             print("   Email:    il.elle@test.com")
             print("   Password: password123")
+            print("   Status:   INDIVIDUAL household (1 member)")
             print("   Balance:  500€ initial + transactions = ~2170.01€")
             print("\n💡 Tips:")
-            print("   - Connecte-toi avec User 1")
-            print("   - Va dans Settings → Invitations")
-            print("   - Invite il.elle@test.com")
-            print("   - Connecte-toi avec User 2 et accepte")
-            print("   - Tu verras la fusion COUPLE avec 3 wallets!")
+            print("   - Both users have INDIVIDUAL households (1 member each)")
+            print("   - They can only create PERSONAL goals (household option disabled)")
+            print("   - Household goals require 2+ members in household")
+            print("   - To test COUPLE features:")
+            print("     1. Login as User 1")
+            print("     2. Go to Settings → Invitations")
+            print("     3. Invite il.elle@test.com")
+            print("     4. Login as User 2 and accept")
+            print("     5. Both users will merge into COUPLE household")
+            print("     6. Then household goals option will be enabled!")
             print("\n" + "="*60)
             
         except Exception as e:

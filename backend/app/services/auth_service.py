@@ -54,6 +54,9 @@ class AuthService:
         """
         Register a new user with INDIVIDUAL household.
         
+        A household INDIVIDUAL is created automatically.
+        It becomes COUPLE when another user accepts an invitation.
+        
         Raises:
             ValueError: If email already exists
         """

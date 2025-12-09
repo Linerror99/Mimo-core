@@ -141,21 +141,21 @@ class TestDissolveHousehold:
         )
         db_session.add(tx_shared_realized)
         
-        # Transaction SHARED PROJETÉE (doit être annulée)
-        tx_shared_pending = Transaction(
+        # Transaction SHARED PROJETÉE (doit être supprimée)
+        tx_shared_projected = Transaction(
             id="tx_s2",
             household_id=household.id,
             account_id=acc1.id,
             type=TransactionType.EXPENSE,
             amount=Decimal("-200.00"),
             transaction_date=date.today() + timedelta(days=7),
-            state=TransactionState.PENDING,
+            state=TransactionState.PROJECTED,
             description="Loyer futur",
             recurrence_frequency=RecurrenceFrequency.NONE,
             owner_type=TransactionOwnerType.SHARED,
             owner_user_id=None,
         )
-        db_session.add(tx_shared_pending)
+        db_session.add(tx_shared_projected)
         
         # Catégories
         cat1 = Category(

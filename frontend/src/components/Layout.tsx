@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react'
 import { Home, List, TrendingUp, CreditCard, Folder, Target, Settings, Trash2, LogOut, User, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,14 +60,26 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     setSelectedNotification(null)
   }
 
-  const Sidebar = () => (
+  const Sidebar = () => {
+    const { user } = useAuthStore()
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const getAvatarUrl = (avatarUrl: string | null) => {
+      if (!avatarUrl) return undefined
+      if (avatarUrl.startsWith('http')) return avatarUrl
+      return `${API_BASE_URL}${avatarUrl}`
+    }
+
+    return (
     <aside className="w-64 bg-card border-r border-border flex flex-col">
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-12 h-12 bg-primary rounded-xl">
-              <span className="text-xl font-bold text-primary-foreground">M</span>
-            </div>
+            <Avatar className="w-12 h-12">
+              {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} alt="Avatar" />}
+              <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                {user?.first_name?.[0]?.toUpperCase() || 'M'}
+              </AvatarFallback>
+            </Avatar>
             <span className="text-lg font-semibold">Mimo Finance</span>
           </div>
           <NotificationBell onNotificationClick={handleNotificationClick} />
@@ -100,6 +112,7 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
               <Avatar className="w-9 h-9">
+                {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} alt="Avatar" />}
                 <AvatarFallback className="bg-primary text-primary-foreground">
                   {user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : 'U'}
                 </AvatarFallback>
@@ -137,6 +150,7 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
       </div>
     </aside>
   )
+  }
 
   const BottomNav = () => (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">

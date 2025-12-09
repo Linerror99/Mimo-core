@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Layout } from '@/components/Layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { User, Mail } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { User, Mail, Upload, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
+import { avatarService } from '@/services/avatarService'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 type Page =
   | 'dashboard'
@@ -26,9 +29,17 @@ interface SettingsProfileProps {
   onLogout: () => void
 }
 
+// Helper pour construire l'URL complète de l'avatar
+const getAvatarUrl = (avatarUrl: string | null): string | undefined => {
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return `${API_BASE_URL}${avatarUrl}`;
+}
+
 export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
   const { user, updateProfile, changePassword, isLoading } = useAuthStore()
   const routerNavigate = useNavigate()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -36,6 +47,7 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -73,6 +85,64 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
     }
   }
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validation de taille (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Le fichier est trop volumineux (max 2MB)')
+      return
+    }
+
+    // Validation de type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Le fichier doit être une image')
+      return
+    }
+
+    setIsUploadingAvatar(true)
+    try {
+      const result = await avatarService.upload(file)
+      
+      // Mettre à jour l'utilisateur dans le store
+      const updatedUser = { ...user!, avatar_url: result.avatar_url }
+      useAuthStore.setState({ user: updatedUser })
+      
+      toast.success('Photo de profil mise à jour')
+    } catch (error) {
+      console.error('Error uploading avatar:', error)
+      toast.error('Erreur lors de l\'upload de la photo')
+    } finally {
+      setIsUploadingAvatar(false)
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleAvatarDelete = async () => {
+    if (!user?.avatar_url) return
+
+    try {
+      await avatarService.delete()
+      
+      // Mettre à jour l'utilisateur dans le store
+      const updatedUser = { ...user, avatar_url: null }
+      useAuthStore.setState({ user: updatedUser })
+      
+      toast.success('Photo de profil supprimée')
+    } catch (error) {
+      console.error('Error deleting avatar:', error)
+      toast.error('Erreur lors de la suppression')
+    }
+  }
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click()
+  }
+
   return (
     <Layout currentPage="settings-profile" navigate={navigate} onLogout={onLogout}>
       <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
@@ -85,13 +155,41 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
           <h2 className="text-xl font-semibold mb-6">Photo de Profil</h2>
           <div className="flex items-center gap-6">
             <Avatar className="w-24 h-24">
-              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">A</AvatarFallback>
+              {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} alt="Avatar" />}
+              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                {user?.first_name?.[0]?.toUpperCase() || 'U'}
+              </AvatarFallback>
             </Avatar>
             <div className="space-y-2">
-              <Button variant="outline">Changer la photo</Button>
-              <Button variant="ghost" className="text-destructive ml-2">
-                Supprimer
-              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={triggerFileInput}
+                  disabled={isUploadingAvatar}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {isUploadingAvatar ? 'Upload en cours...' : 'Changer la photo'}
+                </Button>
+                {user?.avatar_url && (
+                  <Button 
+                    type="button"
+                    variant="ghost" 
+                    className="text-destructive"
+                    onClick={handleAvatarDelete}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Supprimer
+                  </Button>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">JPG, PNG max 2MB</p>
             </div>
           </div>
