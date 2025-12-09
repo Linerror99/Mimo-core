@@ -26,7 +26,9 @@ async def register(
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """
-    Register a new user with INDIVIDUAL household.
+    Register a new user WITHOUT household (solo user).
+    
+    A household is created only when the user accepts a couple invitation.
     
     - **email**: Valid email address (unique)
     - **password**: Min 8 chars with uppercase, lowercase, number

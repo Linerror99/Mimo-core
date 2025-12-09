@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { type Goal, type GoalCreate, type GoalUpdate } from '@/services/goalService'
 import { User, Home } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
 
 interface GoalDialogProps {
   open: boolean
@@ -16,6 +17,7 @@ interface GoalDialogProps {
 }
 
 export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps) {
+  const user = useAuthStore((state) => state.user)
   const [goalType, setGoalType] = useState<'personal' | 'household'>('personal')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -85,14 +87,31 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Type d'objectif</Label>
-            <RadioGroup value={goalType} onValueChange={(value: 'personal' | 'household') => setGoalType(value)}>
+            <RadioGroup 
+              value={goalType} 
+              onValueChange={(value: 'personal' | 'household') => setGoalType(value)}
+              disabled={goal ? true : false} // Désactiver la modification du type en édition
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="personal" id="personal" />
-                <Label htmlFor="personal" className="cursor-pointer font-normal">Personnel</Label>
+                <Label htmlFor="personal" className="cursor-pointer font-normal">
+                  <User className="inline w-4 h-4 mr-1" />
+                  Personnel
+                </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="household" id="household" />
-                <Label htmlFor="household" className="cursor-pointer font-normal">Foyer</Label>
+                <RadioGroupItem 
+                  value="household" 
+                  id="household" 
+                  disabled={!user?.household_id} // Désactiver si pas en couple
+                />
+                <Label 
+                  htmlFor="household" 
+                  className={`font-normal ${!user?.household_id ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <Home className="inline w-4 h-4 mr-1" />
+                  Foyer {!user?.household_id && '(nécessite d\'être en couple)'}
+                </Label>
               </div>
             </RadioGroup>
           </div>

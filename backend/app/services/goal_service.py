@@ -19,6 +19,7 @@ from decimal import Decimal
 from app.models.goal import Goal
 from app.models.transaction import Transaction, TransactionState
 from app.models.household import Household
+from app.models.account import Account
 
 
 class GoalService:
@@ -275,7 +276,9 @@ class GoalService:
     async def set_contribution(
         self,
         goal_id: str,
-        amount: float
+        amount: float,
+        user_id: str,
+        household_id: Optional[str] = None
     ) -> Goal:
         """
         Définit le montant actuel d'un objectif (remplace au lieu d'ajouter)
@@ -283,6 +286,8 @@ class GoalService:
         Args:
             goal_id: ID de l'objectif
             amount: Nouveau montant actuel
+            user_id: ID de l'utilisateur (pour validation)
+            household_id: ID du foyer (pour validation)
         
         Returns:
             Goal mis à jour
@@ -304,9 +309,154 @@ class GoalService:
         if amount_decimal > goal.target_amount:
             amount_decimal = goal.target_amount
         
+        # Déterminer si c'est un objectif foyer
+        is_household_goal = goal.household_id is not None
+        
+        # Validation du solde disponible
+        is_valid, error_msg = await self.validate_contribution_amount(
+            user_id=user_id,
+            household_id=household_id,
+            new_amount=amount_decimal,
+            is_household_goal=is_household_goal,
+            goal_id=goal_id
+        )
+        
+        if not is_valid:
+            raise ValueError(error_msg)
+        
         goal.current_amount = amount_decimal
         
         await self.db.commit()
         await self.db.refresh(goal)
         
         return goal
+    
+    async def get_available_balance(
+        self,
+        user_id: str,
+        household_id: Optional[str] = None,
+        is_household_goal: bool = False
+    ) -> Decimal:
+        """
+        Calcule le solde disponible pour les objectifs
+        
+        - Objectif personnel: somme des soldes des comptes de l'utilisateur uniquement
+        - Objectif foyer: somme des soldes des comptes du household (les deux partenaires)
+        
+        Args:
+            user_id: ID de l'utilisateur
+            household_id: ID du foyer (optionnel)
+            is_household_goal: True si c'est un objectif foyer, False sinon
+        
+        Returns:
+            Solde total disponible
+        """
+        from app.models.transaction import Transaction
+        from app.models.account import Account
+        
+        if is_household_goal and household_id:
+            # Objectif foyer: somme des comptes du household (couple)
+            accounts_result = await self.db.execute(
+                select(Account.id, Account.initial_balance)
+                .where(Account.household_id == household_id)
+            )
+            accounts = accounts_result.all()
+        else:
+            # Objectif personnel: somme des comptes de l'utilisateur uniquement
+            accounts_result = await self.db.execute(
+                select(Account.id, Account.initial_balance)
+                .where(Account.original_owner_user_id == user_id)
+            )
+            accounts = accounts_result.all()
+        
+        # Calculer le solde pour chaque compte (initial_balance + transactions)
+        total_balance = Decimal("0")
+        for account in accounts:
+            account_id, initial_balance = account
+            
+            # Somme des transactions pour ce compte
+            transactions_result = await self.db.execute(
+                select(func.coalesce(func.sum(Transaction.amount), 0))
+                .where(
+                    Transaction.account_id == account_id,
+                    Transaction.deleted_at.is_(None)
+                )
+            )
+            transactions_sum = transactions_result.scalar_one()
+            
+            # Balance du compte = initial + transactions
+            account_balance = initial_balance + Decimal(str(transactions_sum))
+            total_balance += account_balance
+        
+        return total_balance
+    
+    async def get_allocated_amount(
+        self,
+        user_id: str,
+        household_id: Optional[str] = None,
+        exclude_goal_id: Optional[str] = None
+    ) -> Decimal:
+        """
+        Calcule le montant déjà alloué aux objectifs
+        
+        Somme des current_amount de tous les objectifs (personnels + foyer si applicable)
+        
+        Args:
+            user_id: ID de l'utilisateur
+            household_id: ID du foyer (optionnel)
+            exclude_goal_id: ID d'un objectif à exclure (pour modification)
+        
+        Returns:
+            Montant total alloué
+        """
+        # Objectifs personnels
+        query_personal = select(func.sum(Goal.current_amount)).where(Goal.user_id == user_id)
+        if exclude_goal_id:
+            query_personal = query_personal.where(Goal.id != exclude_goal_id)
+        
+        result_personal = await self.db.execute(query_personal)
+        allocated_personal = result_personal.scalar() or Decimal("0")
+        
+        # Objectifs de foyer (si en couple)
+        allocated_household = Decimal("0")
+        if household_id:
+            query_household = select(func.sum(Goal.current_amount)).where(Goal.household_id == household_id)
+            if exclude_goal_id:
+                query_household = query_household.where(Goal.id != exclude_goal_id)
+            
+            result_household = await self.db.execute(query_household)
+            allocated_household = result_household.scalar() or Decimal("0")
+        
+        return allocated_personal + allocated_household
+    
+    async def validate_contribution_amount(
+        self,
+        user_id: str,
+        household_id: Optional[str],
+        new_amount: Decimal,
+        is_household_goal: bool = False,
+        goal_id: Optional[str] = None
+    ) -> tuple[bool, str]:
+        """
+        Valide qu'un montant de contribution ne dépasse pas le solde disponible
+        
+        Args:
+            user_id: ID de l'utilisateur
+            household_id: ID du foyer (si applicable)
+            new_amount: Nouveau montant à allouer
+            is_household_goal: True si c'est un objectif foyer
+            goal_id: ID de l'objectif en cours de modification (pour exclure de la somme)
+        
+        Returns:
+            Tuple (is_valid, error_message)
+        """
+        available_balance = await self.get_available_balance(user_id, household_id, is_household_goal)
+        allocated_amount = await self.get_allocated_amount(user_id, household_id, goal_id)
+        
+        # Calculer ce qui reste
+        remaining_balance = available_balance - allocated_amount
+        
+        if new_amount > remaining_balance:
+            return False, f"Solde insuffisant. Disponible: {remaining_balance}€, Demandé: {new_amount}€"
+        
+        return True, ""

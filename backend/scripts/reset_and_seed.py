@@ -232,7 +232,7 @@ async def seed_database():
             for tx in transactions1:
                 db.add(tx)
             
-            # Goals User 1 (3 goals: 2 personal + 1 household)
+            # Goals User 1 (2 personal goals only - household goals not yet implemented in frontend)
             goals1 = [
                 Goal(
                     id="goal-vacances-bali",
@@ -260,19 +260,6 @@ async def seed_database():
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
                 ),
-                Goal(
-                    id="goal-apport-maison",
-                    user_id=None,
-                    household_id=household1.id,
-                    created_by=user1.id,
-                    name="Apport pour achat maison",
-                    description="Épargne pour l'apport initial d'une maison",
-                    target_amount=Decimal("50000.00"),
-                    current_amount=Decimal("5000.00"),
-                    target_date=date.today() + timedelta(days=730),  # Dans 2 ans
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
-                ),
             ]
             for goal in goals1:
                 db.add(goal)
@@ -282,7 +269,7 @@ async def seed_database():
             print(f"   ✅ Created account: {account1.name} ({account1.initial_balance}€)")
             print(f"   ✅ Created {len(categories1)} categories")
             print(f"   ✅ Created {len(transactions1)} transactions")
-            print(f"   ✅ Created {len(goals1)} goals")
+            print(f"   ✅ Created {len(goals1)} personal goals")
             
             # ============================================================
             # USER 2: Il Elle

@@ -5,6 +5,7 @@ API endpoints for managing financial goals (personal & household)
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
 from typing import List, Optional
 
 from app.database import get_db
@@ -41,11 +42,17 @@ async def create_goal(
         )
     
     # Validation: household_id doit être le foyer de l'utilisateur si fourni
-    if goal_data.household_id and goal_data.household_id != current_user.household_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous ne pouvez créer un objectif que pour votre foyer"
-        )
+    if goal_data.household_id:
+        if not current_user.household_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vous devez être en couple pour créer un objectif foyer"
+            )
+        if goal_data.household_id != current_user.household_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous ne pouvez créer un objectif que pour votre foyer"
+            )
     
     # Si ni user_id ni household_id fourni, utiliser user_id par défaut
     if not goal_data.user_id and not goal_data.household_id:
@@ -78,7 +85,7 @@ async def list_goals(
     """
     Lister les objectifs financiers
     
-    - **Sans filtre** : retourne objectifs personnels ET foyer
+    - **Sans filtre** : retourne tous les objectifs accessibles (personnels + foyer + partenaire si en couple)
     - **goal_type=personal** : uniquement objectifs personnels de l'utilisateur
     - **goal_type=household** : uniquement objectifs du foyer
     """
@@ -89,10 +96,33 @@ async def list_goals(
     elif goal_type == "household":
         goals = await service.list_goals(household_id=current_user.household_id)
     else:
-        # Retourner TOUS les objectifs (personnels + foyer)
+        # Retourner TOUS les objectifs accessibles
+        goals = []
+        
+        # Objectifs personnels
         personal_goals = await service.list_goals(user_id=current_user.id)
-        household_goals = await service.list_goals(household_id=current_user.household_id)
-        goals = personal_goals + household_goals
+        goals.extend(personal_goals)
+        
+        # Objectifs de foyer
+        if current_user.household_id:
+            household_goals = await service.list_goals(household_id=current_user.household_id)
+            goals.extend(household_goals)
+            
+            # Objectifs personnels du partenaire (si en couple)
+            from app.models.user import User as UserModel
+            result = await db.execute(
+                select(UserModel).where(
+                    and_(
+                        UserModel.household_id == current_user.household_id,
+                        UserModel.id != current_user.id
+                    )
+                )
+            )
+            partner = result.scalar_one_or_none()
+            
+            if partner:
+                partner_goals = await service.list_goals(user_id=partner.id)
+                goals.extend(partner_goals)
     
     return goals
 
@@ -315,7 +345,9 @@ async def set_goal_contribution(
     try:
         updated_goal = await service.set_contribution(
             goal_id=goal_id,
-            amount=float(contribution_data.amount)
+            amount=float(contribution_data.amount),
+            user_id=current_user.id,
+            household_id=current_user.household_id
         )
         
         if not updated_goal:
