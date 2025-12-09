@@ -103,14 +103,14 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
                 <RadioGroupItem 
                   value="household" 
                   id="household" 
-                  disabled={!user?.household_id} // Désactiver si pas en couple
+                  disabled={!user?.is_in_couple} // Désactiver si pas en couple
                 />
                 <Label 
                   htmlFor="household" 
-                  className={`font-normal ${!user?.household_id ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}`}
+                  className={`font-normal ${!user?.is_in_couple ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <Home className="inline w-4 h-4 mr-1" />
-                  Foyer {!user?.household_id && '(nécessite d\'être en couple)'}
+                  Foyer {!user?.is_in_couple && '(nécessite d\'être en couple)'}
                 </Label>
               </div>
             </RadioGroup>

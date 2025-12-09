@@ -16,13 +16,42 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(current_user: CurrentUser):
+async def get_current_user_profile(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
     """
-    Get current authenticated user profile.
+    Get current authenticated user profile with is_in_couple status.
     
     Requires: Bearer token in Authorization header
     """
-    return current_user
+    from app.models import Household, User
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    
+    # Calculate is_in_couple by loading household with members
+    is_in_couple = False
+    if current_user.household_id:
+        stmt = select(Household).where(
+            Household.id == current_user.household_id
+        ).options(selectinload(Household.members))
+        result = await db.execute(stmt)
+        household = result.scalar_one_or_none()
+        if household and len(household.members) >= 2:
+            is_in_couple = True
+    
+    # Return user with calculated field
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        is_active=current_user.is_active,
+        household_id=current_user.household_id,
+        avatar_url=current_user.avatar_url,
+        created_at=current_user.created_at,
+        is_in_couple=is_in_couple
+    )
 
 
 @router.patch("/me", response_model=UserResponse)

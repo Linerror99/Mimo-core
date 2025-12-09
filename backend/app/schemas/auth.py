@@ -49,6 +49,7 @@ class UserResponse(BaseModel):
     household_id: Optional[str] = None
     avatar_url: Optional[str] = None
     created_at: datetime
+    is_in_couple: bool = False  # Calculated field: True if household has 2+ members
     
     class Config:
         from_attributes = True

@@ -53,6 +53,17 @@ async def create_goal(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Vous ne pouvez créer un objectif que pour votre foyer"
             )
+        
+        # Vérifier que le household a au moins 2 membres (mode COUPLE)
+        from app.models import Household
+        household_stmt = select(Household).where(Household.id == current_user.household_id)
+        household = (await db.execute(household_stmt)).scalar_one_or_none()
+        
+        if household and len(household.members) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vous devez être en couple pour créer un objectif foyer"
+            )
     
     # Si ni user_id ni household_id fourni, utiliser user_id par défaut
     if not goal_data.user_id and not goal_data.household_id:

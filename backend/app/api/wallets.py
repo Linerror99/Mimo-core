@@ -55,6 +55,7 @@ async def get_wallets(
     """
     Récupérer les portefeuilles du household de l'utilisateur.
     
+    - Si SOLO (pas de household): retourne seulement total_balance des comptes personnels
     - Si INDIVIDUAL: retourne seulement total_balance
     - Si COUPLE: retourne les 3 vues (membre 1, membre 2, commun)
     
@@ -67,6 +68,30 @@ async def get_wallets(
     
     household_id = current_user.household_id
     
+    # CAS 1: Utilisateur SOLO (pas de household_id)
+    if not household_id:
+        # Calculer le solde total des comptes personnels de l'utilisateur
+        stmt = select(Account).where(Account.original_owner_user_id == current_user.id)
+        accounts = (await db.execute(stmt)).scalars().all()
+        
+        total_balance = Decimal("0")
+        for account in accounts:
+            # Balance = initial_balance + sum(transactions)
+            tx_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.account_id == account.id,
+                Transaction.deleted_at.is_(None)
+            )
+            tx_sum = (await db.execute(tx_stmt)).scalar_one()
+            total_balance += account.initial_balance + Decimal(str(tx_sum))
+        
+        return WalletsResponse(
+            household_type="SOLO",
+            total_balance=float(total_balance),
+            members=None,
+            shared=None
+        )
+    
+    # CAS 2 & 3: Utilisateur avec household
     # Récupérer le household
     stmt = select(Household).where(Household.id == household_id)
     household = (await db.execute(stmt)).scalar_one_or_none()

@@ -15,6 +15,7 @@ export interface User {
   household_id: string | null;
   avatar_url: string | null;
   created_at: string;
+  is_in_couple: boolean;
 }
 
 export interface AuthState {

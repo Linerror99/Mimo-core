@@ -52,9 +52,10 @@ class AuthService:
     
     async def register(self, user_data: UserCreate) -> User:
         """
-        Register a new user WITHOUT household.
+        Register a new user with INDIVIDUAL household.
         
-        A household is created only when the user accepts a couple invitation.
+        A household INDIVIDUAL is created automatically.
+        It becomes COUPLE when another user accepts an invitation.
         
         Raises:
             ValueError: If email already exists
@@ -67,14 +68,22 @@ class AuthService:
         if existing_user:
             raise ValueError("Email already registered")
         
-        # Create user WITHOUT household (household_id = NULL)
+        # Create INDIVIDUAL household
+        household = Household(
+            name=f"{user_data.first_name} {user_data.last_name}",
+            type=HouseholdType.INDIVIDUAL
+        )
+        self.db.add(household)
+        await self.db.flush()  # Get household ID
+        
+        # Create user
         hashed_password = self.hash_password(user_data.password)
         user = User(
             email=user_data.email,
             password_hash=hashed_password,
             first_name=user_data.first_name,
             last_name=user_data.last_name,
-            household_id=None  # No household for solo users
+            household_id=household.id
         )
         self.db.add(user)
         await self.db.commit()
