@@ -24,6 +24,7 @@ email-validator==2.2.0
 
 # Utilities
 python-dateutil==2.9.0
+reportlab==4.2.5
 
 # Development
 pytest==8.3.3

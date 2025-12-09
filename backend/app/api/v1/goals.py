@@ -56,8 +56,13 @@ async def create_goal(
         
         # Vérifier que le household a au moins 2 membres (mode COUPLE)
         from app.models import Household
-        household_stmt = select(Household).where(Household.id == current_user.household_id)
-        household = (await db.execute(household_stmt)).scalar_one_or_none()
+        from sqlalchemy.orm import selectinload
+        
+        household_stmt = select(Household).where(
+            Household.id == current_user.household_id
+        ).options(selectinload(Household.members))
+        result = await db.execute(household_stmt)
+        household = result.scalar_one_or_none()
         
         if household and len(household.members) < 2:
             raise HTTPException(

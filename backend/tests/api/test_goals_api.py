@@ -10,8 +10,8 @@ from datetime import date, timedelta
 
 @pytest.fixture
 async def auth_data(client: AsyncClient):
-    """Client authentifié avec headers"""
-    # Register
+    """Client authentifié avec headers (couple avec 2 utilisateurs)"""
+    # Register user 1
     await client.post("/api/v1/auth/register", json={
         "email": "goals.test@example.com",
         "password": "Pass123!",
@@ -19,14 +19,43 @@ async def auth_data(client: AsyncClient):
         "last_name": "Test"
     })
     
-    # Login
+    # Register user 2 (partner)
+    await client.post("/api/v1/auth/register", json={
+        "email": "goals.partner@example.com",
+        "password": "Pass123!",
+        "first_name": "Partner",
+        "last_name": "Test"
+    })
+    
+    # Login user 1
     login_response = await client.post("/api/v1/auth/login", json={
         "email": "goals.test@example.com",
         "password": "Pass123!"
     })
     token = login_response.json()["access_token"]
     
-    # Get user info
+    # Login user 2
+    login2_response = await client.post("/api/v1/auth/login", json={
+        "email": "goals.partner@example.com",
+        "password": "Pass123!"
+    })
+    token2 = login2_response.json()["access_token"]
+    
+    # User 1 invite User 2
+    invite_response = await client.post(
+        "/api/v1/invitations",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"invitee_email": "goals.partner@example.com"}
+    )
+    invitation_id = invite_response.json()["id"]
+    
+    # User 2 accepts invitation (this will merge households)
+    await client.post(
+        f"/api/v1/invitations/{invitation_id}/accept",
+        headers={"Authorization": f"Bearer {token2}"}
+    )
+    
+    # Get updated user info AFTER merge
     me_response = await client.get(
         "/api/v1/users/me",
         headers={"Authorization": f"Bearer {token}"}
