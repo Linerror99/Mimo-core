@@ -275,3 +275,58 @@ async def update_goal_contribution(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.put("/{goal_id}/contribution", response_model=GoalResponse)
+async def set_goal_contribution(
+    goal_id: str,
+    contribution_data: GoalContributionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Définir le montant actuel d'un objectif (remplace au lieu d'ajouter)
+    
+    Utiliser PUT pour remplacer complètement le montant actuel.
+    Utiliser PATCH /contribution pour ajouter/retirer un montant.
+    """
+    service = GoalService(db)
+    
+    # Vérifier l'existence et l'accès
+    goal = await service.get_goal(goal_id)
+    
+    if not goal:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Objectif introuvable"
+        )
+    
+    has_access = (
+        (goal.user_id and goal.user_id == current_user.id) or
+        (goal.household_id and goal.household_id == current_user.household_id)
+    )
+    
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'avez pas accès à cet objectif"
+        )
+    
+    try:
+        updated_goal = await service.set_contribution(
+            goal_id=goal_id,
+            amount=float(contribution_data.amount)
+        )
+        
+        if not updated_goal:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Objectif introuvable après mise à jour"
+            )
+        
+        return updated_goal
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )

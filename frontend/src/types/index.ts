@@ -67,12 +67,18 @@ export interface Category {
 
 export interface Goal {
   id: string
+  household_id: string | null
+  user_id: string | null
+  created_by: string
   name: string
-  targetAmount: number
-  currentAmount: number
-  deadline: string
-  icon: string
-  userId: string
+  description: string | null
+  target_amount: number
+  current_amount: number
+  target_date: string
+  created_at: string
+  updated_at: string
+  progress_percentage?: number
+  is_completed?: boolean
 }
 
 export interface Household {

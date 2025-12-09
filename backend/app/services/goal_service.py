@@ -271,3 +271,42 @@ class GoalService:
         await self.db.refresh(goal)
         
         return goal
+    
+    async def set_contribution(
+        self,
+        goal_id: str,
+        amount: float
+    ) -> Goal:
+        """
+        Définit le montant actuel d'un objectif (remplace au lieu d'ajouter)
+        
+        Args:
+            goal_id: ID de l'objectif
+            amount: Nouveau montant actuel
+        
+        Returns:
+            Goal mis à jour
+        
+        Raises:
+            ValueError: Si objectif introuvable ou montant invalide
+        """
+        goal = await self.get_goal(goal_id)
+        if not goal:
+            raise ValueError(f"Objectif {goal_id} introuvable")
+        
+        amount_decimal = Decimal(str(amount))
+        
+        # Empêcher montant négatif
+        if amount_decimal < 0:
+            raise ValueError("Le montant actuel ne peut pas être négatif")
+        
+        # Plafonner au target_amount pour éviter dépassement
+        if amount_decimal > goal.target_amount:
+            amount_decimal = goal.target_amount
+        
+        goal.current_amount = amount_decimal
+        
+        await self.db.commit()
+        await self.db.refresh(goal)
+        
+        return goal
