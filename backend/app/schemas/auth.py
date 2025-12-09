@@ -47,6 +47,7 @@ class UserResponse(BaseModel):
     last_name: str
     is_active: bool
     household_id: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime
     
     class Config:

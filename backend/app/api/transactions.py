@@ -398,3 +398,52 @@ async def postpone_transaction(
     
     return TransactionResponse.model_validate(transaction)
 
+
+@router.patch("/{transaction_id}/cancel", response_model=TransactionResponse)
+async def cancel_transaction(
+    transaction_id: str,
+    reason: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Annuler une transaction PROJECTED ou PENDING
+    
+    Une transaction annulée:
+    - Passe à l'état CANCELLED
+    - Reste visible dans l'historique (affichée barrée dans l'UI)
+    - Ne peut pas être annulée si déjà REALIZED (passée)
+    
+    Args:
+        transaction_id: ID de la transaction
+        reason: Raison de l'annulation (optionnel, stocké dans notes)
+        
+    Returns:
+        Transaction annulée
+        
+    Raises:
+        400: Transaction déjà réalisée
+        404: Transaction non trouvée
+    """
+    service = TransactionService(db)
+    
+    try:
+        transaction = await service.cancel_transaction(
+            transaction_id=transaction_id,
+            household_id=current_user.household_id,
+            reason=reason
+        )
+        
+        return TransactionResponse.model_validate(transaction)
+    
+    except ValueError as e:
+        if "introuvable" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e)
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )

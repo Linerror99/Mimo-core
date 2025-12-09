@@ -2,13 +2,14 @@
 User profile management API endpoints
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.auth import UserResponse, UserUpdate, PasswordChange
 from app.api.deps import CurrentUser
 from app.services.auth_service import AuthService
+from app.services.storage_service import StorageService
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -78,3 +79,81 @@ async def change_password(
     await db.commit()
     
     return {"message": "Password updated successfully"}
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...)
+):
+    """
+    Upload or update user avatar
+    
+    - **file**: Image file (JPEG, PNG, JPG, WEBP)
+    - **Max size**: 5MB
+    
+    Returns updated user profile with new avatar URL.
+    
+    Requires: Bearer token in Authorization header
+    """
+    storage_service = StorageService()
+    
+    try:
+        # Upload avatar (supprime l'ancien si existe)
+        if current_user.avatar_url:
+            await storage_service.delete_avatar(current_user.avatar_url)
+        
+        avatar_url = await storage_service.upload_avatar(file, current_user.id)
+        
+        # Mettre à jour l'utilisateur
+        current_user.avatar_url = avatar_url
+        await db.commit()
+        await db.refresh(current_user)
+        
+        return current_user
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de l'upload de l'avatar: {str(e)}"
+        )
+
+
+@router.delete("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_avatar(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Delete user avatar
+    
+    Removes avatar file and clears avatar_url in database.
+    
+    Requires: Bearer token in Authorization header
+    """
+    if not current_user.avatar_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun avatar à supprimer"
+        )
+    
+    storage_service = StorageService()
+    
+    try:
+        # Supprimer le fichier
+        storage_service.delete_avatar(current_user.avatar_url)
+        
+        # Mettre à jour l'utilisateur
+        current_user.avatar_url = None
+        await db.commit()
+        
+        return None
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la suppression de l'avatar: {str(e)}"
+        )

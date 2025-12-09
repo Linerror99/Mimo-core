@@ -39,6 +39,7 @@ from app.models import (
     TransactionState,
     TransactionOwnerType,
     RecurrenceFrequency,
+    Goal,
 )
 from app.services.auth import AuthService
 
@@ -231,11 +232,57 @@ async def seed_database():
             for tx in transactions1:
                 db.add(tx)
             
+            # Goals User 1 (3 goals: 2 personal + 1 household)
+            goals1 = [
+                Goal(
+                    id="goal-vacances-bali",
+                    user_id=user1.id,
+                    household_id=None,
+                    created_by=user1.id,
+                    name="Vacances à Bali",
+                    description="Voyage de rêve à Bali pour 2 semaines",
+                    target_amount=Decimal("3000.00"),
+                    current_amount=Decimal("800.00"),
+                    target_date=date.today() + timedelta(days=180),  # Dans 6 mois
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+                Goal(
+                    id="goal-macbook",
+                    user_id=user1.id,
+                    household_id=None,
+                    created_by=user1.id,
+                    name="MacBook Pro",
+                    description="Nouveau laptop pour le travail",
+                    target_amount=Decimal("2500.00"),
+                    current_amount=Decimal("1200.00"),
+                    target_date=date.today() + timedelta(days=90),  # Dans 3 mois
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+                Goal(
+                    id="goal-apport-maison",
+                    user_id=None,
+                    household_id=household1.id,
+                    created_by=user1.id,
+                    name="Apport pour achat maison",
+                    description="Épargne pour l'apport initial d'une maison",
+                    target_amount=Decimal("50000.00"),
+                    current_amount=Decimal("5000.00"),
+                    target_date=date.today() + timedelta(days=730),  # Dans 2 ans
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+            ]
+            for goal in goals1:
+                db.add(goal)
+            
             print(f"   ✅ Created household: {household1.name}")
             print(f"   ✅ Created user: {user1.email}")
             print(f"   ✅ Created account: {account1.name} ({account1.initial_balance}€)")
             print(f"   ✅ Created {len(categories1)} categories")
             print(f"   ✅ Created {len(transactions1)} transactions")
+            print(f"   ✅ Created {len(goals1)} goals")
             
             # ============================================================
             # USER 2: Il Elle
@@ -350,11 +397,44 @@ async def seed_database():
             for tx in transactions2:
                 db.add(tx)
             
+            # Goals User 2 (2 personal goals)
+            goals2 = [
+                Goal(
+                    id="goal-iphone",
+                    user_id=user2.id,
+                    household_id=None,
+                    created_by=user2.id,
+                    name="iPhone 16 Pro",
+                    description="Nouveau téléphone",
+                    target_amount=Decimal("1200.00"),
+                    current_amount=Decimal("300.00"),
+                    target_date=date.today() + timedelta(days=120),  # Dans 4 mois
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+                Goal(
+                    id="goal-fonds-urgence",
+                    user_id=user2.id,
+                    household_id=None,
+                    created_by=user2.id,
+                    name="Fonds d'urgence",
+                    description="3 mois de salaire en épargne de sécurité",
+                    target_amount=Decimal("5400.00"),
+                    current_amount=Decimal("900.00"),
+                    target_date=date.today() + timedelta(days=365),  # Dans 1 an
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                ),
+            ]
+            for goal in goals2:
+                db.add(goal)
+            
             print(f"   ✅ Created household: {household2.name}")
             print(f"   ✅ Created user: {user2.email}")
             print(f"   ✅ Created account: {account2.name} ({account2.initial_balance}€)")
             print(f"   ✅ Created {len(categories2)} categories")
             print(f"   ✅ Created {len(transactions2)} transactions")
+            print(f"   ✅ Created {len(goals2)} goals")
             
             # Commit all
             await db.commit()
