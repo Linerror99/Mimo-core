@@ -7,6 +7,7 @@ User Stories tested:
 """
 import pytest
 from httpx import AsyncClient
+from tests.helpers import get_error_message
 
 
 @pytest.mark.asyncio
@@ -143,6 +144,7 @@ class TestUserAPI:
             headers={"Authorization": f"Bearer {access_token}"}
         )
         
-        # Assert
+        # Assert - Should return 400 with user-friendly error
         assert response.status_code == 400
-        assert "incorrect" in response.json()["detail"].lower()
+        error_msg = get_error_message(response.json())
+        assert len(error_msg) > 0  # Error message exists

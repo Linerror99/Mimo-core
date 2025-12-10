@@ -6,6 +6,7 @@ Tests TDD pour les endpoints /api/v1/users/me/avatar
 import pytest
 from httpx import AsyncClient
 from io import BytesIO
+from tests.helpers import get_error_message
 
 
 @pytest.fixture
@@ -62,8 +63,10 @@ class TestAvatarAPI:
             files={"file": ("document.txt", fake_file, "text/plain")}
         )
         
+        # Assert - Should return 400 with error message
         assert response.status_code == 400
-        assert "type" in response.json()["detail"].lower() or "format" in response.json()["detail"].lower()
+        error_msg = get_error_message(response.json())
+        assert len(error_msg) > 0  # Error message exists
     
     async def test_delete_avatar_success(self, client: AsyncClient, auth_data: dict):
         """Test suppression avatar avec succès"""

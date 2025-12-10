@@ -1,12 +1,22 @@
 """FastAPI Application Entry Point"""
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi import HTTPException
 from pathlib import Path
 from app.config import settings
 from app.api import health, auth, users, accounts, categories, transactions, recurring_templates, projections, notifications, jobs, invitations, wallets, households
 from app.api.v1 import goals, exports
+
+# Import security and error handling
+from app.core.security import setup_security_middleware, setup_cors
+from app.core.error_handler import (
+    global_exception_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
+from app.core.logger import logger
 
 app = FastAPI(
     title="DuoFlow Finance API",
@@ -16,14 +26,19 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Configuration - Permissive for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
-    allow_credentials=False,  # Must be False when allow_origins is ["*"]
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Setup CORS (secure configuration based on environment)
+environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
+setup_cors(app, environment=environment)
+
+# Setup security middleware (headers, rate limiting, logging)
+setup_security_middleware(app, environment=environment)
+
+# Register global exception handlers
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+logger.info(f"Application starting in {environment} mode")
 
 # Mount static files for uploads (avatars, receipts, etc.)
 UPLOAD_DIR = Path("/app/uploads")

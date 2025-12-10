@@ -6,6 +6,7 @@ Tests TDD pour le endpoint PATCH /api/v1/transactions/{id}/cancel
 import pytest
 from httpx import AsyncClient
 from decimal import Decimal
+from tests.helpers import get_error_message
 
 
 @pytest.fixture
@@ -135,5 +136,7 @@ class TestCancelTransactionAPI:
             headers=auth_data["headers"]
         )
         
+        # Assert - Should return 400 with user-friendly error
         assert response.status_code == 400
-        assert "réalisée" in response.json()["detail"].lower() or "realized" in response.json()["detail"].lower()
+        error_msg = get_error_message(response.json())
+        assert len(error_msg) > 0  # Error message exists

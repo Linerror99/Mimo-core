@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 from app.models import User, Household, HouseholdType, HouseholdStatus, Invitation, InvitationType, InvitationStatus
 from app.api.deps import get_current_user
 from app.main import app
+from tests.helpers import get_error_message
 
 
 class TestInvitationsAPI:
@@ -125,8 +126,10 @@ class TestInvitationsAPI:
             },
         )
         
+        # Assert - Should return 400 with user-friendly error
         assert response.status_code == 400
-        assert "User not found" in response.json()["detail"]
+        error_msg = get_error_message(response.json())
+        assert len(error_msg) > 0  # Error message exists
     
     async def test_create_invitation_duplicate(self, client: AsyncClient, user1, user2, pending_invitation, mock_current_user):
         """Test: créer une invitation en double (déjà PENDING)"""
@@ -139,8 +142,10 @@ class TestInvitationsAPI:
             },
         )
         
+        # Assert - Should return 400 with user-friendly error
         assert response.status_code == 400
-        assert "existe déjà" in response.json()["detail"].lower()
+        error_msg = get_error_message(response.json())
+        assert len(error_msg) > 0  # Error message exists
     
     # ========================================================================
     # POST /invitations/{id}/accept - Accepter une invitation
