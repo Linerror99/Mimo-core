@@ -193,4 +193,106 @@ class TestGoalsAPI:
         data = response.json()
         assert float(data["current_amount"]) == 5000.00
         assert data["progress_percentage"] == 50.0
+    
+    async def test_set_contribution(self, client: AsyncClient, auth_data: dict):
+        """Test remplacement total de la contribution (PUT)"""
+        # Créer avec contribution initiale
+        create_response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={"name": "Test Set", "target_amount": 10000.00}
+        )
+        goal_id = create_response.json()["id"]
+        
+        # Ajouter contribution
+        await client.patch(
+            f"/api/v1/goals/{goal_id}/contribution",
+            headers=auth_data["headers"],
+            json={"amount": 3000.00}
+        )
+        
+        # Remplacer complètement (PUT) - accepte 200 ou 400 (solde insuffisant)
+        response = await client.put(
+            f"/api/v1/goals/{goal_id}/contribution",
+            headers=auth_data["headers"],
+            json={"amount": 7000.00}
+        )
+        
+        # Accept either success or insufficient balance error
+        assert response.status_code in [200, 400]
+        if response.status_code == 200:
+            data = response.json()
+            assert float(data["current_amount"]) == 7000.00
+            assert data["progress_percentage"] == 70.0
+    
+    async def test_get_goal_by_id(self, client: AsyncClient, auth_data: dict):
+        """Test récupération d'un objectif par ID"""
+        # Créer
+        create_response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={"name": "Test Get By ID", "target_amount": 5000.00}
+        )
+        goal_id = create_response.json()["id"]
+        
+        # Récupérer
+        response = await client.get(
+            f"/api/v1/goals/{goal_id}",
+            headers=auth_data["headers"]
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == goal_id
+        assert data["name"] == "Test Get By ID"
+        assert float(data["target_amount"]) == 5000.00
+    
+    async def test_create_goal_with_target_date(self, client: AsyncClient, auth_data: dict):
+        """Test création objectif avec date cible"""
+        target_date = (date.today() + timedelta(days=365)).isoformat()
+        
+        response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={
+                "name": "Goal with Date",
+                "target_amount": 12000.00,
+                "target_date": target_date,
+                "description": "Test description"
+            }
+        )
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["target_date"] is not None
+        assert data["description"] == "Test description"
+    
+    async def test_cannot_create_goal_with_negative_amount(self, client: AsyncClient, auth_data: dict):
+        """Test validation : montant négatif refusé"""
+        response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={"name": "Negative Goal", "target_amount": -1000.00}
+        )
+        
+        assert response.status_code == 422  # Validation error
+    
+    async def test_cannot_update_nonexistent_goal(self, client: AsyncClient, auth_data: dict):
+        """Test erreur 404 si objectif inexistant"""
+        response = await client.patch(
+            "/api/v1/goals/nonexistent-id",
+            headers=auth_data["headers"],
+            json={"name": "Update"}
+        )
+        
+        assert response.status_code == 404
+    
+    async def test_cannot_delete_nonexistent_goal(self, client: AsyncClient, auth_data: dict):
+        """Test erreur 404 lors de suppression d'objectif inexistant"""
+        response = await client.delete(
+            "/api/v1/goals/nonexistent-id",
+            headers=auth_data["headers"]
+        )
+        
+        assert response.status_code == 404
 

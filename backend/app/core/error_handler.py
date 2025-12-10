@@ -1,12 +1,14 @@
 """Global error handling and exception mapping for production."""
 
 from typing import Optional, Dict, Any
+from decimal import Decimal
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pydantic import ValidationError
 import traceback
+import json
 
 from app.core.logger import logger
 
@@ -177,7 +179,9 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         user_message = "Les données saisies ne sont pas valides"
         internal_message = "Validation error"
-        details = {"errors": exc.errors()}
+        # Convert Decimal to float for JSON serialization
+        errors = exc.errors()
+        details = {"errors": json.loads(json.dumps(errors, default=str))}
     
     # Database errors
     elif isinstance(exc, IntegrityError):
