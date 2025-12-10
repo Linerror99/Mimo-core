@@ -3,7 +3,7 @@
  * 
  * Display and manage transactions (income, expenses, transfers)
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { transactionService, groupByDate, calculateTotalsByType } from "../services/transactionService";
 import { recurringTemplateService } from "../services/recurringTemplateService";
@@ -289,11 +289,11 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     setCurrentMonth(new Date());
   };
 
-  // Grouper les transactions par date
-  const groupedTransactions = groupByDate(transactions);
+  // Grouper les transactions par date (memoized)
+  const groupedTransactions = useMemo(() => groupByDate(transactions), [transactions]);
 
-  // Calculer les totaux du mois
-  const totals = calculateTotalsByType(transactions);
+  // Calculer les totaux du mois (memoized)
+  const totals = useMemo(() => calculateTotalsByType(transactions), [transactions]);
   const monthBalance = totals.income + totals.expense; // expense est déjà négatif
 
   if (loading && transactions.length === 0) {

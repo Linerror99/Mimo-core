@@ -3,7 +3,8 @@
  * 
  * Manage income and expense categories with tree structure
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Layout } from "@/components/Layout";
 import { categoryService } from "../services/categoryService";
 import {
   Category,
@@ -15,7 +16,22 @@ import {
 } from "../types/category";
 import "../styles/Categories.css";
 
-const CategoriesPage: React.FC = () => {
+type Page =
+  | 'dashboard'
+  | 'timeline'
+  | 'accounts'
+  | 'categories'
+  | 'goals'
+  | 'settings-profile'
+  | 'settings-household'
+  | 'trash'
+
+interface CategoriesPageProps {
+  navigate: (page: Page) => void
+  onLogout: () => void
+}
+
+export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,19 +134,29 @@ const CategoriesPage: React.FC = () => {
     return categories.filter((cat) => cat.parent_id === parentId);
   };
 
+  // Memoize counts to avoid re-computation on every render
+  const incomeCount = useMemo(() => 
+    categories.filter((c) => c.type === CategoryType.INCOME).length,
+    [categories]
+  );
+  const expenseCount = useMemo(() => 
+    categories.filter((c) => c.type === CategoryType.EXPENSE).length,
+    [categories]
+  );
+
   if (loading) {
     return (
-      <div className="categories-page">
-        <div className="loading">Chargement des catégories...</div>
-      </div>
+      <Layout currentPage="categories" navigate={navigate} onLogout={onLogout}>
+        <div className="categories-page">
+          <div className="loading">Chargement des catégories...</div>
+        </div>
+      </Layout>
     );
   }
 
-  const incomeCount = categories.filter((c) => c.type === CategoryType.INCOME).length;
-  const expenseCount = categories.filter((c) => c.type === CategoryType.EXPENSE).length;
-
   return (
-    <div className="categories-page">
+    <Layout currentPage="categories" navigate={navigate} onLogout={onLogout}>
+      <div className="categories-page">
       <div className="categories-header">
         <h1>🏷️ Mes Catégories</h1>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
@@ -375,8 +401,9 @@ const CategoriesPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   );
-};
+}
 
 export default CategoriesPage;

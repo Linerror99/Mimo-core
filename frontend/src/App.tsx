@@ -4,10 +4,10 @@ import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
 import { Timeline } from './pages/TimelinePage'
 import { Projection } from './pages/Projection'
-import AccountsPage from './pages/AccountsPage'
-import CategoriesPage from './pages/CategoriesPage'
+import { AccountsPage } from './pages/AccountsPage'
+import { CategoriesPage } from './pages/CategoriesPage'
 import RecurringPage from './pages/RecurringPage'
-import ProjectionPage from './pages/ProjectionPage'
+import { ProjectionPage } from './pages/ProjectionPage'
 import { Goals } from './pages/Goals'
 import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
@@ -82,7 +82,9 @@ function AppRoutes() {
         path="/projection" 
         element={
           <ProtectedRoute>
-            <ProjectionPage />
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <ProjectionPage navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 
       />
@@ -91,7 +93,9 @@ function AppRoutes() {
         path="/accounts" 
         element={
           <ProtectedRoute>
-            <AccountsPage />
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <AccountsPage navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 
       />
@@ -100,7 +104,9 @@ function AppRoutes() {
         path="/categories" 
         element={
           <ProtectedRoute>
-            <CategoriesPage />
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <CategoriesPage navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 
       />
@@ -118,7 +124,9 @@ function AppRoutes() {
         path="/projections" 
         element={
           <ProtectedRoute>
-            <ProjectionPage />
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <ProjectionPage navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 
       />

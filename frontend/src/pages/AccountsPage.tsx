@@ -3,7 +3,8 @@
  * 
  * Manage user accounts (bank accounts, cash, investments, etc.)
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Layout } from "@/components/Layout";
 import { accountService } from "../services/accountService";
 import {
   Account,
@@ -14,7 +15,22 @@ import {
 } from "../types/account";
 import "../styles/Accounts.css";
 
-const AccountsPage: React.FC = () => {
+type Page =
+  | 'dashboard'
+  | 'timeline'
+  | 'accounts'
+  | 'categories'
+  | 'goals'
+  | 'settings-profile'
+  | 'settings-household'
+  | 'trash'
+
+interface AccountsPageProps {
+  navigate: (page: Page) => void
+  onLogout: () => void
+}
+
+export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +125,7 @@ const AccountsPage: React.FC = () => {
     }
   };
 
-  const calculateTotalBalance = (): number => {
+  const totalBalance = useMemo(() => {
     if (!accounts || accounts.length === 0) return 0;
     return accounts.reduce((sum, account) => {
       if (account.is_active) {
@@ -117,18 +133,21 @@ const AccountsPage: React.FC = () => {
       }
       return sum;
     }, 0);
-  };
+  }, [accounts]);
 
   if (loading) {
     return (
-      <div className="accounts-page">
-        <div className="loading">Chargement des comptes...</div>
-      </div>
+      <Layout currentPage="accounts" navigate={navigate} onLogout={onLogout}>
+        <div className="accounts-page">
+          <div className="loading">Chargement des comptes...</div>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="accounts-page">
+    <Layout currentPage="accounts" navigate={navigate} onLogout={onLogout}>
+      <div className="accounts-page">
       <div className="accounts-header">
         <h1>💳 Mes Comptes</h1>
         <div className="header-actions">
@@ -152,7 +171,7 @@ const AccountsPage: React.FC = () => {
         <div className="summary-card">
           <h3>Total</h3>
           <p className="total-amount">
-            {calculateTotalBalance().toFixed(2)} €
+            {totalBalance.toFixed(2)} €
           </p>
           <span className="summary-label">{accounts.length} compte(s)</span>
         </div>
@@ -337,8 +356,9 @@ const AccountsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   );
-};
+}
 
 export default AccountsPage;
