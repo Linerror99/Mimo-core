@@ -103,6 +103,8 @@ class UserBehavior(SequentialTaskSet):
     @task(1)
     def get_user_profile(self):
         """Récupère le profil utilisateur (endpoint léger)."""
+        if not self.access_token:
+            return
         self.client.get(
             "/api/v1/users/me",
             headers=self._headers(),
@@ -112,6 +114,8 @@ class UserBehavior(SequentialTaskSet):
     @task(3)
     def list_accounts(self):
         """Liste les comptes (endpoint fréquent)."""
+        if not self.access_token:
+            return
         response = self.client.get(
             "/api/v1/accounts",
             headers=self._headers(),
@@ -126,6 +130,8 @@ class UserBehavior(SequentialTaskSet):
     @task(5)
     def list_transactions(self):
         """Liste les transactions avec filtres de date (endpoint le plus utilisé)."""
+        if not self.access_token:
+            return
         start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         end_date = datetime.now().strftime("%Y-%m-%d")
         
@@ -174,6 +180,8 @@ class UserBehavior(SequentialTaskSet):
     @task(2)
     def list_categories(self):
         """Liste les catégories."""
+        if not self.access_token:
+            return
         self.client.get(
             "/api/v1/categories",
             headers=self._headers(),
@@ -183,6 +191,8 @@ class UserBehavior(SequentialTaskSet):
     @task(2)
     def list_goals(self):
         """Liste les objectifs."""
+        if not self.access_token:
+            return
         self.client.get(
             "/api/v1/goals",
             headers=self._headers(),
@@ -192,6 +202,8 @@ class UserBehavior(SequentialTaskSet):
     @task(1)
     def get_wallet_balance(self):
         """Calcule le solde du wallet (endpoint avec calculs lourds)."""
+        if not self.access_token:
+            return
         self.client.get(
             "/api/v1/wallets/balance",
             headers=self._headers(),
@@ -201,6 +213,8 @@ class UserBehavior(SequentialTaskSet):
     @task(1)
     def list_pending_transactions(self):
         """Liste les transactions en attente de validation."""
+        if not self.access_token:
+            return
         self.client.get(
             "/api/v1/transactions/pending",
             headers=self._headers(),

@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     ]
 
     # Security
-    BCRYPT_ROUNDS: int = 12
+    BCRYPT_ROUNDS: int = 4  # Réduit pour les load tests (12 en prod)
     
     # Logging
     LOG_LEVEL: str = "INFO"

@@ -15,8 +15,12 @@ from app.schemas.auth import UserCreate, UserLogin, TokenResponse
 from app.config import settings
 
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing avec rounds configurables
+pwd_context = CryptContext(
+    schemes=["bcrypt"], 
+    deprecated="auto",
+    bcrypt__rounds=settings.BCRYPT_ROUNDS
+)
 
 # Redis client for token blacklist
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
