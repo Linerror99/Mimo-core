@@ -209,9 +209,6 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   };
 
   const handleDelete = async (transaction: Transaction) => {
-    console.log('Transaction à supprimer:', transaction);
-    console.log('recurring_template_id:', transaction.recurring_template_id);
-    
     // Si c'est une transaction récurrente, ouvrir le modal de choix
     if (transaction.recurring_template_id) {
       setDeletingTransaction(transaction);
