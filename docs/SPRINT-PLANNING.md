@@ -1175,101 +1175,254 @@ Upload avatars + objectifs épargne + export PDF
 
 ---
 
-## 🎨 SPRINT 8 : Polish & Documentation (2 semaines)
+## 🎨 SPRINT 8 : Production-Ready Polish (2 semaines)
 
 ### **Objectif**
-Finalisation application avant infrastructure
+Préparer l'application pour la production : sécurité, performance, UX, monitoring
 
-### **Tâches Backend (Jour 1-4)**
+### **🔒 PRIORITÉ 1 : Sécurité & Logs (Semaine 1 - Jour 1-3)**
 
-**Optimisations**
-- [ ] Audit queries SQL (index)
-- [ ] Optimisation cache Redis (TTL)
-- [ ] Logs structurés JSON
-- [ ] Rate limiting (100 req/min)
-- [ ] CORS sécurisé
+**Sécurité Backend**
+- [ ] ⚠️ Supprimer données sensibles des logs console (passwords, tokens, emails)
+- [ ] Implémenter gestionnaire d'erreurs global (HTTPException → messages UX)
+- [ ] CORS sécurisé (whitelist origins prod/staging)
+- [ ] Headers sécurité (HSTS, X-Content-Type-Options, X-Frame-Options, CSP)
+- [ ] Rate limiting (100 req/min par IP + 500 req/min par user)
+- [ ] Validation stricte input (Pydantic + sanitization)
+- [ ] Secrets en variables d'environnement (jamais en dur)
 
-**Tests**
-- [ ] Coverage >85%
-- [ ] Tests de charge (Locust : 100 users)
-- [ ] Tests sécurité (SQL injection, XSS, CSRF)
-
-**Documentation**
-- [ ] README backend complet
-- [ ] Swagger descriptions détaillées
-- [ ] Guide contribution
-
-### **Tâches Frontend (Jour 5-8)**
-
-**Polish UI/UX**
-- [ ] Audit accessibilité (a11y)
-- [ ] Animations Framer Motion (transitions pages, listes)
-- [ ] Skeleton loaders
-- [ ] Messages erreur UX
-- [ ] Empty states avec CTA
-
-**Optimisations**
-- [ ] Lighthouse audit (score >90)
-- [ ] Bundle size optimization
-- [ ] Image optimization
-
-**Documentation**
-- [ ] README frontend complet
-- [ ] Guide utilisateur (wiki)
-- [ ] Vidéo démo (5-10min)
-
-### **Tests E2E Playwright (Jour 9-12)**
-
-**Scénarios Complets**
-- [ ] **E2E-Scénario-1** : Parcours complet nouveau user
-  ```typescript
-  test('Full user journey', async ({ page }) => {
-    // 1. Inscription
-    await page.goto('/register');
-    // ...  formulaire
-    
-    // 2. Ajouter compte bancaire
-    await page.goto('/accounts');
-    // ... 
-    
-    // 3.  Ajouter transaction ponctuelle
-    await page.goto('/timeline');
-    // ... 
-    
-    // 4.  Créer récurrence
-    // ...
-    
-    // 5. Voir projection
-    await page.goto('/projection');
-    await expect(page.locator('text=Déc 2025')).toBeVisible();
-  });
+**Système de Logs Structurés**
+- [ ] Logger Python structuré JSON (timestamp, level, user_id, endpoint, duration, error)
+- [ ] Middleware logging requêtes (method, path, status_code, duration_ms)
+- [ ] Logs rotation quotidienne (`/logs/app-YYYY-MM-DD.log`)
+- [ ] Logs erreurs séparés (`/logs/errors-YYYY-MM-DD.log`)
+- [ ] Intégration logs Docker (`docker-compose logs -f backend`)
+- [ ] Exemple format JSON :
+  ```json
+  {
+    "timestamp": "2025-12-09T14:30:00Z",
+    "level": "ERROR",
+    "user_id": "uuid-xxx",
+    "endpoint": "POST /api/v1/transactions",
+    "duration_ms": 245,
+    "error": "ValidationError: Amount cannot be negative",
+    "trace_id": "trace-123"
+  }
   ```
-- [ ] **E2E-Scénario-2** : Parcours couple complet
-- [ ] **E2E-Scénario-3** : Validation quotidienne
-- [ ] **E2E-Scénario-4** : Dissolution foyer
 
-**Tests Multi-browsers**
-- [ ] Tous tests E2E sur Chromium, Firefox, WebKit
+**Sécurité Frontend**
+- [ ] ⚠️ Supprimer `console.log()` données sensibles (tokens, passwords)
+- [ ] Afficher erreurs UX claires (toast/banner) au lieu de console
+- [ ] Validation formulaires stricte (Zod schemas)
+- [ ] Timeout requêtes (10s max)
+- [ ] Retry logic (3 tentatives avec backoff exponentiel)
 
-### **Tâches DevOps (Jour 13-14)**
+---
 
-**Documentation Infra**
-- [ ] README Terraform
-- [ ] Diagramme architecture
-- [ ] Runbook déploiement
+### **⚡ PRIORITÉ 2 : Performance & Tests (Semaine 1 - Jour 4-5)**
 
-**Scripts Utilitaires**
-- [ ] Script backup DB local
-- [ ] Script seed données test
-- [ ] Script reset DB
+**Tests de Charge**
+- [ ] Installer Locust (`pip install locust`)
+- [ ] Scénario 1 : 100 users simultanés (transactions CRUD)
+- [ ] Scénario 2 : 50 couples (fusion foyers simultanés)
+- [ ] Scénario 3 : 200 req/s sur endpoints lecture
+- [ ] Mesures : latence p50, p95, p99, erreurs 5xx, throughput
+- [ ] Objectif : p95 < 200ms, 0% erreurs
 
-### **Livrables Sprint 8**
-✅ Application stable et performante  
-✅ Tests E2E scénarios complets (4 scénarios)  
-✅ Coverage backend >85%  
-✅ Lighthouse >90  
+**Couverture Tests >85%**
+- [ ] Analyser coverage actuel (`pytest --cov`)
+- [ ] Identifier modules <80% coverage
+- [ ] Ajouter tests manquants (edge cases, error paths)
+- [ ] Tests intégration (flows complets)
+- [ ] Générer rapport HTML coverage
+- [ ] Badge coverage dans README
+
+**Optimisation Backend**
+- [ ] Audit queries SQL lentes (pgAdmin + `EXPLAIN ANALYZE`)
+- [ ] Ajouter index manquants :
+  - `transactions.date`, `transactions.household_id`, `transactions.state`
+  - `goals.household_id`, `categories.household_id`
+- [ ] Optimiser cache Redis (TTL cohérents, invalidation)
+- [ ] Pagination endpoints listes (max 100 items/page)
+- [ ] Lazy loading relations SQLAlchemy
+
+---
+
+### **🐛 PRIORITÉ 3 : Bugs UI Critiques (Semaine 1 - Jour 5)**
+
+**Navbar Missing (Pages Comptes & Catégories)**
+- [ ] ⚠️ **BUG CRITIQUE** : Corriger Layout pages `/accounts` et `/categories`
+- [ ] Vérifier import `<Layout>` component
+- [ ] Tester navigation sidebar complète
+- [ ] Vérifier responsive mobile
+
+**Performance Frontend Initial Load**
+- [ ] ⚠️ **PROBLÈME** : 186 secondes au premier lancement ?!
+- [ ] Analyser Lighthouse Performance audit
+- [ ] Identifier bottlenecks :
+  - Bundle JS trop gros ?
+  - Images non optimisées ?
+  - API calls synchrones bloquants ?
+  - Docker volume lent (Windows) ?
+- [ ] Solutions :
+  - Code splitting (lazy load routes)
+  - Image optimization (WebP, lazy loading)
+  - Parallel API calls (Promise.all)
+  - Service Worker / Cache API
+  - Vite config optimization
+- [ ] Objectif : **< 3 secondes** initial load
+
+---
+
+### **🎨 PRIORITÉ 4 : Refonte Graphique (Semaine 2 - Jour 6-8)**
+
+**Design System**
+- [ ] Attendre propositions logo/UX utilisateur
+- [ ] Implémenter nouveau logo (header, favicon, splash)
+- [ ] Palette couleurs cohérente (variables CSS)
+- [ ] Typographie améliorée (Google Fonts optimisées)
+- [ ] Espacement système (4px, 8px, 16px, 24px, 32px)
+
+**Animations & Micro-interactions**
+- [ ] Transitions pages fluides (fade-in)
+- [ ] Animations listes (stagger children)
+- [ ] Hover states cohérents (boutons, cards)
+- [ ] Loading skeletons (transactions, goals, accounts)
+- [ ] Empty states avec illustrations + CTA
+- [ ] Success/Error toasts avec animations
+- [ ] Pull-to-refresh (mobile)
+
+**Composants**
+- [ ] Boutons : variants (primary, secondary, danger, ghost)
+- [ ] Cards : shadows cohérentes, hover effects
+- [ ] Inputs : focus states, validation visuelle
+- [ ] Modals : backdrop blur, slide-in animation
+- [ ] Navigation : active state clair
+
+---
+
+### **🛠️ PRIORITÉ 5 : Scripts Déploiement (Semaine 2 - Jour 9-10)**
+
+**Scripts Initialisation**
+- [ ] `scripts/init-db.sh` : Créer DB, run migrations, seed data
+  ```bash
+  #!/bin/bash
+  docker-compose exec backend alembic upgrade head
+  docker-compose exec backend python scripts/seed_data.py
+  ```
+- [ ] `scripts/reset-db.sh` : Drop tables, recréer, seed
+- [ ] `scripts/backup-db.sh` : Dump PostgreSQL (timestamped)
+- [ ] `scripts/restore-db.sh <file>` : Restore backup
+- [ ] `scripts/seed-test-data.py` : Données fictives (100 users, 1000 transactions)
+- [ ] `scripts/health-check.sh` : Tester endpoints santé
+- [ ] README instructions déploiement première fois
+
+**Docker Compose Prod**
+- [ ] `docker-compose.prod.yml` : Config production
+- [ ] Volumes persistants (DB, logs, uploads)
+- [ ] Health checks (backend, frontend, DB, Redis)
+- [ ] Restart policies (unless-stopped)
+- [ ] Resource limits (CPU, memory)
+
+---
+
+### **🔍 PRIORITÉ 6 : CI/CD & Qualité Code (Semaine 2 - Jour 11-14)**
+
+**SonarQube/SonarCloud Integration**
+- [ ] Créer compte SonarCloud (free open-source)
+- [ ] Configurer `sonar-project.properties` :
+  ```properties
+  sonar.projectKey=Linerror99_Mimo-core
+  sonar.organization=linerror99
+  sonar.sources=backend/app,frontend/src
+  sonar.tests=backend/tests,frontend/tests
+  sonar.python.coverage.reportPaths=backend/coverage.xml
+  sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+  ```
+- [ ] Workflow GitHub Actions `.github/workflows/sonar.yml`
+- [ ] Badges README (Quality Gate, Coverage, Bugs, Code Smells)
+
+**CI Pipeline Complète**
+- [ ] **Lint** : Ruff (backend), ESLint (frontend)
+- [ ] **Type Check** : Mypy (backend), TypeScript (frontend)
+- [ ] **Tests Unitaires** : Pytest + Coverage (>85%)
+- [ ] **Tests Intégration** : API endpoints complets
+- [ ] **Build** : Docker images (cache layers)
+- [ ] **SonarQube Analysis** : Quality gate must pass
+- [ ] **Notification** : Slack/Email si échec
+- [ ] Temps max pipeline : **< 10 minutes**
+
+**Quality Gates**
+- [ ] Coverage >85% (sinon fail)
+- [ ] 0 bugs critiques (SonarQube)
+- [ ] 0 vulnérabilités sécurité
+- [ ] Code duplication <3%
+- [ ] Maintainability rating A
+
+---
+
+### **📋 PRIORITÉ 7 : Documentation (Semaine 2 - Jour 14)**
+
+**README Projet**
+- [ ] Badge CI, Coverage, SonarQube, Version
+- [ ] Architecture diagram (Mermaid)
+- [ ] Quick start (3 commandes max)
+- [ ] Liens docs détaillées
+
+**Documentation Technique**
+- [ ] `docs/BACKEND.md` : Setup, structure, API, tests
+- [ ] `docs/FRONTEND.md` : Setup, architecture, composants
+- [ ] `docs/DEPLOYMENT.md` : Scripts, Docker, première installation
+- [ ] `docs/ARCHITECTURE.md` : Diagrammes (DB, infra, flow)
+- [ ] Swagger descriptions détaillées (exemples, erreurs)
+
+---
+
+### **✅ Livrables Sprint 8**
+
+**Sécurité & Qualité**
+✅ 0 données sensibles en logs  
+✅ Rate limiting + CORS + Headers sécurité  
+✅ Système logs JSON structurés  
+✅ Coverage tests >85%  
+✅ Tests charge validés (p95 <200ms)  
+
+**Performance & UX**
+✅ Frontend load **< 3 secondes**  
+✅ Navbar fixée (pages Comptes/Catégories)  
+✅ Animations fluides + skeletons  
+✅ Refonte graphique appliquée  
+
+**DevOps & CI**
+✅ Scripts déploiement (init, backup, restore)  
+✅ SonarQube intégré (Quality Gate ✅)  
+✅ Pipeline CI complète (<10min)  
 ✅ Documentation complète  
-✅ Prêt pour infrastructure
+
+**Prêt pour Sprint 9 (Infrastructure GCP)**
+
+---
+
+### **📊 Plan de Travail Sprint 8 (14 jours)**
+
+| Jour | Focus | Tâches Principales | Livrables |
+|------|-------|-------------------|-----------|
+| **1-2** | Sécurité Backend | Logs structurés, supprimer données sensibles, CORS, headers | Logs JSON + Sécurité renforcée |
+| **3** | Sécurité Frontend | Supprimer console.log, erreurs UX, validation | Erreurs claires en UI |
+| **4** | Performance Backend | Tests charge, queries SQL, index | Locust tests + Optimisations |
+| **5** | Tests & Bugs UI | Coverage >85%, fix Navbar, debug load time | Tests passent + UI fixée |
+| **6-7** | Refonte Graphique | Nouveau design, animations, components | UI moderne et fluide |
+| **8** | Polish UX | Skeletons, empty states, micro-interactions | UX professionnelle |
+| **9-10** | Scripts Déploiement | init-db, backup, seed, health-check | Scripts prêts production |
+| **11-12** | CI/CD SonarQube | Pipeline complète, quality gates | CI opérationnelle |
+| **13** | Documentation | READMEs, guides, diagrammes | Docs complètes |
+| **14** | Tests Finaux | Validation complète, démo | Sprint 8 terminé ! |
+
+---
+
+### **🎯 Tests E2E Playwright**
+⏸️ **Reportés après déploiement production** (fin projet)  
+→ Tests manuels suffisants pour validation features actuelles
 
 ---
 
