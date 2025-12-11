@@ -1295,28 +1295,59 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 
 ---
 
-### **🛠️ PRIORITÉ 5 : Scripts Déploiement (Semaine 2 - Jour 9-10)**
+### **🛠️ PRIORITÉ 5 : Scripts Déploiement (Semaine 2 - Jour 9-10)** ✅ **TERMINÉ**
+
+**Configuration Environnement**
+- [x] `.env.example` : Template complet (40+ variables, 14 sections)
+- [x] Variables : DB, Redis, JWT, CORS, Rate Limiting, Uploads, Logging, Docker, Backup, Monitoring
+- [x] Secrets production documentés (Sentry, AWS S3, SMTP, SSL)
+- [x] Instructions génération JWT secret (`openssl rand -hex 32`)
+- [x] BCRYPT_ROUNDS : 4 dev/test, 12+ production
 
 **Scripts Initialisation**
-- [ ] `scripts/init-db.sh` : Créer DB, run migrations, seed data
-  ```bash
-  #!/bin/bash
-  docker-compose exec backend alembic upgrade head
-  docker-compose exec backend python scripts/seed_data.py
-  ```
-- [ ] `scripts/reset-db.sh` : Drop tables, recréer, seed
-- [ ] `scripts/backup-db.sh` : Dump PostgreSQL (timestamped)
-- [ ] `scripts/restore-db.sh <file>` : Restore backup
-- [ ] `scripts/seed-test-data.py` : Données fictives (100 users, 1000 transactions)
-- [ ] `scripts/health-check.sh` : Tester endpoints santé
-- [ ] README instructions déploiement première fois
+- [x] `scripts/init-db.sh` : Créer DB, run migrations, seed data
+  - [x] Check PostgreSQL health (pg_isready)
+  - [x] Run Alembic migrations (upgrade head)
+  - [x] Check if data exists (user count)
+  - [x] Optional seeding (user confirmation)
+  - [x] Color-coded output + error handling
+- [x] `scripts/reset-db.sh` : Drop tables, recréer, seed
+  - [x] ⚠️ DANGER ZONE warning (requires "YES" uppercase)
+  - [x] Optional pre-reset backup (timestamped)
+  - [x] Drop all tables (SQLAlchemy)
+  - [x] Run migrations + seed fresh data
+- [x] `scripts/backup-db.sh` : Dump PostgreSQL (timestamped)
+  - [x] Format: `backup-name_YYYYMMDD_HHMMSS.sql`
+  - [x] Custom backup names supported
+  - [x] Automatic cleanup (retention: 30 days default)
+  - [x] File size reporting (cross-platform)
+- [x] `scripts/restore-db.sh <file>` : Restore backup
+  - [x] Requires "YES" confirmation (uppercase)
+  - [x] Automatic safety backup before restore
+  - [x] Drop/recreate database
+  - [x] Rollback instructions on failure
+- [x] `scripts/seed-test-data.py` : Données fictives (100 users, 1000 transactions)
+  - [x] Uses Faker library (French locale)
+  - [x] Generate: 100 users, 50 households, accounts, 1000+ transactions
+  - [x] Generate: Categories, goals, recurring templates
+  - [x] Progress indicators + error handling
+  - [x] All users password: `password123`
+- [x] `scripts/health-check.sh` : Tester endpoints santé
+  - [x] Check: Docker daemon, PostgreSQL, Redis, Backend API, Frontend
+  - [x] Statistics: DB size, users count, transactions, Redis keys, memory
+  - [x] Failed services counter + troubleshooting tips
+  - [x] Exit codes: 0 (healthy), 1 (failures)
+- [x] Tous scripts : Color-coded output, environment variables, comprehensive error handling
 
 **Docker Compose Prod**
-- [ ] `docker-compose.prod.yml` : Config production
-- [ ] Volumes persistants (DB, logs, uploads)
-- [ ] Health checks (backend, frontend, DB, Redis)
-- [ ] Restart policies (unless-stopped)
-- [ ] Resource limits (CPU, memory)
+- [x] `docker-compose.prod.yml` : Config production
+- [x] Volumes persistants (postgres_data, redis_data, uploads, logs)
+- [x] Health checks (backend, frontend, postgres, redis) avec intervals configurable
+- [x] Restart policies (${RESTART_POLICY:-unless-stopped})
+- [x] Resource limits (CPU, memory) pour tous les services
+- [x] Environment variable injection (no hardcoded values)
+- [x] Logging configuration (json-file, 10MB max, 3 files)
+- [x] Isolated network (duoflow-prod-network)
 
 ---
 
