@@ -3,13 +3,15 @@
 # ================================================================
 #
 # Code quality analysis with SonarCloud:
-# - Coverage analysis (>85% required)
+# - Coverage analysis (Sprint 8: 76%, Sprint 9: >85%)
 # - Code smells detection
 # - Security hotspots
 # - Duplication detection (<3% required)
 # - Maintainability rating (A required)
 # - Reliability rating (A required)
 # - Security rating (A required)
+#
+# Sprint 8: Quality Gate non-bloquant, frontend tests optionnels
 #
 # ================================================================
 
