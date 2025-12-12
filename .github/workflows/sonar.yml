@@ -84,6 +84,8 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET_KEY: ${{ secrets.TEST_JWT_SECRET || 'test_secret_key' }}
           ENVIRONMENT: test
+          LOG_DIR: ./logs
+          UPLOAD_DIR: ./uploads
         run: |
           pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
       
