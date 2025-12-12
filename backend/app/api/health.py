@@ -1,11 +1,12 @@
 """Health check endpoints"""
 
 from fastapi import APIRouter, Depends
+from redis import asyncio as aioredis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from redis import asyncio as aioredis
-from app.database import get_db
+
 from app.config import settings
+from app.database import get_db
 
 router = APIRouter()
 

@@ -3,10 +3,11 @@ Goal Schemas
 
 Pydantic schemas for goal endpoints
 """
-from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class GoalCreate(BaseModel):
@@ -15,18 +16,18 @@ class GoalCreate(BaseModel):
     target_amount: Decimal = Field(..., gt=0, description="Montant cible (positif)")
     description: Optional[str] = Field(None, description="Description optionnelle")
     target_date: Optional[date] = Field(None, description="Date cible optionnelle")
-    
+
     # SOIT user_id (objectif personnel) SOIT household_id (objectif foyer)
     user_id: Optional[str] = Field(None, description="ID utilisateur (objectif personnel)")
     household_id: Optional[str] = Field(None, description="ID foyer (objectif partagé)")
-    
+
     @field_validator('target_amount')
     @classmethod
     def validate_target_amount(cls, v: Decimal) -> Decimal:
         if v <= 0:
             raise ValueError("Le montant cible doit être positif")
         return v
-    
+
     @field_validator('target_date')
     @classmethod
     def validate_target_date(cls, v: Optional[date]) -> Optional[date]:
@@ -41,7 +42,7 @@ class GoalUpdate(BaseModel):
     target_amount: Optional[Decimal] = Field(None, gt=0)
     description: Optional[str] = None
     target_date: Optional[date] = None
-    
+
     @field_validator('target_amount')
     @classmethod
     def validate_target_amount(cls, v: Optional[Decimal]) -> Optional[Decimal]:
@@ -53,7 +54,7 @@ class GoalUpdate(BaseModel):
 class GoalContributionUpdate(BaseModel):
     """Schema pour mettre à jour manuellement la contribution"""
     amount: Decimal = Field(..., description="Nouveau montant de contribution")
-    
+
     @field_validator('amount')
     @classmethod
     def validate_amount(cls, v: Decimal) -> Decimal:
@@ -73,16 +74,16 @@ class GoalResponse(BaseModel):
     target_amount: Decimal
     current_amount: Decimal
     target_date: Optional[date]
-    
+
     # Propriétés calculées
     is_personal: bool
     is_household: bool
     progress_percentage: float
     is_completed: bool
     remaining_amount: float
-    
+
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True

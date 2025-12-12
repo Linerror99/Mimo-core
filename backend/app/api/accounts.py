@@ -3,15 +3,16 @@ Account API Routes
 
 CRUD endpoints for accounts
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from app.database import get_db
-from app.schemas.account import AccountCreate, AccountUpdate, AccountResponse
-from app.services.account_service import AccountService
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_current_user
+from app.database import get_db
 from app.models import User
+from app.schemas.account import AccountCreate, AccountResponse, AccountUpdate
+from app.services.account_service import AccountService
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -28,13 +29,13 @@ async def create_account(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a household"
         )
-    
+
     account = await AccountService.create_account(
         db=db,
         household_id=current_user.household_id,
         account_data=account_data
     )
-    
+
     # Ajouter le current_balance
     current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
     account_dict = {
@@ -50,7 +51,7 @@ async def create_account(
         "created_at": account.created_at,
         "updated_at": account.updated_at
     }
-    
+
     return account_dict
 
 
@@ -66,13 +67,13 @@ async def list_accounts(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a household"
         )
-    
+
     accounts = await AccountService.list_accounts(
         db=db,
         household_id=current_user.household_id,
         include_inactive=include_inactive
     )
-    
+
     # Ajouter le current_balance pour chaque compte
     accounts_with_balance = []
     for account in accounts:
@@ -91,7 +92,7 @@ async def list_accounts(
             "updated_at": account.updated_at
         }
         accounts_with_balance.append(account_dict)
-    
+
     return accounts_with_balance
 
 
@@ -107,19 +108,19 @@ async def get_account(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a household"
         )
-    
+
     account = await AccountService.get_account_by_id(
         db=db,
         account_id=account_id,
         household_id=current_user.household_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Account not found"
         )
-    
+
     # Ajouter le current_balance
     current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
     account_dict = {
@@ -135,7 +136,7 @@ async def get_account(
         "created_at": account.created_at,
         "updated_at": account.updated_at
     }
-    
+
     return account_dict
 
 
@@ -152,25 +153,25 @@ async def update_account(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a household"
         )
-    
+
     account = await AccountService.get_account_by_id(
         db=db,
         account_id=account_id,
         household_id=current_user.household_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Account not found"
         )
-    
+
     updated_account = await AccountService.update_account(
         db=db,
         account=account,
         update_data=update_data
     )
-    
+
     # Ajouter le current_balance
     current_balance = await AccountService.calculate_balance(db=db, account_id=updated_account.id)
     account_dict = {
@@ -185,7 +186,7 @@ async def update_account(
         "created_at": updated_account.created_at,
         "updated_at": updated_account.updated_at
     }
-    
+
     return account_dict
 
 
@@ -197,7 +198,7 @@ async def delete_account(
 ):
     """
     Close an account (soft delete)
-    
+
     Sets is_active=false and closed_at=now(). Preserves transaction history.
     """
     if not current_user.household_id:
@@ -205,21 +206,21 @@ async def delete_account(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a household"
         )
-    
+
     account = await AccountService.get_account_by_id(
         db=db,
         account_id=account_id,
         household_id=current_user.household_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Account not found"
         )
-    
+
     await AccountService.close_account(db=db, account=account)
-    
+
     return None
 
 
@@ -237,18 +238,18 @@ async def get_total_balance(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a household"
         )
-    
+
     # Récupérer tous les comptes actifs
     accounts = await AccountService.list_accounts(
         db=db,
         household_id=current_user.household_id,
         include_inactive=False
     )
-    
+
     # Calculer le solde total
     total_balance = 0.0
     accounts_detail = []
-    
+
     for account in accounts:
         balance = await AccountService.calculate_balance(db=db, account_id=account.id)
         total_balance += float(balance)
@@ -259,7 +260,7 @@ async def get_total_balance(
             "initial_balance": float(account.initial_balance),
             "current_balance": float(balance)
         })
-    
+
     return {
         "total_balance": total_balance,
         "accounts_count": len(accounts),

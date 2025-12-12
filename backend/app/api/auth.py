@@ -2,20 +2,14 @@
 Authentication API endpoints
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
-from app.schemas.auth import (
-    UserCreate,
-    UserLogin,
-    UserResponse,
-    TokenResponse,
-    TokenRefresh
-)
-from app.services.auth_service import AuthService
 from app.api.deps import CurrentUser
-
+from app.database import get_db
+from app.schemas.auth import TokenRefresh, UserCreate, UserLogin, UserResponse
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -27,16 +21,16 @@ async def register(
 ):
     """
     Register a new user with INDIVIDUAL household (solo).
-    
+
     The household becomes COUPLE when another user accepts an invitation.
-    
+
     - **email**: Valid email address (unique)
     - **password**: Min 8 chars with uppercase, lowercase, number
     - **first_name**: User first name
     - **last_name**: User last name
     """
     auth_service = AuthService(db)
-    
+
     try:
         user = await auth_service.register(user_data)
         return user
@@ -54,14 +48,14 @@ async def login(
 ):
     """
     Authenticate user and return JWT tokens.
-    
+
     - **email**: User email
     - **password**: User password
-    
+
     Returns access_token (15min) and refresh_token (7 days).
     """
     auth_service = AuthService(db)
-    
+
     try:
         tokens = await auth_service.login(login_data)
         return tokens
@@ -80,7 +74,7 @@ async def logout(
 ):
     """
     Logout current user by blacklisting their access token.
-    
+
     Requires: Bearer token in Authorization header
     """
     # Extract token from Authorization header
@@ -89,7 +83,7 @@ async def logout(
         token = auth_header.split(" ")[1]
         auth_service = AuthService(db)
         await auth_service.logout(token)
-    
+
     return {"message": "Successfully logged out"}
 
 
@@ -100,13 +94,13 @@ async def refresh_token(
 ):
     """
     Refresh access token using refresh token.
-    
+
     - **refresh_token**: Valid refresh token
-    
+
     Returns new access_token.
     """
     auth_service = AuthService(db)
-    
+
     try:
         new_access_token = await auth_service.refresh_access_token(refresh_data.refresh_token)
         return {

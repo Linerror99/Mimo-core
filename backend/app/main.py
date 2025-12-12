@@ -1,23 +1,38 @@
 """FastAPI Application Entry Point"""
 
 import os
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.exceptions import RequestValidationError
-from fastapi import HTTPException
 from pathlib import Path
-from app.config import settings
-from app.api import health, auth, users, accounts, categories, transactions, recurring_templates, projections, notifications, jobs, invitations, wallets, households
-from app.api.v1 import goals, exports
 
-# Import security and error handling
-from app.core.security import setup_security_middleware, setup_cors
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
+
+from app.api import (
+    accounts,
+    auth,
+    categories,
+    health,
+    households,
+    invitations,
+    jobs,
+    notifications,
+    projections,
+    recurring_templates,
+    transactions,
+    users,
+    wallets,
+)
+from app.api.v1 import exports, goals
+from app.config import settings
 from app.core.error_handler import (
     global_exception_handler,
     http_exception_handler,
     validation_exception_handler,
 )
 from app.core.logger import logger
+
+# Import security and error handling
+from app.core.security import setup_cors, setup_security_middleware
 
 app = FastAPI(
     title="DuoFlow Finance API",

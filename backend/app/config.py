@@ -1,6 +1,7 @@
 """Application Configuration"""
 
 from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,7 +37,7 @@ class Settings(BaseSettings):
 
     # Security
     BCRYPT_ROUNDS: int = 4  # Réduit pour les load tests (12 en prod)
-    
+
     # Logging
     LOG_LEVEL: str = "INFO"
     ENABLE_JSON_LOGS: bool = True

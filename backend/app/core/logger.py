@@ -1,48 +1,48 @@
 """Structured JSON Logging System for Production"""
 
-import logging
 import json
+import logging
 import os
 import sys
 from datetime import datetime
-from typing import Optional
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
+from typing import Optional
 
 
 class SensitiveDataFilter(logging.Filter):
     """Filter to mask sensitive data in logs."""
-    
+
     SENSITIVE_KEYS = {
         'password', 'token', 'secret', 'api_key', 'authorization',
         'jwt', 'access_token', 'refresh_token', 'session_id', 'email'
     }
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Mask sensitive data in log messages."""
         if hasattr(record, 'msg') and isinstance(record.msg, str):
             message_lower = record.msg.lower()
-            
+
             # Check if message contains sensitive keywords
             for key in self.SENSITIVE_KEYS:
                 if key in message_lower:
                     # Replace sensitive values with masked version
                     record.msg = self._mask_sensitive_data(record.msg)
                     break
-        
+
         return True
-    
+
     def _mask_sensitive_data(self, message: str) -> str:
         """Replace sensitive data with masked version."""
         import re
-        
+
         # Mask email addresses: john.doe@example.com -> j***@example.com
         message = re.sub(
             r'\b([a-zA-Z])[a-zA-Z0-9._-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b',
             r'\1***@\2',
             message
         )
-        
+
         # Mask tokens/passwords: show only first 8 chars
         message = re.sub(
             r'(token|password|secret|jwt|api_key)["\s:=]+([a-zA-Z0-9+/=]{8})[a-zA-Z0-9+/=]{8,}',
@@ -50,13 +50,13 @@ class SensitiveDataFilter(logging.Filter):
             message,
             flags=re.IGNORECASE
         )
-        
+
         return message
 
 
 class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
         log_data = {
@@ -67,7 +67,7 @@ class JSONFormatter(logging.Formatter):
             "function": record.funcName,
             "line": record.lineno,
         }
-        
+
         # Add custom fields if present
         if hasattr(record, "user_id"):
             log_data["user_id"] = record.user_id
@@ -85,15 +85,15 @@ class JSONFormatter(logging.Formatter):
             log_data["ip"] = record.ip
         if hasattr(record, "trace_id"):
             log_data["trace_id"] = record.trace_id
-        
+
         # Add exception info if present
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
-        
+
         # Add stack trace for errors
         if record.levelname == "ERROR" and record.stack_info:
             log_data["stack_trace"] = self.formatStack(record.stack_info)
-        
+
         return json.dumps(log_data, ensure_ascii=False)
 
 
@@ -105,29 +105,29 @@ def setup_logging(
 ) -> logging.Logger:
     """
     Setup structured logging with JSON format and rotation.
-    
+
     Args:
         app_name: Name of the application (used for logger name)
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_dir: Directory for log files (None = console only)
         enable_json: Use JSON formatting (True) or plain text (False)
-    
+
     Returns:
         Configured logger instance
     """
     logger = logging.getLogger(app_name)
     logger.setLevel(getattr(logging, log_level.upper()))
-    
+
     # Remove existing handlers
     logger.handlers.clear()
-    
+
     # Add sensitive data filter
     sensitive_filter = SensitiveDataFilter()
-    
+
     # Console handler (for development & Docker logs)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
-    
+
     if enable_json:
         console_handler.setFormatter(JSONFormatter())
     else:
@@ -137,15 +137,15 @@ def setup_logging(
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
         )
-    
+
     console_handler.addFilter(sensitive_filter)
     logger.addHandler(console_handler)
-    
+
     # File handlers (if log_dir specified)
     if log_dir:
         log_dir = Path(log_dir)
         log_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # General application logs (rotated daily)
         app_log_file = log_dir / f"{app_name}.log"
         app_handler = TimedRotatingFileHandler(
@@ -161,7 +161,7 @@ def setup_logging(
         ))
         app_handler.addFilter(sensitive_filter)
         logger.addHandler(app_handler)
-        
+
         # Error logs (separate file, rotated daily)
         error_log_file = log_dir / f"{app_name}_errors.log"
         error_handler = TimedRotatingFileHandler(
@@ -177,10 +177,10 @@ def setup_logging(
         ))
         error_handler.addFilter(sensitive_filter)
         logger.addHandler(error_handler)
-    
+
     # Don't propagate to root logger
     logger.propagate = False
-    
+
     return logger
 
 
@@ -210,7 +210,7 @@ def log_with_context(
 ) -> None:
     """
     Log message with structured context.
-    
+
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         message: Log message
@@ -241,6 +241,6 @@ def log_with_context(
         extra["ip"] = ip
     if trace_id:
         extra["trace_id"] = trace_id
-    
+
     log_func = getattr(logger, level.lower())
     log_func(message, extra=extra, exc_info=exc_info)

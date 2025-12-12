@@ -1,5 +1,6 @@
 """Household schemas for request/response validation."""
 from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from app.models import HouseholdType
@@ -24,6 +25,6 @@ class HouseholdResponse(BaseModel):
     type: HouseholdType
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True

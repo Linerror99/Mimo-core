@@ -3,13 +3,13 @@ Transaction Schemas
 
 Pydantic schemas for Transaction API
 """
-from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from app.models.transaction import TransactionType, TransactionState, RecurrenceFrequency
+from pydantic import BaseModel, Field, field_validator
 
+from app.models.transaction import RecurrenceFrequency, TransactionState, TransactionType
 
 # ===== Base Schemas =====
 
@@ -20,7 +20,7 @@ class TransactionBase(BaseModel):
     transaction_date: date = Field(..., description="Date de la transaction")
     type: TransactionType = Field(..., description="Type de transaction")
     notes: Optional[str] = Field(None, description="Notes additionnelles")
-    
+
     @field_validator('amount')
     @classmethod
     def validate_amount(cls, v: Decimal, info) -> Decimal:
@@ -37,7 +37,7 @@ class TransactionCreate(TransactionBase):
     account_id: str = Field(..., description="ID du compte source")
     category_id: Optional[str] = Field(None, description="ID de la catégorie")
     destination_account_id: Optional[str] = Field(None, description="ID du compte destination (pour TRANSFER)")
-    
+
     @field_validator('destination_account_id')
     @classmethod
     def validate_destination_account(cls, v: Optional[str], info) -> Optional[str]:
@@ -48,7 +48,7 @@ class TransactionCreate(TransactionBase):
         if transaction_type != TransactionType.TRANSFER and v:
             raise ValueError("destination_account_id uniquement pour les virements")
         return v
-    
+
     @field_validator('amount')
     @classmethod
     def validate_amount_sign(cls, v: Decimal, info) -> Decimal:
@@ -66,14 +66,14 @@ class TransactionCreate(TransactionBase):
 class RecurringTransactionCreate(TransactionCreate):
     """Schema pour créer une transaction récurrente"""
     recurrence_frequency: RecurrenceFrequency = Field(
-        ..., 
+        ...,
         description="Fréquence de récurrence (DAILY, WEEKLY, MONTHLY, YEARLY)"
     )
     recurrence_end_date: Optional[date] = Field(
-        None, 
+        None,
         description="Date de fin de récurrence (optionnel, None = infini)"
     )
-    
+
     @field_validator('recurrence_frequency')
     @classmethod
     def validate_recurrence_frequency(cls, v: RecurrenceFrequency) -> RecurrenceFrequency:
@@ -81,7 +81,7 @@ class RecurringTransactionCreate(TransactionCreate):
         if v == RecurrenceFrequency.NONE:
             raise ValueError("Pour une transaction récurrente, la fréquence ne peut pas être NONE")
         return v
-    
+
     @field_validator('recurrence_end_date')
     @classmethod
     def validate_end_date(cls, v: Optional[date], info) -> Optional[date]:
@@ -103,7 +103,7 @@ class TransactionUpdate(BaseModel):
     category_id: Optional[str] = Field(None)
     notes: Optional[str] = Field(None)
     is_active: Optional[bool] = Field(None)
-    
+
     @field_validator('amount')
     @classmethod
     def validate_amount(cls, v: Optional[Decimal]) -> Optional[Decimal]:
@@ -130,12 +130,12 @@ class TransactionResponse(TransactionBase):
     deleted_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
-    
+
     # Relations (optionnel, pour enrichir les réponses)
     account_name: Optional[str] = Field(None, description="Nom du compte")
     category_name: Optional[str] = Field(None, description="Nom de la catégorie")
     destination_account_name: Optional[str] = Field(None, description="Nom du compte destination")
-    
+
     model_config = {"from_attributes": True}
 
 
@@ -150,5 +150,5 @@ class TransactionFilters(BaseModel):
     category_id: Optional[str] = Field(None, description="Filtrer par catégorie")
     state: Optional[TransactionState] = Field(None, description="Filtrer par état (REALIZED ou PROJECTED)")
     include_deleted: bool = Field(False, description="Inclure les transactions supprimées (corbeille)")
-    
+
     model_config = {"from_attributes": True}

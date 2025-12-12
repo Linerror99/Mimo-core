@@ -3,24 +3,23 @@ Transaction API Router
 
 Endpoints for transaction CRUD operations
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
 from datetime import date
+from typing import List, Optional
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_current_user
-from app.services.transaction_service import TransactionService
+from app.database import get_db
+from app.models.transaction import TransactionState, TransactionType
 from app.models.user import User
 from app.schemas.transaction import (
-    TransactionCreate,
     RecurringTransactionCreate,
-    TransactionUpdate,
+    TransactionCreate,
     TransactionResponse,
-    TransactionFilters
+    TransactionUpdate,
 )
-from app.models.transaction import TransactionType, TransactionState
-
+from app.services.transaction_service import TransactionService
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -33,20 +32,20 @@ async def create_transaction(
 ):
     """
     Créer une transaction ponctuelle
-    
+
     Args:
         transaction_data: Données de la transaction
-        
+
     Returns:
         Transaction créée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.create_transaction(
         household_id=current_user.household_id,
         transaction_data=transaction_data
     )
-    
+
     return transaction
 
 
@@ -58,20 +57,20 @@ async def create_recurring_transaction(
 ):
     """
     Créer une transaction récurrente
-    
+
     Args:
         transaction_data: Données de la transaction récurrente
-        
+
     Returns:
         Transaction récurrente créée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.create_recurring_transaction(
         household_id=current_user.household_id,
         transaction_data=transaction_data
     )
-    
+
     return transaction
 
 
@@ -89,7 +88,7 @@ async def list_transactions(
 ):
     """
     Lister les transactions avec filtres
-    
+
     Query params:
         - start_date: Date de début
         - end_date: Date de fin
@@ -98,12 +97,12 @@ async def list_transactions(
         - category_id: ID de la catégorie
         - state: REALIZED, PROJECTED
         - include_deleted: Inclure corbeille
-    
+
     Returns:
         Liste des transactions
     """
     service = TransactionService(db)
-    
+
     transactions = await service.list_transactions(
         household_id=current_user.household_id,
         start_date=start_date,
@@ -114,7 +113,7 @@ async def list_transactions(
         state=state,
         include_deleted=include_deleted
     )
-    
+
     return transactions
 
 
@@ -125,16 +124,16 @@ async def list_trash(
 ):
     """
     Lister les transactions dans la corbeille
-    
+
     Returns:
         Liste des transactions supprimées
     """
     service = TransactionService(db)
-    
+
     transactions = await service.list_trash(
         household_id=current_user.household_id
     )
-    
+
     return transactions
 
 
@@ -145,16 +144,16 @@ async def list_pending_transactions(
 ):
     """
     Lister les transactions en attente de validation (PENDING)
-    
+
     Returns:
         Liste des transactions PENDING du foyer
     """
     service = TransactionService(db)
-    
+
     transactions = await service.list_pending_transactions(
         household_id=current_user.household_id
     )
-    
+
     return [TransactionResponse.model_validate(t) for t in transactions]
 
 
@@ -166,29 +165,29 @@ async def get_transaction(
 ):
     """
     Récupérer une transaction par ID
-    
+
     Args:
         transaction_id: ID de la transaction
-        
+
     Returns:
         Transaction
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.get_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id
     )
-    
+
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return transaction
 
 
@@ -201,31 +200,31 @@ async def update_transaction(
 ):
     """
     Mettre à jour une transaction
-    
+
     Args:
         transaction_id: ID de la transaction
         transaction_data: Données à mettre à jour
-        
+
     Returns:
         Transaction mise à jour
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.update_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id,
         transaction_data=transaction_data
     )
-    
+
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return transaction
 
 
@@ -237,26 +236,26 @@ async def soft_delete_transaction(
 ):
     """
     Supprimer une transaction (soft delete → corbeille)
-    
+
     Args:
         transaction_id: ID de la transaction
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.soft_delete_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id
     )
-    
+
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return None
 
 
@@ -268,29 +267,29 @@ async def restore_transaction(
 ):
     """
     Restaurer une transaction depuis la corbeille
-    
+
     Args:
         transaction_id: ID de la transaction
-        
+
     Returns:
         Transaction restaurée
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.restore_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id
     )
-    
+
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return transaction
 
 
@@ -302,26 +301,26 @@ async def permanent_delete_transaction(
 ):
     """
     Supprimer définitivement une transaction
-    
+
     Args:
         transaction_id: ID de la transaction
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     success = await service.permanent_delete_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return None
 
 
@@ -334,31 +333,31 @@ async def validate_transaction(
 ):
     """
     Valider une transaction PENDING (la marquer comme REALIZED)
-    
+
     Args:
         transaction_id: ID de la transaction
         new_amount: Nouveau montant (optionnel)
-        
+
     Returns:
         Transaction validée
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.validate_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id,
         new_amount=new_amount
     )
-    
+
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return TransactionResponse.model_validate(transaction)
 
 
@@ -371,31 +370,31 @@ async def postpone_transaction(
 ):
     """
     Reporter une transaction PENDING à une nouvelle date
-    
+
     Args:
         transaction_id: ID de la transaction
         new_date: Nouvelle date
-        
+
     Returns:
         Transaction reportée
-        
+
     Raises:
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     transaction = await service.postpone_transaction(
         transaction_id=transaction_id,
         household_id=current_user.household_id,
         new_date=new_date
     )
-    
+
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return TransactionResponse.model_validate(transaction)
 
 
@@ -408,34 +407,34 @@ async def cancel_transaction(
 ):
     """
     Annuler une transaction PROJECTED ou PENDING
-    
+
     Une transaction annulée:
     - Passe à l'état CANCELLED
     - Reste visible dans l'historique (affichée barrée dans l'UI)
     - Ne peut pas être annulée si déjà REALIZED (passée)
-    
+
     Args:
         transaction_id: ID de la transaction
         reason: Raison de l'annulation (optionnel, stocké dans notes)
-        
+
     Returns:
         Transaction annulée
-        
+
     Raises:
         400: Transaction déjà réalisée
         404: Transaction non trouvée
     """
     service = TransactionService(db)
-    
+
     try:
         transaction = await service.cancel_transaction(
             transaction_id=transaction_id,
             household_id=current_user.household_id,
             reason=reason
         )
-        
+
         return TransactionResponse.model_validate(transaction)
-    
+
     except ValueError as e:
         if "introuvable" in str(e):
             raise HTTPException(

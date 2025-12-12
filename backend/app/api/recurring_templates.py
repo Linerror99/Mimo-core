@@ -3,26 +3,24 @@ Recurring Templates API Endpoints
 
 API pour gérer les templates de transactions récurrentes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_current_user
+from app.database import get_db
+from app.models import Transaction
 from app.models.user import User
 from app.schemas.recurring_template import (
-    RecurringTemplateCreate,
-    RecurringTemplateUpdate,
-    RecurringTemplateResponse,
     BulkCancelRequest,
-    BulkUpdateRequest
+    BulkUpdateRequest,
+    RecurringTemplateCreate,
+    RecurringTemplateResponse,
+    RecurringTemplateUpdate,
 )
 from app.services.recurring_template_service import RecurringTemplateService
-from app.services.projection_service import ProjectionService, get_next_occurrence
-from datetime import date, timedelta
-from app.models import Transaction, TransactionType
-from sqlalchemy import select
-
 
 router = APIRouter(prefix="/api/v1/recurring-templates", tags=["recurring-templates"])
 
@@ -69,13 +67,13 @@ async def get_recurring_template(
         template_id=template_id,
         household_id=current_user.household_id
     )
-    
+
     if not template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recurring template not found"
         )
-    
+
     return template
 
 
@@ -139,13 +137,13 @@ async def bulk_cancel_occurrences(
         template_id=template_id,
         household_id=current_user.household_id
     )
-    
+
     if not template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recurring template not found"
         )
-    
+
     # Récupérer toutes les transactions futures liées à ce template sur la période
     result = await db.execute(
         select(Transaction).where(
@@ -155,18 +153,18 @@ async def bulk_cancel_occurrences(
             Transaction.deleted_at.is_(None)
         )
     )
-    
+
     transactions = list(result.scalars().all())
     deleted_count = 0
-    
+
     # Soft delete de toutes ces transactions
     for transaction in transactions:
         from datetime import datetime
         transaction.deleted_at = datetime.utcnow()
         deleted_count += 1
-    
+
     await db.commit()
-    
+
     return {
         "message": f"Cancelled {deleted_count} occurrences",
         "deleted_count": deleted_count
@@ -190,13 +188,13 @@ async def bulk_update_occurrences(
         template_id=template_id,
         household_id=current_user.household_id
     )
-    
+
     if not template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recurring template not found"
         )
-    
+
     # Récupérer toutes les transactions futures liées à ce template sur la période
     result = await db.execute(
         select(Transaction).where(
@@ -206,17 +204,17 @@ async def bulk_update_occurrences(
             Transaction.deleted_at.is_(None)
         )
     )
-    
+
     transactions = list(result.scalars().all())
     updated_count = 0
-    
+
     # Mettre à jour le montant
     for transaction in transactions:
         transaction.amount = update_request.amount
         updated_count += 1
-    
+
     await db.commit()
-    
+
     return {
         "message": f"Updated {updated_count} occurrences",
         "updated_count": updated_count,

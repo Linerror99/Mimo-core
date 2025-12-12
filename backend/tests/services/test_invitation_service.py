@@ -1,17 +1,17 @@
 """Tests pour InvitationService (Sprint 6 - Mode Couple)."""
-import pytest
 from datetime import datetime, timedelta
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.invitation_service import InvitationService
 from app.models import (
-    Invitation,
-    InvitationType,
-    InvitationStatus,
-    User,
     Household,
     HouseholdType,
+    InvitationStatus,
+    InvitationType,
+    User,
 )
+from app.services.invitation_service import InvitationService
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ async def user1(db_session: AsyncSession) -> User:
         last_name="One",
     )
     db_session.add(user)
-    
+
     # Créer un household INDIVIDUAL pour user1
     household = Household(
         id="household1_id",
@@ -34,7 +34,7 @@ async def user1(db_session: AsyncSession) -> User:
     )
     user.household_id = household.id
     db_session.add(household)
-    
+
     await db_session.commit()
     await db_session.refresh(user)
     return user
@@ -51,7 +51,7 @@ async def user2(db_session: AsyncSession) -> User:
         last_name="Two",
     )
     db_session.add(user)
-    
+
     # Créer un household INDIVIDUAL pour user2
     household = Household(
         id="household2_id",
@@ -60,7 +60,7 @@ async def user2(db_session: AsyncSession) -> User:
     )
     user.household_id = household.id
     db_session.add(household)
-    
+
     await db_session.commit()
     await db_session.refresh(user)
     return user
@@ -75,12 +75,12 @@ class TestInvitationService:
     ):
         """Test: créer une invitation entre deux utilisateurs existants."""
         service = InvitationService(db_session)
-        
+
         invitation = await service.create_invitation(
             inviter_user_id=user1.id,
             invitee_user_id=user2.id,
         )
-        
+
         assert invitation.id is not None
         assert invitation.inviter_user_id == user1.id
         assert invitation.invitee_user_id == user2.id
@@ -97,10 +97,10 @@ class TestInvitationService:
     ):
         """Test: empêcher la création d'une invitation si une PENDING existe déjà."""
         service = InvitationService(db_session)
-        
+
         # Première invitation
         await service.create_invitation(user1.id, user2.id)
-        
+
         # Tentative de dupliquer
         with pytest.raises(ValueError, match="invitation.*pending"):
             await service.create_invitation(user1.id, user2.id)
@@ -110,13 +110,13 @@ class TestInvitationService:
     ):
         """Test: accepter une invitation PENDING."""
         service = InvitationService(db_session)
-        
+
         # Créer invitation
         invitation = await service.create_invitation(user1.id, user2.id)
-        
+
         # Accepter
         accepted_invitation = await service.accept_invitation(invitation.id)
-        
+
         assert accepted_invitation.status == InvitationStatus.ACCEPTED
         assert accepted_invitation.accepted_at is not None
         assert accepted_invitation.accepted_at <= datetime.utcnow()
@@ -126,13 +126,13 @@ class TestInvitationService:
     ):
         """Test: rejeter une invitation PENDING."""
         service = InvitationService(db_session)
-        
+
         # Créer invitation
         invitation = await service.create_invitation(user1.id, user2.id)
-        
+
         # Rejeter
         rejected_invitation = await service.reject_invitation(invitation.id)
-        
+
         assert rejected_invitation.status == InvitationStatus.REJECTED
         assert rejected_invitation.rejected_at is not None
         assert rejected_invitation.rejected_at <= datetime.utcnow()
@@ -142,15 +142,15 @@ class TestInvitationService:
     ):
         """Test: récupérer les invitations ENVOYÉES par un utilisateur."""
         service = InvitationService(db_session)
-        
+
         # user1 envoie une invitation à user2
         await service.create_invitation(user1.id, user2.id)
-        
+
         # Récupérer invitations envoyées par user1
         sent_invitations = await service.get_user_invitations(
             user_id=user1.id, type="sent"
         )
-        
+
         assert len(sent_invitations) == 1
         assert sent_invitations[0].inviter_user_id == user1.id
         assert sent_invitations[0].invitee_user_id == user2.id
@@ -160,15 +160,15 @@ class TestInvitationService:
     ):
         """Test: récupérer les invitations REÇUES par un utilisateur."""
         service = InvitationService(db_session)
-        
+
         # user1 envoie une invitation à user2
         await service.create_invitation(user1.id, user2.id)
-        
+
         # Récupérer invitations reçues par user2
         received_invitations = await service.get_user_invitations(
             user_id=user2.id, type="received"
         )
-        
+
         assert len(received_invitations) == 1
         assert received_invitations[0].inviter_user_id == user1.id
         assert received_invitations[0].invitee_user_id == user2.id
@@ -178,13 +178,13 @@ class TestInvitationService:
     ):
         """Test: annuler une invitation PENDING (inviter uniquement)."""
         service = InvitationService(db_session)
-        
+
         # Créer invitation
         invitation = await service.create_invitation(user1.id, user2.id)
-        
+
         # Annuler
         await service.cancel_invitation(invitation.id, user_id=user1.id)
-        
+
         # Vérifier que l'invitation a été supprimée
         invitations = await service.get_user_invitations(user1.id, "sent")
         assert len(invitations) == 0
@@ -192,15 +192,15 @@ class TestInvitationService:
     async def test_invitation_expiry_validation(self, db_session: AsyncSession, user1: User, user2: User):
         """Test: une invitation expirée ne peut pas être acceptée."""
         service = InvitationService(db_session)
-        
+
         # Créer une invitation
         invitation = await service.create_invitation(user1.id, user2.id)
-        
+
         # Simuler expiration en modifiant expires_at manuellement
         invitation.expires_at = datetime.utcnow() - timedelta(days=1)
         await db_session.commit()
         await db_session.refresh(invitation)
-        
+
         # Tenter d'accepter
         with pytest.raises(ValueError, match="expired"):
             await service.accept_invitation(invitation.id)

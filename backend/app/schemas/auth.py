@@ -1,8 +1,9 @@
 """Authentication schemas for request/response validation."""
+import re
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
-import re
 
 
 class UserCreate(BaseModel):
@@ -11,7 +12,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, max_length=100, description="User password (min 8 characters)")
     first_name: str = Field(..., min_length=1, max_length=50, description="User first name")
     last_name: str = Field(..., min_length=1, max_length=50, description="User last name")
-    
+
     @field_validator('password')
     @classmethod
     def validate_password(cls, v: str) -> str:
@@ -50,7 +51,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     created_at: datetime
     is_in_couple: bool = False  # Calculated field: True if household has 2+ members
-    
+
     class Config:
         from_attributes = True
 
@@ -78,7 +79,7 @@ class PasswordChange(BaseModel):
     """Schema for changing password."""
     old_password: str = Field(..., description="Current password")
     new_password: str = Field(..., min_length=8, max_length=100, description="New password")
-    
+
     @field_validator('new_password')
     @classmethod
     def validate_password(cls, v: str) -> str:
