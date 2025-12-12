@@ -1,5 +1,6 @@
 """FastAPI Application Entry Point"""
 
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
@@ -41,7 +42,9 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 logger.info(f"Application starting in {environment} mode")
 
 # Mount static files for uploads (avatars, receipts, etc.)
-UPLOAD_DIR = Path("/app/uploads")
+# Use UPLOAD_DIR from environment or default to /app/uploads (Docker)
+upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
+UPLOAD_DIR = Path(upload_dir_path)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
