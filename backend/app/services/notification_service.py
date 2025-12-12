@@ -86,7 +86,7 @@ class NotificationService:
         query = select(Notification).where(Notification.user_id == user_id)
 
         if unread_only:
-            query = query.where(not Notification.is_read)
+            query = query.where(Notification.is_read.is_(False))  # noqa: E712
 
         query = query.order_by(Notification.created_at.desc()).limit(limit)
 
@@ -131,7 +131,7 @@ class NotificationService:
         """
         query = select(Notification).where(
             Notification.user_id == user_id,
-            not Notification.is_read
+            Notification.is_read.is_(False)  # noqa: E712
         )
         result = await db.execute(query)
         notifications = result.scalars().all()
@@ -182,7 +182,7 @@ class NotificationService:
         """
         query = select(Notification).where(
             Notification.user_id == user_id,
-            not Notification.is_read
+            Notification.is_read.is_(False)  # noqa: E712
         )
         result = await db.execute(query)
         return len(result.scalars().all())
