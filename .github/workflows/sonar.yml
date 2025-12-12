@@ -3,7 +3,7 @@
 # ================================================================
 #
 # Code quality analysis with SonarCloud:
-# - Coverage analysis (Sprint 8: 76%, Sprint 9: >85%)
+# - Coverage analysis (Sprint 8: 75%, Sprint 9: >85%)
 # - Code smells detection
 # - Security hotspots
 # - Duplication detection (<3% required)
@@ -125,9 +125,8 @@ jobs:
             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION || 'linerror99' }}
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'Linerror99_Mimo-core' }}
             -Dsonar.python.coverage.reportPaths=backend/coverage.xml
-            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
             -Dsonar.sources=backend/app,frontend/src
-            -Dsonar.tests=backend/tests,frontend/src/__tests__
+            -Dsonar.tests=backend/tests
             -Dsonar.exclusions=**/node_modules/**,**/venv/**,**/__pycache__/**,**/migrations/**,**/alembic/versions/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/dist/**,**/build/**,**/coverage/**
             -Dsonar.python.version=3.12
             -Dsonar.javascript.file.suffixes=.js,.jsx
@@ -148,5 +147,5 @@ jobs:
       - name: Quality Gate Status
         run: |
           echo "⚠️ Quality Gate check completed (non-blocking)"
-          echo "Current coverage: 76%"
+          echo "Current coverage: 75%"
           echo "Target coverage: 85% (Sprint 9)"
