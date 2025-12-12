@@ -2,6 +2,7 @@
 
 import logging
 import json
+import os
 import sys
 from datetime import datetime
 from typing import Optional
@@ -184,10 +185,12 @@ def setup_logging(
 
 
 # Global logger instance
+# Use LOG_DIR from environment or default to /app/logs (Docker)
+_log_dir = os.getenv("LOG_DIR", "/app/logs")
 logger = setup_logging(
     app_name="duoflow",
     log_level="INFO",
-    log_dir=Path("/app/logs"),  # Docker volume
+    log_dir=Path(_log_dir) if _log_dir else None,
     enable_json=True,
 )
 
