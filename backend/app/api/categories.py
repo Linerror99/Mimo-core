@@ -1,16 +1,16 @@
 """
 Category API endpoints
 """
-from typing import Annotated, Optional, List
+from typing import Annotated, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
 from app.api.deps import CurrentUser
-from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
-from app.services.category_service import CategoryService
+from app.database import get_db
 from app.models import CategoryType
-
+from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from app.services.category_service import CategoryService
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -27,7 +27,7 @@ async def create_category(
 ):
     """
     Create a new category for the current user's household.
-    
+
     - **name**: Category name (required)
     - **type**: INCOME or EXPENSE (required)
     - **icon**: Emoji or icon identifier (optional)
@@ -40,7 +40,7 @@ async def create_category(
         household_id=current_user.household_id,
         category_data=category_data
     )
-    
+
     return category
 
 
@@ -53,7 +53,7 @@ async def list_categories(
 ):
     """
     List all categories for the current user's household.
-    
+
     Query Parameters:
     - **type**: Filter by INCOME or EXPENSE
     - **parent_id**: Filter by parent category (to get subcategories)
@@ -65,7 +65,7 @@ async def list_categories(
         category_type=type,
         parent_id=parent_id
     )
-    
+
     return categories
 
 
@@ -77,7 +77,7 @@ async def get_category_tree(
 ):
     """
     Get categories organized as a tree structure with children nested.
-    
+
     Returns root categories with their subcategories nested recursively.
     """
     service = CategoryService()
@@ -86,7 +86,7 @@ async def get_category_tree(
         household_id=current_user.household_id,
         category_type=type
     )
-    
+
     return tree
 
 
@@ -98,7 +98,7 @@ async def get_category(
 ):
     """
     Get a specific category by ID.
-    
+
     Only returns categories belonging to the current user's household.
     """
     service = CategoryService()
@@ -107,13 +107,13 @@ async def get_category(
         category_id=category_id,
         household_id=current_user.household_id
     )
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found"
         )
-    
+
     return category
 
 
@@ -126,32 +126,32 @@ async def update_category(
 ):
     """
     Update a category.
-    
+
     Only fields provided in the request will be updated.
     Can only update categories belonging to the current user's household.
     """
     service = CategoryService()
-    
+
     # Get existing category
     category = await service.get_category_by_id(
         db=db,
         category_id=category_id,
         household_id=current_user.household_id
     )
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found"
         )
-    
+
     # Update category
     updated_category = await service.update_category(
         db=db,
         category=category,
         update_data=update_data
     )
-    
+
     return updated_category
 
 
@@ -163,26 +163,26 @@ async def delete_category(
 ):
     """
     Delete a category.
-    
+
     Can only delete categories belonging to the current user's household.
     Subcategories will be handled according to cascade rules.
     """
     service = CategoryService()
-    
+
     # Get existing category
     category = await service.get_category_by_id(
         db=db,
         category_id=category_id,
         household_id=current_user.household_id
     )
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found"
         )
-    
+
     # Delete category
     await service.delete_category(db=db, category=category)
-    
+
     return None

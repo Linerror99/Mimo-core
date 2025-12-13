@@ -4,8 +4,9 @@ Category Schemas
 Pydantic models for Category API
 """
 from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 from app.models.category import CategoryType
 

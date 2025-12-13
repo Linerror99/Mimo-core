@@ -3,17 +3,16 @@ Projections API Endpoints
 
 API pour générer et consulter les projections financières.
 """
+from datetime import date
+
+from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-from datetime import date
-from dateutil.relativedelta import relativedelta
 
-from app.database import get_db
 from app.api.deps import get_current_user
+from app.database import get_db
 from app.models.user import User
 from app.services.projection_service import ProjectionService
-
 
 router = APIRouter(prefix="/api/v1/projections", tags=["projections"])
 
@@ -35,7 +34,7 @@ async def generate_projections(
         start_date=start_date,
         end_date=end_date
     )
-    
+
     return {
         "start_date": start_date,
         "end_date": end_date,
@@ -61,7 +60,7 @@ async def get_monthly_projection(
         target_month=month,
         target_year=year
     )
-    
+
     return projection
 
 
@@ -77,26 +76,26 @@ async def get_12_months_projection(
     # Calculer les 12 prochains mois
     today = date.today()
     start_month = today.replace(day=1)
-    
+
     monthly_projections = []
-    
+
     for i in range(12):
         target_date = start_month + relativedelta(months=i)
-        
+
         projection = await ProjectionService.calculate_monthly_projection(
             db=db,
             household_id=current_user.household_id,
             target_month=target_date.month,
             target_year=target_date.year
         )
-        
+
         monthly_projections.append(projection)
-    
+
     # Calculer les totaux sur 12 mois
     total_income = sum(p["income"] for p in monthly_projections)
     total_expense = sum(p["expense"] for p in monthly_projections)
     total_balance = total_income - total_expense
-    
+
     return {
         "period": "12 months",
         "start_date": start_month,

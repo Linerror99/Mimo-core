@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { ValidationModal } from '@/components/ValidationModal'
 import { WalletCards } from '@/components/WalletCards'
 import { User, Home as HomeIcon, TrendingUp, Clock, Check, Database, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import toast from '@/utils/toast'
+import logger from '@/utils/logger'
 import { sampleTransactions, sampleAccounts, sampleCategories, sampleGoals } from '@/lib/sampleData'
 import type { Transaction, Account, Category, Goal } from '@/types'
 import { transactionService } from '@/services/transactionService'
@@ -48,7 +49,8 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
       const pending = await transactionService.listPending()
       setPendingTransactions(pending)
     } catch (error) {
-      console.error('Failed to fetch pending transactions:', error)
+      logger.error('Failed to fetch pending transactions', error)
+      toast.error('Erreur de chargement', error)
     }
   }
 

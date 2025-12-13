@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Layout } from '@/components/Layout';
 import { projectionService } from '../services/projectionService';
 import { accountService } from '../services/accountService';
 import { MonthlyProjection, Projection, formatMonth, formatProjectionAmount } from '../types/projection';
@@ -6,7 +7,22 @@ import { TransactionType } from '../types/recurringTemplate';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import '../styles/Projection.css';
 
-const ProjectionPage: React.FC = () => {
+type Page =
+  | 'dashboard'
+  | 'timeline'
+  | 'accounts'
+  | 'categories'
+  | 'goals'
+  | 'settings-profile'
+  | 'settings-household'
+  | 'trash'
+
+interface ProjectionPageProps {
+  navigate: (page: Page) => void
+  onLogout: () => void
+}
+
+export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
   const [projections, setProjections] = useState<MonthlyProjection[]>([]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -53,22 +69,29 @@ const ProjectionPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="loading">Chargement des projections...</div>;
+    return (
+      <Layout currentPage="projection" navigate={navigate} onLogout={onLogout}>
+        <div className="loading">Chargement des projections...</div>
+      </Layout>
+    );
   }
 
   if (error) {
     return (
-      <div className="projection-page">
-        <div className="error-message">{error}</div>
-        <button className="btn btn-primary" onClick={loadData}>
-          Réessayer
-        </button>
-      </div>
+      <Layout currentPage="projection" navigate={navigate} onLogout={onLogout}>
+        <div className="projection-page">
+          <div className="error-message">{error}</div>
+          <button className="btn btn-primary" onClick={loadData}>
+            Réessayer
+          </button>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="projection-page">
+    <Layout currentPage="projection" navigate={navigate} onLogout={onLogout}>
+      <div className="projection-page">
       <div className="header">
         <h1>Projection 12 mois</h1>
         <div className="header-actions">
@@ -264,8 +287,9 @@ const ProjectionPage: React.FC = () => {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </Layout>
   );
-};
+}
 
 export default ProjectionPage;

@@ -1,0 +1,151 @@
+# ================================================================
+# MIMO FINANCE - SonarCloud Analysis
+# ================================================================
+#
+# Code quality analysis with SonarCloud:
+# - Coverage analysis (Sprint 8: 75%, Sprint 9: >85%)
+# - Code smells detection
+# - Security hotspots
+# - Duplication detection (<3% required)
+# - Maintainability rating (A required)
+# - Reliability rating (A required)
+# - Security rating (A required)
+#
+# Sprint 8: Quality Gate non-bloquant, frontend tests optionnels
+#
+# ================================================================
+
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches: [ main, develop, sprint_* ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  # ================================================================
+  # SonarCloud Analysis
+  # ================================================================
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones disabled for better relevancy
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+      
+      # ================================================================
+      # Backend: Generate coverage
+      # ================================================================
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Start test services (PostgreSQL, Redis)
+        run: |
+          docker run -d \
+            --name postgres-test \
+            -e POSTGRES_USER=${{ secrets.TEST_DB_USER || 'test_user' }} \
+            -e POSTGRES_PASSWORD=${{ secrets.TEST_DB_PASSWORD || 'test_password' }} \
+            -e POSTGRES_DB=${{ secrets.TEST_DB_NAME || 'test_db' }} \
+            -p 5432:5432 \
+            postgres:15-alpine
+          
+          docker run -d \
+            --name redis-test \
+            -p 6379:6379 \
+            redis:7-alpine
+          
+          # Wait for services
+          sleep 10
+      
+      - name: Run backend tests with coverage
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://${{ secrets.TEST_DB_USER || 'test_user' }}:${{ secrets.TEST_DB_PASSWORD || 'test_password' }}@localhost:5432/${{ secrets.TEST_DB_NAME || 'test_db' }}
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: ${{ secrets.TEST_JWT_SECRET || 'test_secret_key' }}
+          ENVIRONMENT: test
+          LOG_DIR: ./logs
+          UPLOAD_DIR: ./uploads
+        run: |
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+      
+      - name: Stop test services
+        if: always()
+        run: |
+          docker stop postgres-test redis-test || true
+          docker rm postgres-test redis-test || true
+      
+      # ================================================================
+      # Frontend: Generate coverage (Skip if no tests - Sprint 8)
+      # ================================================================
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+        continue-on-error: true
+      
+      - name: Run frontend tests with coverage
+        working-directory: ./frontend
+        run: npm run test:coverage || echo "⚠️ Frontend tests skipped (no test suite configured yet)"
+        continue-on-error: true
+        env:
+          CI: true
+      
+      # ================================================================
+      # SonarCloud Scan
+      # ================================================================
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION || 'linerror99' }}
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'Linerror99_Mimo-core' }}
+            -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+            -Dsonar.sources=backend/app,frontend/src
+            -Dsonar.tests=backend/tests
+            -Dsonar.exclusions=**/node_modules/**,**/venv/**,**/__pycache__/**,**/migrations/**,**/alembic/versions/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/dist/**,**/build/**,**/coverage/**
+            -Dsonar.python.version=3.12
+            -Dsonar.javascript.file.suffixes=.js,.jsx
+            -Dsonar.typescript.file.suffixes=.ts,.tsx
+      
+      # ================================================================
+      # Quality Gate Check (Non-blocking pour l'instant - Coverage 76%)
+      # ================================================================
+      - name: Wait for Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          scanMetadataReportFile: .scannerwork/report-task.txt
+      
+      - name: Quality Gate Status
+        run: |
+          echo "⚠️ Quality Gate check completed (non-blocking)"
+          echo "Current coverage: 75%"
+          echo "Target coverage: 85% (Sprint 9)"

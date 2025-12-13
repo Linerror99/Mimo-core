@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   Send
 } from 'lucide-react';
+import toast from '@/utils/toast';
+import logger from '@/utils/logger';
 import { InvitationList } from '@/components/InvitationList';
 import invitationService, { Invitation } from '@/services/invitationService';
 
@@ -45,7 +47,8 @@ export default function Settings() {
       setSentInvitations(sent);
       setReceivedInvitations(received);
     } catch (err) {
-      console.error('Failed to load invitations:', err);
+      logger.error('Failed to load invitations', err);
+      toast.error('Échec du chargement des invitations', err);
       setError('Échec du chargement des invitations');
     } finally {
       setLoading(false);
@@ -74,13 +77,15 @@ export default function Settings() {
 
       await invitationService.createInvitation(inviteeEmail);
       
+      toast.success('Invitation envoyée', `L'invitation a été envoyée à ${inviteeEmail}`);
       setSuccess(`Invitation envoyée à ${inviteeEmail} !`);
       setInviteeEmail('');
       
       // Recharger les invitations
       await loadInvitations();
     } catch (err: any) {
-      console.error('Failed to send invitation:', err);
+      logger.error('Failed to send invitation', err);
+      toast.error('Échec de l\'envoi', err);
       const errorMessage = err.response?.data?.detail || 'Échec de l\'envoi de l\'invitation';
       setError(errorMessage);
     } finally {
@@ -96,6 +101,7 @@ export default function Settings() {
 
       await invitationService.acceptInvitation(invitationId);
       
+      toast.success('Invitation acceptée', 'Votre foyer a été créé ! 🎉');
       setSuccess('Invitation acceptée ! Votre foyer a été créé. 🎉');
       
       // Recharger les invitations
@@ -106,7 +112,8 @@ export default function Settings() {
         window.location.reload();
       }, 2000);
     } catch (err: any) {
-      console.error('Failed to accept invitation:', err);
+      logger.error('Failed to accept invitation', err);
+      toast.error('Échec de l\'acceptation', err);
       const errorMessage = err.response?.data?.detail || 'Échec de l\'acceptation';
       setError(errorMessage);
     } finally {
@@ -122,12 +129,14 @@ export default function Settings() {
 
       await invitationService.rejectInvitation(invitationId);
       
+      toast.info('Invitation refusée');
       setSuccess('Invitation refusée');
       
       // Recharger les invitations
       await loadInvitations();
     } catch (err: any) {
-      console.error('Failed to reject invitation:', err);
+      logger.error('Failed to reject invitation', err);
+      toast.error('Échec du refus', err);
       const errorMessage = err.response?.data?.detail || 'Échec du refus';
       setError(errorMessage);
     } finally {
@@ -143,12 +152,14 @@ export default function Settings() {
 
       await invitationService.cancelInvitation(invitationId);
       
+      toast.info('Invitation annulée');
       setSuccess('Invitation annulée');
       
       // Recharger les invitations
       await loadInvitations();
     } catch (err: any) {
-      console.error('Failed to cancel invitation:', err);
+      logger.error('Failed to cancel invitation', err);
+      toast.error('Échec de l\'annulation', err);
       const errorMessage = err.response?.data?.detail || 'Échec de l\'annulation';
       setError(errorMessage);
     } finally {

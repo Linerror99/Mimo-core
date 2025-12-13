@@ -5,16 +5,17 @@ Business logic for account management
 """
 from decimal import Decimal
 from typing import List, Optional
-from sqlalchemy import select, func
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Account, AccountType
+from app.models import Account
 from app.schemas.account import AccountCreate, AccountUpdate
 
 
 class AccountService:
     """Service for managing accounts"""
-    
+
     @staticmethod
     async def create_account(
         db: AsyncSession,
@@ -29,13 +30,13 @@ class AccountService:
             initial_balance=account_data.initial_balance,
             currency=account_data.currency
         )
-        
+
         db.add(account)
         await db.commit()
         await db.refresh(account)
-        
+
         return account
-    
+
     @staticmethod
     async def get_account_by_id(
         db: AsyncSession,
@@ -50,7 +51,7 @@ class AccountService:
             )
         )
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def list_accounts(
         db: AsyncSession,
@@ -59,13 +60,13 @@ class AccountService:
     ) -> List[Account]:
         """List all accounts for a household"""
         query = select(Account).where(Account.household_id == household_id)
-        
+
         if not include_inactive:
             query = query.where(Account.is_active == "true")
-        
+
         result = await db.execute(query.order_by(Account.created_at.desc()))
         return list(result.scalars().all())
-    
+
     @staticmethod
     async def update_account(
         db: AsyncSession,
@@ -74,19 +75,19 @@ class AccountService:
     ) -> Account:
         """Update an account"""
         update_dict = update_data.model_dump(exclude_unset=True)
-        
+
         for field, value in update_dict.items():
             if field == "is_active":
                 # Convert bool to enum string
                 setattr(account, field, "true" if value else "false")
             else:
                 setattr(account, field, value)
-        
+
         await db.commit()
         await db.refresh(account)
-        
+
         return account
-    
+
     @staticmethod
     async def close_account(
         db: AsyncSession,
@@ -94,20 +95,20 @@ class AccountService:
     ) -> Account:
         """
         Close an account (soft delete)
-        
+
         Sets is_active to False and closed_at to current timestamp.
         Preserves all transaction history.
         """
         from datetime import datetime
-        
+
         account.is_active = "false"
         account.closed_at = datetime.utcnow()
-        
+
         await db.commit()
         await db.refresh(account)
-        
+
         return account
-    
+
     @staticmethod
     async def calculate_balance(
         db: AsyncSession,
@@ -115,12 +116,11 @@ class AccountService:
     ) -> Decimal:
         """Calculate current account balance (initial + transactions sum)"""
         from app.models.transaction import Transaction
-        from sqlalchemy import func
-        
+
         account = await db.get(Account, account_id)
         if not account:
             return Decimal("0")
-        
+
         # Calculer la somme des transactions non supprimées pour ce compte
         result = await db.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0))
@@ -130,6 +130,6 @@ class AccountService:
             )
         )
         transactions_sum = result.scalar_one()
-        
+
         # Balance = initial_balance + somme transactions
         return account.initial_balance + Decimal(str(transactions_sum))

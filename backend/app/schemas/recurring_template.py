@@ -3,11 +3,12 @@ Recurring Template Schemas
 
 Schemas Pydantic pour validation et sérialisation des templates récurrents.
 """
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class FrequencyEnum(str, Enum):
@@ -32,15 +33,15 @@ class RecurringTemplateBase(BaseModel):
     amount: Decimal = Field(..., gt=0, decimal_places=2, description="Montant (toujours positif)")
     type: TransactionTypeEnum = Field(..., description="Type: INCOME, EXPENSE, TRANSFER")
     description: Optional[str] = Field(None, max_length=1000, description="Description optionnelle")
-    
+
     frequency: FrequencyEnum = Field(..., description="Fréquence de récurrence")
     start_date: date = Field(..., description="Date de première occurrence")
     end_date: Optional[date] = Field(None, description="Date de fin (None = indéfini)")
-    
+
     day_of_month: Optional[int] = Field(None, ge=1, le=31, description="Jour du mois (1-31) pour MONTHLY/QUARTERLY/YEARLY")
     day_of_week: Optional[int] = Field(None, ge=0, le=6, description="Jour de la semaine (0=Lundi, 6=Dimanche) pour WEEKLY")
     custom_days: Optional[int] = Field(None, ge=1, description="Nombre de jours pour CUSTOM")
-    
+
     account_id: str = Field(..., description="ID du compte source")
     destination_account_id: Optional[str] = Field(None, description="ID du compte destination (pour TRANSFER)")
     category_id: Optional[str] = Field(None, description="ID de la catégorie")
@@ -104,13 +105,13 @@ class RecurringTemplateUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     amount: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
     description: Optional[str] = Field(None, max_length=1000)
-    
+
     end_date: Optional[date] = Field(None, description="Date de fin (None = indéfini)")
-    
+
     day_of_month: Optional[int] = Field(None, ge=1, le=31)
     day_of_week: Optional[int] = Field(None, ge=0, le=6)
     custom_days: Optional[int] = Field(None, ge=1)
-    
+
     category_id: Optional[str] = None
     is_active: Optional[str] = Field(None, pattern="^(true|false)$")
 

@@ -4,12 +4,12 @@ Recurring Template Model
 Modèle pour les transactions récurrentes.
 Génère automatiquement des transactions projetées selon la fréquence.
 """
-from sqlalchemy import Column, String, Numeric, Date, Integer, Enum, ForeignKey, DateTime, Text, Boolean
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from datetime import date
 import enum
 import uuid
+
+from sqlalchemy import Column, Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from app.database import Base
 
@@ -26,7 +26,7 @@ class Frequency(str, enum.Enum):
 class RecurringTemplate(Base):
     """
     Template de transaction récurrente
-    
+
     Génère des transactions projetées automatiquement selon :
     - Fréquence (WEEKLY, MONTHLY, QUARTERLY, YEARLY, CUSTOM)
     - Date de début (start_date)
@@ -64,7 +64,7 @@ class RecurringTemplate(Base):
 
     # État
     is_active = Column(String, nullable=False, default="true")  # "true"/"false"
-    
+
     # Audit
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)

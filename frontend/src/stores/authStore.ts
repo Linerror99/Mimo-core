@@ -5,6 +5,8 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import toast from '@/utils/toast';
+import logger from '@/utils/logger';
 
 export interface User {
   id: string;
@@ -161,7 +163,7 @@ export const useAuthStore = create<AuthState>()(
             });
           }
         } catch (error) {
-          console.error('Logout error:', error);
+          logger.error('Logout error', error);
         } finally {
           // Clear localStorage
           localStorage.removeItem('access_token');
@@ -295,7 +297,7 @@ export const useAuthStore = create<AuthState>()(
             accessToken: data.access_token,
           });
         } catch (error) {
-          console.error('Token refresh error:', error);
+          logger.error('Token refresh error', error);
           await get().logout();
           throw error;
         }
@@ -344,7 +346,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
           });
         } catch (error) {
-          console.error('Auth check error:', error);
+          logger.error('Auth check error', error);
           await get().logout();
         }
       },

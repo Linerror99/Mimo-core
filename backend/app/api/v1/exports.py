@@ -3,16 +3,14 @@ Exports Router
 
 API endpoints for exporting financial data (PDF reports)
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import date
 
-from app.database import get_db
 from app.api.deps import get_current_user
+from app.database import get_db
 from app.models.user import User
 from app.services.pdf_service import PDFService
-
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -26,34 +24,34 @@ async def export_monthly_report_pdf(
 ):
     """
     Exporter un rapport financier mensuel en PDF
-    
+
     Génère un PDF contenant:
     - Résumé financier (revenus, dépenses, solde)
     - Dépenses par catégorie
     - Détail de toutes les transactions du mois
-    
+
     Args:
         year: Année du rapport (ex: 2025)
         month: Mois du rapport (1-12)
-    
+
     Returns:
         Response: Fichier PDF
     """
     service = PDFService(db)
-    
+
     try:
         pdf_bytes = await service.generate_monthly_report(
             user_id=current_user.id,
             year=year,
             month=month
         )
-        
+
         filename = service.get_filename(
             user_id=current_user.id,
             year=year,
             month=month
         )
-        
+
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -61,7 +59,7 @@ async def export_monthly_report_pdf(
                 "Content-Disposition": f"attachment; filename={filename}"
             }
         )
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

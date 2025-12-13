@@ -1,14 +1,15 @@
-import pytest
 import asyncio
 from typing import AsyncGenerator, Generator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
-from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 
-from app.main import app
-from app.database import Base, get_db
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
 from app.config import settings
+from app.database import Base, get_db
+from app.main import app
 
 # Utilise la même DB mais avec isolation par test (drop/create tables)
 TEST_DATABASE_URL = settings.DATABASE_URL.replace(
@@ -45,7 +46,7 @@ def mock_redis():
     # Mock des méthodes Redis utilisées dans auth_service
     mock.get = AsyncMock(return_value=None)  # Token pas blacklisté par défaut
     mock.setex = AsyncMock(return_value=True)
-    
+
     with patch("app.services.auth_service.redis_client", mock):
         yield mock
 
@@ -56,11 +57,11 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     # Créer les tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Créer une session
     async with TestSessionLocal() as session:
         yield session
-    
+
     # Nettoyer après le test
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -69,16 +70,16 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create a test client with overridden database dependency."""
-    
+
     async def override_get_db():
         yield db_session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-    
+
     app.dependency_overrides.clear()
 
 
@@ -92,19 +93,19 @@ async def test_user_token(client: AsyncClient, db_session: AsyncSession) -> str:
         "first_name": "Test",
         "last_name": "User"
     }
-    
+
     register_response = await client.post("/api/v1/auth/register", json=register_data)
     assert register_response.status_code == 201
-    
+
     # Login to get token
     login_data = {
         "email": "test@example.com",
         "password": "TestPassword123!"
     }
-    
+
     login_response = await client.post("/api/v1/auth/login", json=login_data)
     assert login_response.status_code == 200
-    
+
     token_data = login_response.json()
     return token_data["access_token"]
 
@@ -117,7 +118,7 @@ async def test_user_household_id(client: AsyncClient, test_user_token: str) -> s
         headers={"Authorization": f"Bearer {test_user_token}"}
     )
     assert response.status_code == 200
-    
+
     user_data = response.json()
     return user_data["household_id"]
 
@@ -126,7 +127,7 @@ async def test_user_household_id(client: AsyncClient, test_user_token: str) -> s
 async def test_household_id(db_session: AsyncSession) -> str:
     """Create a test household and return its ID."""
     from app.models.household import Household, HouseholdType
-    
+
     household = Household(
         name="Test Household",
         type=HouseholdType.INDIVIDUAL
@@ -134,16 +135,17 @@ async def test_household_id(db_session: AsyncSession) -> str:
     db_session.add(household)
     await db_session.commit()
     await db_session.refresh(household)
-    
+
     return household.id
 
 
 @pytest.fixture(scope="function")
 async def test_account_id(db_session: AsyncSession, test_household_id: str) -> str:
     """Create a test account and return its ID."""
-    from app.models.account import Account, AccountType
     from decimal import Decimal
-    
+
+    from app.models.account import Account, AccountType
+
     account = Account(
         household_id=test_household_id,
         name="Test Account",
@@ -155,16 +157,17 @@ async def test_account_id(db_session: AsyncSession, test_household_id: str) -> s
     db_session.add(account)
     await db_session.commit()
     await db_session.refresh(account)
-    
+
     return account.id
 
 
 @pytest.fixture(scope="function")
 async def test_account2_id(db_session: AsyncSession, test_household_id: str) -> str:
     """Create a second test account for transfer tests."""
-    from app.models.account import Account, AccountType
     from decimal import Decimal
-    
+
+    from app.models.account import Account, AccountType
+
     account = Account(
         household_id=test_household_id,
         name="Test Account 2",
@@ -176,7 +179,7 @@ async def test_account2_id(db_session: AsyncSession, test_household_id: str) -> 
     db_session.add(account)
     await db_session.commit()
     await db_session.refresh(account)
-    
+
     return account.id
 
 
@@ -184,7 +187,7 @@ async def test_account2_id(db_session: AsyncSession, test_household_id: str) -> 
 async def test_category_income_id(db_session: AsyncSession, test_household_id: str) -> str:
     """Create a test income category and return its ID."""
     from app.models.category import Category, CategoryType
-    
+
     category = Category(
         household_id=test_household_id,
         name="Test Income",
@@ -195,7 +198,7 @@ async def test_category_income_id(db_session: AsyncSession, test_household_id: s
     db_session.add(category)
     await db_session.commit()
     await db_session.refresh(category)
-    
+
     return category.id
 
 
@@ -203,7 +206,7 @@ async def test_category_income_id(db_session: AsyncSession, test_household_id: s
 async def test_category_expense_id(db_session: AsyncSession, test_household_id: str) -> str:
     """Create a test expense category and return its ID."""
     from app.models.category import Category, CategoryType
-    
+
     category = Category(
         household_id=test_household_id,
         name="Test Expense",
@@ -214,22 +217,23 @@ async def test_category_expense_id(db_session: AsyncSession, test_household_id: 
     db_session.add(category)
     await db_session.commit()
     await db_session.refresh(category)
-    
+
     return category.id
 
 
 @pytest.fixture(scope="function")
 async def test_transaction(
-    db_session: AsyncSession, 
+    db_session: AsyncSession,
     test_household_id: str,
     test_account_id: str,
     test_category_expense_id: str
 ):
     """Create a test transaction."""
-    from app.models.transaction import Transaction, TransactionType, RecurrenceFrequency
     from datetime import date
     from decimal import Decimal
-    
+
+    from app.models.transaction import RecurrenceFrequency, Transaction, TransactionType
+
     transaction = Transaction(
         household_id=test_household_id,
         account_id=test_account_id,
@@ -243,7 +247,7 @@ async def test_transaction(
     db_session.add(transaction)
     await db_session.commit()
     await db_session.refresh(transaction)
-    
+
     return transaction
 
 
@@ -251,7 +255,7 @@ async def test_transaction(
 async def test_user(db_session: AsyncSession, test_household_id: str):
     """Create a test user object."""
     from app.models.user import User
-    
+
     user = User(
         first_name="Test",
         last_name="User",
@@ -262,7 +266,7 @@ async def test_user(db_session: AsyncSession, test_household_id: str):
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
-    
+
     return user
 
 
@@ -270,8 +274,9 @@ async def test_user(db_session: AsyncSession, test_household_id: str):
 async def test_household(db_session: AsyncSession, test_household_id: str):
     """Get test household object."""
     from sqlalchemy import select
+
     from app.models.household import Household
-    
+
     result = await db_session.execute(
         select(Household).where(Household.id == test_household_id)
     )
@@ -282,8 +287,9 @@ async def test_household(db_session: AsyncSession, test_household_id: str):
 async def test_account(db_session: AsyncSession, test_account_id: str):
     """Get test account object."""
     from sqlalchemy import select
+
     from app.models.account import Account
-    
+
     result = await db_session.execute(
         select(Account).where(Account.id == test_account_id)
     )

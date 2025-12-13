@@ -3,11 +3,13 @@ Category Model
 
 Represents a transaction category (income or expense)
 """
-from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Enum as SQLEnum, ForeignKey
-from sqlalchemy.orm import relationship
 import enum
 import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 

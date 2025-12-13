@@ -3,12 +3,13 @@ Tests pour RecurringTemplateService
 
 Tests TDD pour service de gestion des templates récurrents.
 """
-import pytest
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import RecurringTemplate, Frequency, Account, Category, Household, User
+from app.models import Account, Category, Frequency, Household, User
 from app.services.recurring_template_service import RecurringTemplateService
 
 
@@ -97,13 +98,13 @@ class TestRecurringTemplateService:
             "account_id": test_account.id,
             "category_id": test_category.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session,
             household_id=test_household.id,
             data=data
         )
-        
+
         assert template.id is not None
         assert template.name == "Loyer mensuel"
         assert template.amount == Decimal("1500.00")
@@ -124,13 +125,13 @@ class TestRecurringTemplateService:
             "day_of_week": 6,  # Dimanche
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session,
             household_id=test_household.id,
             data=data
         )
-        
+
         assert template.frequency == Frequency.WEEKLY
         assert template.day_of_week == 6
 
@@ -147,13 +148,13 @@ class TestRecurringTemplateService:
             "day_of_month": 31,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session,
             household_id=test_household.id,
             data=data
         )
-        
+
         assert template.frequency == Frequency.QUARTERLY
         assert template.type == "INCOME"
 
@@ -170,13 +171,13 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session,
             household_id=test_household.id,
             data=data
         )
-        
+
         assert template.frequency == Frequency.YEARLY
 
     async def test_create_custom_template(
@@ -192,13 +193,13 @@ class TestRecurringTemplateService:
             "custom_days": 15,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session,
             household_id=test_household.id,
             data=data
         )
-        
+
         assert template.frequency == Frequency.CUSTOM
         assert template.custom_days == 15
 
@@ -215,15 +216,15 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        
+
         created = await RecurringTemplateService.create_template(
             db=db_session, household_id=test_household.id, data=data
         )
-        
+
         retrieved = await RecurringTemplateService.get_template(
             db=db_session, template_id=created.id, household_id=test_household.id
         )
-        
+
         assert retrieved.id == created.id
         assert retrieved.name == "Test Get"
 
@@ -245,11 +246,11 @@ class TestRecurringTemplateService:
             await RecurringTemplateService.create_template(
                 db=db_session, household_id=test_household.id, data=data
             )
-        
+
         templates = await RecurringTemplateService.get_all_templates(
             db=db_session, household_id=test_household.id
         )
-        
+
         assert len(templates) >= 3
 
     async def test_get_active_templates_only(
@@ -266,10 +267,10 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        active = await RecurringTemplateService.create_template(
+        await RecurringTemplateService.create_template(
             db=db_session, household_id=test_household.id, data=data1
         )
-        
+
         data2 = {
             "name": "Inactive Template",
             "amount": Decimal("200.00"),
@@ -282,7 +283,7 @@ class TestRecurringTemplateService:
         inactive = await RecurringTemplateService.create_template(
             db=db_session, household_id=test_household.id, data=data2
         )
-        
+
         # Désactiver le second
         await RecurringTemplateService.update_template(
             db=db_session,
@@ -290,12 +291,12 @@ class TestRecurringTemplateService:
             household_id=test_household.id,
             data={"is_active": "false"}
         )
-        
+
         # Récupérer uniquement actifs
         templates = await RecurringTemplateService.get_all_templates(
             db=db_session, household_id=test_household.id, include_inactive=False
         )
-        
+
         template_names = [t.name for t in templates]
         assert "Active Template" in template_names
         assert "Inactive Template" not in template_names
@@ -313,11 +314,11 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session, household_id=test_household.id, data=data
         )
-        
+
         # Mettre à jour
         updated = await RecurringTemplateService.update_template(
             db=db_session,
@@ -325,7 +326,7 @@ class TestRecurringTemplateService:
             household_id=test_household.id,
             data={"name": "Updated Name", "amount": Decimal("200.00")}
         )
-        
+
         assert updated.name == "Updated Name"
         assert updated.amount == Decimal("200.00")
 
@@ -342,11 +343,11 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session, household_id=test_household.id, data=data
         )
-        
+
         # Désactiver
         updated = await RecurringTemplateService.update_template(
             db=db_session,
@@ -354,7 +355,7 @@ class TestRecurringTemplateService:
             household_id=test_household.id,
             data={"is_active": "false"}
         )
-        
+
         assert updated.is_active == "false"
 
     async def test_delete_template(
@@ -370,21 +371,21 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session, household_id=test_household.id, data=data
         )
-        
+
         # Supprimer
         await RecurringTemplateService.delete_template(
             db=db_session, template_id=template.id, household_id=test_household.id
         )
-        
+
         # Vérifier qu'il n'existe plus
         deleted = await RecurringTemplateService.get_template(
             db=db_session, template_id=template.id, household_id=test_household.id
         )
-        
+
         assert deleted is None
 
     async def test_household_isolation(
@@ -396,7 +397,7 @@ class TestRecurringTemplateService:
         household2 = Household(id="household-2", name="H2", type="individual")
         db_session.add_all([household1, household2])
         await db_session.commit()
-        
+
         # Créer template pour household1
         data = {
             "name": "H1 Template",
@@ -407,14 +408,14 @@ class TestRecurringTemplateService:
             "day_of_month": 1,
             "account_id": test_account.id,
         }
-        
+
         template = await RecurringTemplateService.create_template(
             db=db_session, household_id=household1.id, data=data
         )
-        
+
         # Tenter de récupérer avec household2
         retrieved = await RecurringTemplateService.get_template(
             db=db_session, template_id=template.id, household_id=household2.id
         )
-        
+
         assert retrieved is None  # Isolation : household2 ne voit pas template de household1

@@ -1,12 +1,38 @@
 """FastAPI Application Entry Point"""
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+import os
 from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
+
+from app.api import (
+    accounts,
+    auth,
+    categories,
+    health,
+    households,
+    invitations,
+    jobs,
+    notifications,
+    projections,
+    recurring_templates,
+    transactions,
+    users,
+    wallets,
+)
+from app.api.v1 import exports, goals
 from app.config import settings
-from app.api import health, auth, users, accounts, categories, transactions, recurring_templates, projections, notifications, jobs, invitations, wallets, households
-from app.api.v1 import goals, exports
+from app.core.error_handler import (
+    global_exception_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
+from app.core.logger import logger
+
+# Import security and error handling
+from app.core.security import setup_cors, setup_security_middleware
 
 app = FastAPI(
     title="DuoFlow Finance API",
@@ -16,17 +42,24 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Configuration - Permissive for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
-    allow_credentials=False,  # Must be False when allow_origins is ["*"]
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Setup CORS (secure configuration based on environment)
+environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
+setup_cors(app, environment=environment)
+
+# Setup security middleware (headers, rate limiting, logging)
+setup_security_middleware(app, environment=environment)
+
+# Register global exception handlers
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+logger.info(f"Application starting in {environment} mode")
 
 # Mount static files for uploads (avatars, receipts, etc.)
-UPLOAD_DIR = Path("/app/uploads")
+# Use UPLOAD_DIR from environment or default to /app/uploads (Docker)
+upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
+UPLOAD_DIR = Path(upload_dir_path)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 

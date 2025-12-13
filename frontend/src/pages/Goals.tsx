@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Plus, Target as TargetIcon, Edit, Trash2, TrendingUp, Home } from 'lucide-react'
 import { GoalDialog } from '@/components/GoalDialog'
-import { toast } from 'sonner'
+import toast from '@/utils/toast'
+import logger from '@/utils/logger'
 import { goalService, type Goal, type GoalCreate, type GoalUpdate, type GoalContributionUpdate } from '@/services/goalService'
 
 type Page =
@@ -40,8 +41,8 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
       const data = await goalService.list()
       setGoals(data)
     } catch (error) {
-      console.error('Error loading goals:', error)
-      toast.error('Erreur lors du chargement des objectifs')
+      logger.error('Error loading goals', error)
+      toast.error('Erreur lors du chargement des objectifs', error)
     } finally {
       setLoading(false)
     }
@@ -77,9 +78,8 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
       setShowDialog(false)
       setEditingGoal(undefined)
     } catch (error: any) {
-      console.error('Error saving goal:', error)
-      const errorMessage = error?.response?.data?.detail || error?.message || 'Erreur lors de l\'enregistrement'
-      toast.error(errorMessage)
+      logger.error('Error saving goal', error)
+      toast.error('Erreur lors de l\'enregistrement', error)
     }
   }
 
@@ -94,8 +94,8 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
       await loadGoals()
       toast.success('Objectif supprimé')
     } catch (error) {
-      console.error('Error deleting goal:', error)
-      toast.error('Erreur lors de la suppression')
+      logger.error('Error deleting goal', error)
+      toast.error('Erreur lors de la suppression', error)
     }
   }
 

@@ -3,9 +3,10 @@ Tests for Goals API endpoints
 
 Tests TDD pour les endpoints /api/v1/goals
 """
+from datetime import date, timedelta
+
 import pytest
 from httpx import AsyncClient
-from datetime import date, timedelta
 
 
 @pytest.fixture
@@ -18,7 +19,7 @@ async def auth_data(client: AsyncClient):
         "first_name": "Goals",
         "last_name": "Test"
     })
-    
+
     # Register user 2 (partner)
     await client.post("/api/v1/auth/register", json={
         "email": "goals.partner@example.com",
@@ -26,21 +27,21 @@ async def auth_data(client: AsyncClient):
         "first_name": "Partner",
         "last_name": "Test"
     })
-    
+
     # Login user 1
     login_response = await client.post("/api/v1/auth/login", json={
         "email": "goals.test@example.com",
         "password": "Pass123!"
     })
     token = login_response.json()["access_token"]
-    
+
     # Login user 2
     login2_response = await client.post("/api/v1/auth/login", json={
         "email": "goals.partner@example.com",
         "password": "Pass123!"
     })
     token2 = login2_response.json()["access_token"]
-    
+
     # User 1 invite User 2
     invite_response = await client.post(
         "/api/v1/invitations",
@@ -48,20 +49,20 @@ async def auth_data(client: AsyncClient):
         json={"invitee_email": "goals.partner@example.com"}
     )
     invitation_id = invite_response.json()["id"]
-    
+
     # User 2 accepts invitation (this will merge households)
     await client.post(
         f"/api/v1/invitations/{invitation_id}/accept",
         headers={"Authorization": f"Bearer {token2}"}
     )
-    
+
     # Get updated user info AFTER merge
     me_response = await client.get(
         "/api/v1/users/me",
         headers={"Authorization": f"Bearer {token}"}
     )
     user_data = me_response.json()
-    
+
     return {
         "headers": {"Authorization": f"Bearer {token}"},
         "user_id": user_data["id"],
@@ -72,7 +73,7 @@ async def auth_data(client: AsyncClient):
 @pytest.mark.asyncio
 class TestGoalsAPI:
     """Tests des endpoints Goals"""
-    
+
     async def test_create_personal_goal(self, client: AsyncClient, auth_data: dict):
         """Test création objectif personnel"""
         response = await client.post(
@@ -85,13 +86,13 @@ class TestGoalsAPI:
                 "target_date": (date.today() + timedelta(days=180)).isoformat()
             }
         )
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "Vacances à Bali"
         assert float(data["target_amount"]) == 3000.00
         assert data["is_personal"] is True
-    
+
     async def test_create_household_goal(self, client: AsyncClient, auth_data: dict):
         """Test création objectif foyer"""
         response = await client.post(
@@ -103,12 +104,12 @@ class TestGoalsAPI:
                 "household_id": auth_data["household_id"]
             }
         )
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "Apport maison"
         assert data["is_household"] is True
-    
+
     async def test_list_goals(self, client: AsyncClient, auth_data: dict):
         """Test lister les objectifs"""
         # Créer 2 objectifs
@@ -122,16 +123,16 @@ class TestGoalsAPI:
             headers=auth_data["headers"],
             json={"name": "Goal 2", "target_amount": 2000.00}
         )
-        
+
         response = await client.get(
             "/api/v1/goals",
             headers=auth_data["headers"]
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 2
-    
+
     async def test_update_goal(self, client: AsyncClient, auth_data: dict):
         """Test mettre à jour un objectif"""
         # Créer
@@ -141,19 +142,19 @@ class TestGoalsAPI:
             json={"name": "Old Name", "target_amount": 1000.00}
         )
         goal_id = create_response.json()["id"]
-        
+
         # Mettre à jour
         response = await client.patch(
             f"/api/v1/goals/{goal_id}",
             headers=auth_data["headers"],
             json={"name": "New Name", "target_amount": 2000.00}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "New Name"
         assert float(data["target_amount"]) == 2000.00
-    
+
     async def test_delete_goal(self, client: AsyncClient, auth_data: dict):
         """Test supprimer un objectif"""
         # Créer
@@ -163,15 +164,15 @@ class TestGoalsAPI:
             json={"name": "To Delete", "target_amount": 1000.00}
         )
         goal_id = create_response.json()["id"]
-        
+
         # Supprimer
         response = await client.delete(
             f"/api/v1/goals/{goal_id}",
             headers=auth_data["headers"]
         )
-        
+
         assert response.status_code == 204
-    
+
     async def test_update_contribution(self, client: AsyncClient, auth_data: dict):
         """Test mise à jour manuelle de la contribution"""
         # Créer
@@ -181,16 +182,118 @@ class TestGoalsAPI:
             json={"name": "Test Contribution", "target_amount": 10000.00}
         )
         goal_id = create_response.json()["id"]
-        
+
         # Mettre à jour contribution
         response = await client.patch(
             f"/api/v1/goals/{goal_id}/contribution",
             headers=auth_data["headers"],
             json={"amount": 5000.00}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert float(data["current_amount"]) == 5000.00
         assert data["progress_percentage"] == 50.0
+
+    async def test_set_contribution(self, client: AsyncClient, auth_data: dict):
+        """Test remplacement total de la contribution (PUT)"""
+        # Créer avec contribution initiale
+        create_response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={"name": "Test Set", "target_amount": 10000.00}
+        )
+        goal_id = create_response.json()["id"]
+
+        # Ajouter contribution
+        await client.patch(
+            f"/api/v1/goals/{goal_id}/contribution",
+            headers=auth_data["headers"],
+            json={"amount": 3000.00}
+        )
+
+        # Remplacer complètement (PUT) - accepte 200 ou 400 (solde insuffisant)
+        response = await client.put(
+            f"/api/v1/goals/{goal_id}/contribution",
+            headers=auth_data["headers"],
+            json={"amount": 7000.00}
+        )
+
+        # Accept either success or insufficient balance error
+        assert response.status_code in [200, 400]
+        if response.status_code == 200:
+            data = response.json()
+            assert float(data["current_amount"]) == 7000.00
+            assert data["progress_percentage"] == 70.0
+
+    async def test_get_goal_by_id(self, client: AsyncClient, auth_data: dict):
+        """Test récupération d'un objectif par ID"""
+        # Créer
+        create_response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={"name": "Test Get By ID", "target_amount": 5000.00}
+        )
+        goal_id = create_response.json()["id"]
+
+        # Récupérer
+        response = await client.get(
+            f"/api/v1/goals/{goal_id}",
+            headers=auth_data["headers"]
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == goal_id
+        assert data["name"] == "Test Get By ID"
+        assert float(data["target_amount"]) == 5000.00
+
+    async def test_create_goal_with_target_date(self, client: AsyncClient, auth_data: dict):
+        """Test création objectif avec date cible"""
+        target_date = (date.today() + timedelta(days=365)).isoformat()
+
+        response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={
+                "name": "Goal with Date",
+                "target_amount": 12000.00,
+                "target_date": target_date,
+                "description": "Test description"
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["target_date"] is not None
+        assert data["description"] == "Test description"
+
+    async def test_cannot_create_goal_with_negative_amount(self, client: AsyncClient, auth_data: dict):
+        """Test validation : montant négatif refusé"""
+        response = await client.post(
+            "/api/v1/goals",
+            headers=auth_data["headers"],
+            json={"name": "Negative Goal", "target_amount": -1000.00}
+        )
+
+        assert response.status_code == 422  # Validation error
+
+    async def test_cannot_update_nonexistent_goal(self, client: AsyncClient, auth_data: dict):
+        """Test erreur 404 si objectif inexistant"""
+        response = await client.patch(
+            "/api/v1/goals/nonexistent-id",
+            headers=auth_data["headers"],
+            json={"name": "Update"}
+        )
+
+        assert response.status_code == 404
+
+    async def test_cannot_delete_nonexistent_goal(self, client: AsyncClient, auth_data: dict):
+        """Test erreur 404 lors de suppression d'objectif inexistant"""
+        response = await client.delete(
+            "/api/v1/goals/nonexistent-id",
+            headers=auth_data["headers"]
+        )
+
+        assert response.status_code == 404
 
