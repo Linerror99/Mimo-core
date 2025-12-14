@@ -98,12 +98,22 @@ jobs:
             --format='value(status.url)')
           
           echo "Frontend URL: $FRONTEND_URL"
-          echo "Updating backend CORS to allow: $FRONTEND_URL"
+          
+          # Build CORS origins with both possible frontend URLs
+          # Cloud Run can have different URL formats depending on the deployment
+          CORS_ORIGINS="https://mimo-frontend-xpaldfrvjq-ew.a.run.app,https://mimo-frontend-301595415100.europe-west1.run.app"
+          
+          # Add the dynamic frontend URL if different from the known ones
+          if [[ "$FRONTEND_URL" != *"xpaldfrvjq"* ]] && [[ "$FRONTEND_URL" != *"301595415100"* ]]; then
+            CORS_ORIGINS="${CORS_ORIGINS},${FRONTEND_URL}"
+          fi
+          
+          echo "Updating backend CORS to allow: $CORS_ORIGINS"
           
           # Update backend with correct CORS
           gcloud run services update ${{ env.BACKEND_SERVICE }} \
             --region=${{ env.REGION }} \
-            --update-env-vars="CORS_ORIGINS=$FRONTEND_URL" \
+            --update-env-vars="CORS_ORIGINS=$CORS_ORIGINS" \
             --quiet
           
           echo "CORS updated successfully. Waiting for backend to restart..."
