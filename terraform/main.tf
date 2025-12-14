@@ -487,6 +487,31 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "CORS_ORIGINS"
         value = "*"  # Sera mis à jour après déploiement frontend
       }
+
+      env {
+        name  = "DATABASE_CONNECTION_NAME"
+        value = google_sql_database_instance.main.connection_name
+      }
+
+      env {
+        name  = "DATABASE_NAME"
+        value = google_sql_database.main.name
+      }
+
+      env {
+        name  = "DATABASE_USER"
+        value = google_sql_user.main.name
+      }
+
+      env {
+        name = "ADMIN_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = "admin-token"
+            version = "latest"
+          }
+        }
+      }
     }
   }
 
