@@ -1,0 +1,17 @@
+FROM nginx:alpine
+
+# Page HTML minimale
+RUN echo '<!DOCTYPE html>\n\
+<html>\n\
+<head>\n\
+    <title>Mimo Finance</title>\n\
+</head>\n\
+<body>\n\
+    <h1>Mimo Finance - Frontend Placeholder</h1>\n\
+    <p>Infrastructure deployed successfully. Real app coming soon...</p>\n\
+</body>\n\
+</html>' > /usr/share/nginx/html/index.html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

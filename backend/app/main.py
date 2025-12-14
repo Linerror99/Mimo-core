@@ -22,7 +22,8 @@ from app.api import (
     users,
     wallets,
 )
-from app.api.v1 import exports, goals
+from app.api.v1 import exports, goals, admin
+from app.api.v1.scheduled import backup
 from app.config import settings
 from app.core.error_handler import (
     global_exception_handler,
@@ -79,6 +80,10 @@ app.include_router(recurring_templates.router, tags=["Recurring Templates"])
 app.include_router(projections.router, tags=["Projections"])
 app.include_router(notifications.router, tags=["Notifications"])
 app.include_router(jobs.router, tags=["Jobs"])
+
+# Admin and scheduled endpoints
+app.include_router(admin.router, prefix=settings.API_V1_PREFIX, tags=["Admin"])
+app.include_router(backup.router, prefix=settings.API_V1_PREFIX, tags=["Scheduled"])
 
 
 @app.get("/")
