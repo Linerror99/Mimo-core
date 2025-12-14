@@ -5,6 +5,7 @@ on:
     branches:
       - staging
       - develop
+      - sprint_9
 
 env:
   PROJECT_ID: mimo-finance-prod
@@ -74,6 +75,9 @@ jobs:
             --region=${{ env.REGION }} \
             --platform=managed \
             --quiet
+          
+          echo "Waiting for backend to be ready..."
+          sleep 10
 
       - name: Deploy Frontend to Cloud Run
         run: |
@@ -82,24 +86,28 @@ jobs:
             --region=${{ env.REGION }} \
             --platform=managed \
             --quiet
+          
+          echo "Waiting for frontend to be ready..."
+          sleep 10
 
-      - name: Get Frontend URL
-        id: frontend-url
+      - name: Update Backend CORS with Frontend URL
         run: |
+          # Get frontend URL
           FRONTEND_URL=$(gcloud run services describe ${{ env.FRONTEND_SERVICE }} \
             --region=${{ env.REGION }} \
             --format='value(status.url)')
-          echo "url=$FRONTEND_URL" >> $GITHUB_OUTPUT
-          echo "Frontend URL: $FRONTEND_URL"
-
-      - name: Update Backend CORS
-        run: |
-          FRONTEND_URL="${{ steps.frontend-url.outputs.url }}"
           
+          echo "Frontend URL: $FRONTEND_URL"
+          echo "Updating backend CORS to allow: $FRONTEND_URL"
+          
+          # Update backend with correct CORS
           gcloud run services update ${{ env.BACKEND_SERVICE }} \
             --region=${{ env.REGION }} \
-            --update-env-vars="CORS_ORIGINS=$FRONTEND_URL,https://${{ env.FRONTEND_SERVICE }}-xpaldfrvjq-ew.a.run.app" \
+            --update-env-vars="CORS_ORIGINS=$FRONTEND_URL" \
             --quiet
+          
+          echo "CORS updated successfully. Waiting for backend to restart..."
+          sleep 15
 
       - name: Run Database Migrations
         run: |
