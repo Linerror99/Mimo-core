@@ -44,6 +44,14 @@ async def run_migrations(x_admin_token: str = Header(...)) -> MigrationResponse:
     verify_admin_token(x_admin_token)
     
     try:
+        # Debug: Check environment variables
+        env_debug = f"""
+        DATABASE_CONNECTION_NAME: {os.getenv('DATABASE_CONNECTION_NAME', 'NOT SET')}
+        DATABASE_NAME: {os.getenv('DATABASE_NAME', 'NOT SET')}
+        DATABASE_USER: {os.getenv('DATABASE_USER', 'NOT SET')}
+        DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT SET')[:50]}...
+        """
+        
         # Run alembic upgrade head
         result = subprocess.run(
             ["alembic", "upgrade", "head"],
@@ -53,17 +61,25 @@ async def run_migrations(x_admin_token: str = Header(...)) -> MigrationResponse:
             timeout=300  # 5 minutes timeout
         )
         
+        # Combine all output for debugging
+        output_with_debug = env_debug + "\n"
+        if result.stdout:
+            output_with_debug += f"STDOUT:\n{result.stdout}\n"
+        if result.stderr:
+            output_with_debug += f"STDERR:\n{result.stderr}\n"
+        output_with_debug += f"Return Code: {result.returncode}"
+        
         if result.returncode == 0:
             return MigrationResponse(
                 success=True,
                 message="Migrations completed successfully",
-                output=result.stdout
+                output=output_with_debug
             )
         else:
             return MigrationResponse(
                 success=False,
                 message="Migration failed",
-                output=result.stderr or result.stdout
+                output=output_with_debug
             )
     
     except subprocess.TimeoutExpired:

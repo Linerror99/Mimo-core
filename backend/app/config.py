@@ -17,10 +17,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # development, staging, production
 
     # Database
-    DATABASE_URL: str = "postgresql://duoflow:duoflow123@postgres:5432/duoflow"
-    DATABASE_CONNECTION_NAME: str = ""  # For Cloud SQL proxy
-    DATABASE_NAME: str = "mimodb"
-    DATABASE_USER: str = "postgres"
+    DATABASE_URL: str = "postgresql://mimo_user:password@postgres:5432/mimo_db"
     DB_ECHO: bool = False
 
     # Redis

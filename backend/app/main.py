@@ -45,7 +45,7 @@ app = FastAPI(
 
 # Setup CORS (secure configuration based on environment)
 environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
-setup_cors(app, environment=environment)
+setup_cors(app, environment=environment, allowed_origins=settings.CORS_ORIGINS)
 
 # Setup security middleware (headers, rate limiting, logging)
 setup_security_middleware(app, environment=environment)
@@ -57,12 +57,13 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 logger.info(f"Application starting in {environment} mode")
 
-# Mount static files for uploads (avatars, receipts, etc.)
-# Use UPLOAD_DIR from environment or default to /app/uploads (Docker)
-upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
-UPLOAD_DIR = Path(upload_dir_path)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Static file uploads disabled - using Google Cloud Storage (GCS) in production
+# Local uploads only for development
+# if environment == "development":
+#     upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
+#     UPLOAD_DIR = Path(upload_dir_path)
+#     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+#     app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Include routers
 app.include_router(health.router, tags=["Health"])

@@ -155,6 +155,7 @@ output "deployment_summary" {
     backend_url              = google_cloud_run_v2_service.backend.uri
     frontend_url             = google_cloud_run_v2_service.frontend.uri
     database_instance        = google_sql_database_instance.main.name
+    database_private_ip      = google_sql_database_instance.main.private_ip_address
     redis_host               = google_redis_instance.main.host
     uploads_bucket           = google_storage_bucket.uploads.name
     backups_bucket           = google_storage_bucket.backups.name
@@ -164,4 +165,5 @@ output "deployment_summary" {
     monitoring_enabled       = true
     workload_identity_configured = true
   }
+  sensitive = true
 }

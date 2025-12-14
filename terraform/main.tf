@@ -47,22 +47,6 @@ resource "google_compute_router_nat" "main" {
   }
 }
 
-# Peering range pour Cloud SQL
-resource "google_compute_global_address" "private_ip_address" {
-  name          = "mimo-private-ip"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = google_compute_network.main.id
-  project       = var.project_id
-}
-
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.main.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
-}
-
 ###############################################################################
 # Artifact Registry
 ###############################################################################
@@ -106,13 +90,6 @@ resource "google_service_account" "github_actions" {
 ###############################################################################
 # IAM Permissions - Cloud Run Service Account
 ###############################################################################
-
-# Cloud SQL Client
-resource "google_project_iam_member" "cloud_run_sql_client" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.cloud_run.email}"
-}
 
 # Secret Manager Secret Accessor
 resource "google_project_iam_member" "cloud_run_secret_accessor" {
@@ -233,35 +210,48 @@ resource "google_service_account_iam_member" "github_wif_binding" {
 }
 
 ###############################################################################
-# Cloud SQL (PostgreSQL)
+# VPC Peering pour Cloud SQL
 ###############################################################################
 
-resource "random_id" "db_suffix" {
-  byte_length = 4
+# Peering range pour Cloud SQL
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "mimo-private-ip"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.main.id
+  project       = var.project_id
 }
 
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.main.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+}
+
+###############################################################################
+# Cloud SQL PostgreSQL
+###############################################################################
+
+# Instance existante - nom fixe
 resource "google_sql_database_instance" "main" {
-  name             = "mimo-db-${random_id.db_suffix.hex}"
-  database_version = var.db_version
-  region           = var.region
-  project          = var.project_id
-
+  name                = "mimo-db-7100c619"
+  database_version    = var.db_version
+  region              = var.region
+  project             = var.project_id
   deletion_protection = true
-
-  depends_on = [google_service_networking_connection.private_vpc_connection]
 
   settings {
     tier              = var.db_tier
     availability_type = "ZONAL"
-    disk_type         = "PD_SSD"
     disk_size         = 10
+    disk_type         = "PD_SSD"
     disk_autoresize   = true
 
     backup_configuration {
       enabled                        = true
       start_time                     = "03:00"
       point_in_time_recovery_enabled = true
-      transaction_log_retention_days = 7
       backup_retention_settings {
         retained_backups = var.db_backup_retention
         retention_unit   = "COUNT"
@@ -269,13 +259,14 @@ resource "google_sql_database_instance" "main" {
     }
 
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = google_compute_network.main.id
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.main.id
+      enable_private_path_for_google_cloud_services = true
     }
 
     maintenance_window {
       day          = 7  # Dimanche
-      hour         = 4
+      hour         = 4  # 04h UTC
       update_track = "stable"
     }
 
@@ -283,18 +274,26 @@ resource "google_sql_database_instance" "main" {
       query_insights_enabled  = true
       query_string_length     = 1024
       record_application_tags = true
+      record_client_address   = true
+    }
+
+    database_flags {
+      name  = "log_checkpoints"
+      value = "on"
     }
   }
+
+  depends_on = [
+    google_service_networking_connection.private_vpc_connection
+  ]
 }
 
-# Database
 resource "google_sql_database" "main" {
   name     = "mimo_db"
   instance = google_sql_database_instance.main.name
   project  = var.project_id
 }
 
-# User DB
 resource "google_sql_user" "main" {
   name     = "mimo_user"
   instance = google_sql_database_instance.main.name
@@ -306,6 +305,13 @@ resource "google_sql_user" "main" {
 data "google_secret_manager_secret_version" "db_password" {
   secret  = "db-password"
   project = var.project_id
+}
+
+# IAM Cloud SQL Client
+resource "google_project_iam_member" "cloud_run_sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
 ###############################################################################
@@ -399,6 +405,18 @@ resource "google_storage_bucket" "backups" {
 # Cloud Run - Backend
 ###############################################################################
 
+# VPC Access Connector pour accès Cloud SQL
+resource "google_vpc_access_connector" "main" {
+  name          = "mimo-vpc-connector"
+  region        = var.region
+  project       = var.project_id
+  network       = google_compute_network.main.name
+  ip_cidr_range = "10.8.0.0/28"
+  
+  min_instances = 2
+  max_instances = 3
+}
+
 # Accès aux secrets
 data "google_secret_manager_secret_version" "jwt_secret" {
   secret  = "jwt-secret"
@@ -412,6 +430,12 @@ resource "google_cloud_run_v2_service" "backend" {
 
   template {
     service_account = google_service_account.cloud_run.email
+
+    # VPC Access pour connexion Cloud SQL et Redis
+    vpc_access {
+      connector = google_vpc_access_connector.main.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
 
     scaling {
       min_instance_count = var.cloud_run_backend_min_instances
@@ -485,22 +509,7 @@ resource "google_cloud_run_v2_service" "backend" {
 
       env {
         name  = "CORS_ORIGINS"
-        value = "*"  # Sera mis à jour après déploiement frontend
-      }
-
-      env {
-        name  = "DATABASE_CONNECTION_NAME"
-        value = google_sql_database_instance.main.connection_name
-      }
-
-      env {
-        name  = "DATABASE_NAME"
-        value = google_sql_database.main.name
-      }
-
-      env {
-        name  = "DATABASE_USER"
-        value = google_sql_user.main.name
+        value = "https://mimo-frontend-xpaldfrvjq-ew.a.run.app,https://mimo-frontend-301595415100.europe-west1.run.app"
       }
 
       env {
@@ -521,8 +530,10 @@ resource "google_cloud_run_v2_service" "backend" {
   }
 
   depends_on = [
+    google_project_iam_member.cloud_run_secret_accessor,
     google_project_iam_member.cloud_run_sql_client,
-    google_project_iam_member.cloud_run_secret_accessor
+    google_sql_database_instance.main,
+    google_vpc_access_connector.main
   ]
 }
 
