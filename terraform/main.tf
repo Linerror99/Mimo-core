@@ -418,8 +418,22 @@ resource "google_cloud_run_v2_service" "backend" {
       max_instance_count = var.cloud_run_backend_max_instances
     }
 
+    # Cloud SQL connection volume
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.main.connection_name]
+      }
+    }
+
     containers {
       image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.name}/backend:latest"
+
+      # Mount Cloud SQL Unix socket
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
 
       resources {
         limits = {
@@ -485,7 +499,7 @@ resource "google_cloud_run_v2_service" "backend" {
 
       env {
         name  = "CORS_ORIGINS"
-        value = "*"  # Sera mis à jour après déploiement frontend
+        value = "https://mimo-frontend-xpaldfrvjq-ew.a.run.app"
       }
 
       env {
