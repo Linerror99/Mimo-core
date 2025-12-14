@@ -45,7 +45,7 @@ app = FastAPI(
 
 # Setup CORS (secure configuration based on environment)
 environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
-setup_cors(app, environment=environment)
+setup_cors(app, environment=environment, allowed_origins=settings.CORS_ORIGINS)
 
 # Setup security middleware (headers, rate limiting, logging)
 setup_security_middleware(app, environment=environment)

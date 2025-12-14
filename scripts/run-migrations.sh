@@ -37,6 +37,8 @@ echo ""
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
   -H "X-Admin-Token: $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
+  -H "Content-Length: 0" \
+  -d "" \
   "$BACKEND_URL/api/v1/admin/migrate")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
