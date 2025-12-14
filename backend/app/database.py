@@ -1,5 +1,7 @@
 """Database configuration and session management"""
 
+import os
+import re
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -7,8 +9,30 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-# Convert postgres:// to postgresql+asyncpg://
-database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+# Configure database URL for Cloud SQL connection
+connection_name = os.getenv("DATABASE_CONNECTION_NAME")
+if connection_name:
+    # Cloud Run with Cloud SQL Unix socket
+    db_name = os.getenv("DATABASE_NAME", "mimo_db")
+    db_user = os.getenv("DATABASE_USER", "mimo_user")
+    db_password = os.getenv("DATABASE_PASSWORD", "")
+    
+    # Extract password from DATABASE_URL if not set explicitly
+    if not db_password and settings.DATABASE_URL:
+        try:
+            match = re.search(r'://[^:]+:([^@]+)@', settings.DATABASE_URL)
+            if match:
+                db_password = match.group(1)
+        except Exception:
+            pass
+    
+    # Use Unix socket for Cloud SQL connection
+    database_url = f"postgresql+asyncpg://{db_user}:{db_password}@/{db_name}?host=/cloudsql/{connection_name}"
+    print(f"[Database] Using Cloud SQL Unix socket: /cloudsql/{connection_name}")
+else:
+    # Local development with DATABASE_URL
+    database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    print(f"[Database] Using DATABASE_URL from settings")
 
 # Create async engine
 engine = create_async_engine(
