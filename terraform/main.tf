@@ -499,7 +499,7 @@ resource "google_cloud_run_v2_service" "backend" {
 
       env {
         name  = "CORS_ORIGINS"
-        value = "https://mimo-frontend-xpaldfrvjq-ew.a.run.app"
+        value = "https://mimo-frontend-xpaldfrvjq-ew.a.run.app,https://mimo-frontend-301595415100.europe-west1.run.app"
       }
 
       env {

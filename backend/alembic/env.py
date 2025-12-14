@@ -36,7 +36,8 @@ if connection_name:
         except:
             pass
     
-    database_url = f"postgresql+asyncpg://{db_user}:{db_password}@/{db_name}?host=/cloudsql/{connection_name}"
+    # asyncpg doesn't support ?host= syntax, use direct Unix socket path
+    database_url = f"postgresql+asyncpg://{db_user}:{db_password}@/cloudsql/{connection_name}/{db_name}"
     print(f"[Alembic] Using Cloud SQL Unix socket: /cloudsql/{connection_name}")
 else:
     # Local development with DATABASE_URL
