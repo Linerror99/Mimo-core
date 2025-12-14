@@ -61,8 +61,13 @@ async def run_migrations(x_admin_token: str = Header(...)) -> MigrationResponse:
             timeout=300  # 5 minutes timeout
         )
         
-        # Prepend debug info to output
-        output_with_debug = env_debug + "\n" + (result.stdout or result.stderr or "")
+        # Combine all output for debugging
+        output_with_debug = env_debug + "\n"
+        if result.stdout:
+            output_with_debug += f"STDOUT:\n{result.stdout}\n"
+        if result.stderr:
+            output_with_debug += f"STDERR:\n{result.stderr}\n"
+        output_with_debug += f"Return Code: {result.returncode}"
         
         if result.returncode == 0:
             return MigrationResponse(
