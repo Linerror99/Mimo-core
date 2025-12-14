@@ -504,6 +504,16 @@ resource "google_cloud_run_v2_service" "backend" {
       }
 
       env {
+        name = "DATABASE_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = "db-password"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name = "ADMIN_TOKEN"
         value_source {
           secret_key_ref {

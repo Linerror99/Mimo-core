@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 import asyncio
+import os
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -16,7 +17,33 @@ from app.models import User, Household
 config = context.config
 
 # Set the database URL from app config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# In Cloud Run, use Unix socket for Cloud SQL connection
+connection_name = os.getenv("DATABASE_CONNECTION_NAME")
+if connection_name:
+    # Cloud Run with Cloud SQL Unix socket
+    db_name = os.getenv("DATABASE_NAME", "mimo_db")
+    db_user = os.getenv("DATABASE_USER", "mimo_user")
+    db_password = os.getenv("DATABASE_PASSWORD", "")
+    
+    # Extract password from DATABASE_URL if not set explicitly
+    if not db_password and settings.DATABASE_URL:
+        # Parse password from URL like: postgresql://user:password@host:port/db
+        try:
+            import re
+            match = re.search(r'://[^:]+:([^@]+)@', settings.DATABASE_URL)
+            if match:
+                db_password = match.group(1)
+        except:
+            pass
+    
+    database_url = f"postgresql+asyncpg://{db_user}:{db_password}@/{db_name}?host=/cloudsql/{connection_name}"
+    print(f"[Alembic] Using Cloud SQL Unix socket: /cloudsql/{connection_name}")
+else:
+    # Local development with DATABASE_URL
+    database_url = settings.DATABASE_URL
+    print(f"[Alembic] Using DATABASE_URL from settings")
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

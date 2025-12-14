@@ -50,8 +50,17 @@ echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
 echo ""
 
 if [ "$HTTP_CODE" = "200" ]; then
-  echo "✅ Database migrations completed successfully!"
-  exit 0
+  # Check if success is true in JSON response
+  SUCCESS=$(echo "$BODY" | jq -r '.success' 2>/dev/null)
+  
+  if [ "$SUCCESS" = "true" ]; then
+    echo "✅ Database migrations completed successfully!"
+    exit 0
+  else
+    echo "❌ Migration returned 200 but success=false"
+    echo "Check the output above for errors"
+    exit 1
+  fi
 else
   echo "❌ Migration failed with HTTP $HTTP_CODE"
   exit 1
