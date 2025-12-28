@@ -1,0 +1,85 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: duoflow-postgres
+    environment:
+      POSTGRES_USER: duoflow
+      POSTGRES_PASSWORD: duoflow123
+      POSTGRES_DB: duoflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U duoflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - duoflow-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: duoflow-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - duoflow-network
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: duoflow-backend
+    environment:
+      - DATABASE_URL=postgresql://duoflow:duoflow123@postgres:5432/duoflow
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - duoflow-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: duoflow-frontend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    networks:
+      - duoflow-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  duoflow-network:
+    driver: bridge

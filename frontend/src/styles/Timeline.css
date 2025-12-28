@@ -1,0 +1,414 @@
+/* Timeline Page Styles */
+.timeline-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.timeline-header h1 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 0.95rem;
+  margin-top: 0.25rem;
+}
+
+/* Month Selector */
+.month-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.month-info {
+  flex: 1;
+  text-align: center;
+}
+
+.month-info h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.month-balance {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.month-balance .positive {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+.month-balance .negative {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+/* Totals Summary */
+.totals-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.total-card {
+  padding: 1.25rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.total-card.income {
+  border-left: 4px solid #27ae60;
+}
+
+.total-card.expense {
+  border-left: 4px solid #e74c3c;
+}
+
+.total-card.transfer {
+  border-left: 4px solid #3498db;
+}
+
+.total-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.total-amount {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+/* Transactions List */
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.transaction-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.day-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.day-transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.transaction-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s;
+}
+
+.transaction-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.transaction-card.projected {
+  opacity: 0.6;
+  border: 2px dashed #ddd;
+}
+
+.transaction-icon {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.transaction-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.transaction-description {
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-projected {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.badge-recurring {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.transaction-details {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.transaction-amount-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.transaction-amount {
+  font-size: 1.25rem;
+  font-weight: bold;
+  min-width: 120px;
+  text-align: right;
+}
+
+.transaction-amount.income {
+  color: #27ae60;
+}
+
+.transaction-amount.expense {
+  color: #e74c3c;
+}
+
+.transaction-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.btn-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  transition: background 0.2s;
+}
+
+.btn-action:hover {
+  background: #f5f5f5;
+}
+
+/* Modal Specific */
+.modal-large {
+  max-width: 600px;
+  width: 100%;
+}
+
+.radio-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #f5f5f5;
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.tab {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.empty-state p {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 4rem;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Buttons */
+.btn-icon {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+/* Delete Modal Styles */
+.delete-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.delete-option {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-option:hover {
+  border-color: var(--primary-color, #6366f1);
+  background: #f8f9ff;
+}
+
+.delete-option input[type="radio"] {
+  margin-top: 0.25rem;
+  cursor: pointer;
+}
+
+.delete-option input[type="radio"]:checked + div {
+  color: var(--primary-color, #6366f1);
+}
+
+.delete-option strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+}
+
+.delete-option p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.period-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.period-inputs .form-group {
+  margin: 0;
+}
+
+.period-inputs label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.period-inputs input[type="date"] {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}

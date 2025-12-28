@@ -1,0 +1,15 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile.temp.frontend'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/mimo-finance-prod/mimo-repo/frontend:latest'
+      - '.'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/mimo-finance-prod/mimo-repo/frontend:latest'
+images:
+  - 'europe-west1-docker.pkg.dev/mimo-finance-prod/mimo-repo/frontend:latest'

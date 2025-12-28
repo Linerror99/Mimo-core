@@ -1,0 +1,35 @@
+[tool.ruff]
+# Same as Black.
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # Line too long - tolérer les longues lignes de configuration SQLAlchemy
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "build",
+    "dist",
+    "migrations",
+    "alembic",
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore F821 (undefined name) in model files - SQLAlchemy forward references
+"app/models/*.py" = ["F821"]
+# Ignore import errors in __init__.py
+"app/models/__init__.py" = ["F401"]
+"app/api/__init__.py" = ["F401"]
+"app/schemas/__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
