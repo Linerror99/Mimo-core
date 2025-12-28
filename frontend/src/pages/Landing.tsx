@@ -60,9 +60,7 @@ export function Landing() {
       <header className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl">
-              <span className="text-xl font-bold text-primary-foreground">M</span>
-            </div>
+            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-10 h-10 rounded-xl object-cover" />
             <span className="text-xl font-bold text-foreground">Mimo Finance</span>
           </div>
           
@@ -214,9 +212,7 @@ export function Landing() {
       <footer className="container mx-auto px-4 py-8 border-t border-border">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg">
-              <span className="text-sm font-bold text-primary-foreground">M</span>
-            </div>
+            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-8 h-8 rounded-lg object-cover" />
             <span className="text-sm text-muted-foreground">
               © 2025 Mimo Finance. Tous droits réservés.
             </span>
