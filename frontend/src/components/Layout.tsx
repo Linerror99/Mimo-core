@@ -70,16 +70,11 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     }
 
     return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col">
+    <aside className="w-64 bg-background border-r border-border flex flex-col">
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Avatar className="w-12 h-12">
-              {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} alt="Avatar" />}
-              <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                {user?.first_name?.[0]?.toUpperCase() || 'M'}
-              </AvatarFallback>
-            </Avatar>
+            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-12 h-12 rounded-xl object-cover" />
             <span className="text-lg font-semibold">Mimo Finance</span>
           </div>
           <NotificationBell onNotificationClick={handleNotificationClick} />

@@ -66,6 +66,29 @@ class ProjectionService {
     
     return projections;
   }
+
+  /**
+   * Récupérer les projections à partir d'un mois donné
+   */
+  async getMonthlyProjections(year: number, month: number) {
+    const now = new Date();
+    const projections: any[] = [];
+    
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(year, month - 1 + i, 1);
+      const projMonth = date.getMonth() + 1;
+      const projYear = date.getFullYear();
+      
+      try {
+        const projection = await this.getMonthly(projMonth, projYear);
+        projections.push(projection);
+      } catch (error) {
+        console.error(`Failed to fetch projection for ${projYear}-${projMonth}:`, error);
+      }
+    }
+    
+    return { projections };
+  }
 }
 
 export const projectionService = new ProjectionService();

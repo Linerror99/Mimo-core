@@ -12,8 +12,15 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException, UploadFile
-from google.cloud import storage
-from google.api_core import exceptions as gcp_exceptions
+
+try:
+    from google.cloud import storage
+    from google.api_core import exceptions as gcp_exceptions
+    GCS_AVAILABLE = True
+except ImportError:
+    GCS_AVAILABLE = False
+    storage = None
+    gcp_exceptions = None
 
 from app.config import settings
 
@@ -37,7 +44,7 @@ class StorageService:
     def __init__(self):
         """Initialise le service selon l'environnement"""
         self.environment = settings.ENVIRONMENT
-        self.use_gcs = self.environment == "production"
+        self.use_gcs = self.environment == "production" and GCS_AVAILABLE
         
         if self.use_gcs:
             # Production: Google Cloud Storage

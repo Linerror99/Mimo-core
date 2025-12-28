@@ -76,11 +76,20 @@ async def get_wallets(
         accounts = (await db.execute(stmt)).scalars().all()
 
         total_balance = Decimal("0")
+        
+        # Import pour filtres de date et état
+        from datetime import date
+        from app.models.transaction import TransactionState
+        
+        today = date.today()
+        
         for account in accounts:
-            # Balance = initial_balance + sum(transactions)
+            # Balance = initial_balance + sum(transactions RÉALISÉES jusqu'à aujourd'hui)
             tx_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.account_id == account.id,
-                Transaction.deleted_at.is_(None)
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
             )
             tx_sum = (await db.execute(tx_stmt)).scalar_one()
             total_balance += account.initial_balance + Decimal(str(tx_sum))
@@ -109,10 +118,17 @@ async def get_wallets(
         # Solde initial
         initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in accounts)
 
-        # Toutes les transactions (pas de owner_type en INDIVIDUAL)
+        # Transactions RÉALISÉES jusqu'à aujourd'hui uniquement
+        from datetime import date
+        from app.models.transaction import TransactionState
+        
+        today = date.today()
+        
         stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.household_id == household_id,
             Transaction.deleted_at.is_(None),
+            Transaction.state == TransactionState.REALIZED,
+            Transaction.transaction_date <= today
         )
         all_transactions = Decimal(str((await db.execute(stmt)).scalar()))
 

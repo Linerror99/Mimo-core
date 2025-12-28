@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ValidationModal } from '@/components/ValidationModal'
 import { WalletCards } from '@/components/WalletCards'
-import { User, Home as HomeIcon, TrendingUp, Clock, Check, Database, AlertCircle } from 'lucide-react'
+import { TrendingUp, Clock, Check, AlertCircle } from 'lucide-react'
 import toast from '@/utils/toast'
 import logger from '@/utils/logger'
-import { sampleTransactions, sampleAccounts, sampleCategories, sampleGoals } from '@/lib/sampleData'
-import type { Transaction, Account, Category, Goal } from '@/types'
+import type { Transaction } from '@/types'
 import { transactionService } from '@/services/transactionService'
+import { projectionService } from '@/services/projectionService'
 import { Notification } from '@/types/notification'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -32,17 +32,57 @@ interface DashboardProps {
 
 export function Dashboard({ navigate, onLogout }: DashboardProps) {
   const { user } = useAuthStore()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [goals, setGoals] = useState<Goal[]>([])
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([])
+  const [projections, setProjections] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([])
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
 
   useEffect(() => {
-    fetchPendingTransactions()
+    fetchDashboardData()
   }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      await Promise.all([
+        fetchPendingTransactions(),
+        fetchRecentTransactions(),
+        fetchProjections()
+      ])
+    } catch (error) {
+      logger.error('Failed to fetch dashboard data', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchRecentTransactions = async () => {
+    try {
+      // Récupérer les 5 dernières transactions réalisées
+      const allTransactions = await transactionService.list()
+      const realized = allTransactions
+        .filter(t => t.state === 'REALIZED')
+        .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+        .slice(0, 5)
+      setRecentTransactions(realized)
+    } catch (error) {
+      logger.error('Failed to fetch recent transactions', error)
+    }
+  }
+
+  const fetchProjections = async () => {
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      const data = await projectionService.getMonthlyProjections(year, month)
+      setProjections(data.projections || [])
+    } catch (error) {
+      logger.error('Failed to fetch projections', error)
+    }
+  }
 
   const fetchPendingTransactions = async () => {
     try {
@@ -72,27 +112,10 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
   }
 
   const handleValidationSuccess = () => {
-    fetchPendingTransactions()
+    fetchDashboardData()
     setIsValidationModalOpen(false)
     setSelectedTransaction(null)
   }
-
-  const loadSampleData = () => {
-    setTransactions(() => sampleTransactions)
-    setAccounts(() => sampleAccounts)
-    setCategories(() => sampleCategories)
-    setGoals(() => sampleGoals)
-    toast.success('Données d\'exemple chargées avec succès!')
-  }
-
-  const personalBalance = 1500
-  const partnerBalance = 1000
-  const sharedBalance = 200
-
-  const myWalletTotal = personalBalance + sharedBalance / 2
-  const partnerWalletTotal = partnerBalance + sharedBalance / 2
-
-  const recentTransactions = (transactions || []).slice(0, 5)
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -117,19 +140,11 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
   return (
     <Layout currentPage="dashboard" navigate={navigate} onLogout={onLogout}>
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold mb-2">
-              Welcome{user ? `, ${user.first_name}` : ''}
-            </h1>
-            <p className="text-muted-foreground">Aperçu de votre situation financière</p>
-          </div>
-          {(!transactions || transactions.length === 0) && (
-            <Button onClick={loadSampleData} variant="outline" className="gap-2">
-              <Database className="w-4 h-4" />
-              Charger des données d'exemple
-            </Button>
-          )}
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">
+            Welcome{user ? `, ${user.first_name}` : ''}
+          </h1>
+          <p className="text-muted-foreground">Aperçu de votre situation financière</p>
         </div>
 
         {/* Portefeuilles - Utilise WalletCards (Sprint 6) */}
@@ -216,30 +231,35 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
                 <Button onClick={() => navigate('timeline')}>Ajouter une transaction</Button>
               </div>
             ) : (
-              recentTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(transaction.status)}
-                    <div>
-                      <p className="font-medium">{transaction.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(transaction.date).toLocaleDateString('fr-FR')}
-                      </p>
-                    </div>
-                  </div>
-                  <p
-                    className={`font-mono-amounts font-semibold ${
-                      transaction.type === 'income' ? 'text-success' : 'text-destructive'
-                    }`}
+              recentTransactions.map((transaction) => {
+                const isExpense = transaction.amount < 0
+                const displayAmount = Math.abs(transaction.amount)
+                
+                return (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary/50 transition-colors"
                   >
-                    {transaction.type === 'income' ? '+' : '-'}
-                    {formatAmount(Math.abs(transaction.amount))}
-                  </p>
-                </div>
-              ))
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon('realized')}
+                      <div>
+                        <p className="font-medium">{transaction.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(transaction.transaction_date).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    </div>
+                    <p
+                      className={`font-mono-amounts font-semibold ${
+                        isExpense ? 'text-destructive' : 'text-success'
+                      }`}
+                    >
+                      {isExpense ? '-' : '+'}
+                      {formatAmount(displayAmount)}
+                    </p>
+                  </div>
+                )
+              })
             )}
           </div>
         </Card>
@@ -248,15 +268,41 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Projection</h2>
+              <h2 className="text-xl font-semibold">Projection 6 mois</h2>
             </div>
             <Button variant="ghost" onClick={() => navigate('projection')}>
               Voir détail
             </Button>
           </div>
-          <div className="h-48 flex items-center justify-center bg-secondary/30 rounded-lg">
-            <p className="text-muted-foreground">Graphique de projection sur 6 mois</p>
-          </div>
+          {loading ? (
+            <div className="h-48 flex items-center justify-center">
+              <p className="text-muted-foreground">Chargement...</p>
+            </div>
+          ) : projections.length > 0 ? (
+            <div className="space-y-2">
+              {projections.slice(0, 6).map((proj, index) => {
+                const isPositive = proj.balance >= 0
+                const monthLabel = new Date(proj.year, proj.month - 1).toLocaleDateString('fr-FR', { 
+                  month: 'long', 
+                  year: 'numeric' 
+                })
+                return (
+                  <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-secondary/30">
+                    <span className="text-sm font-medium">{monthLabel}</span>
+                    <span className={`text-sm font-semibold ${
+                      isPositive ? 'text-success' : 'text-destructive'
+                    }`}>
+                      {formatAmount(proj.balance)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center bg-secondary/30 rounded-lg">
+              <p className="text-muted-foreground">Aucune projection disponible</p>
+            </div>
+          )}
         </Card>
 
         {selectedTransaction && (

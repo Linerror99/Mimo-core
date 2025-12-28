@@ -333,12 +333,20 @@ class HouseholdService:
         user2_initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in user2_accounts)
 
         # Calculer les transactions PERSONAL pour chaque user
+        # IMPORTANT: Seulement transactions REALIZED jusqu'à aujourd'hui
+        from datetime import date
+        from app.models.transaction import TransactionState
+        
+        today = date.today()
+        
         # User 1 personal transactions
         stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.household_id == household_id,
             Transaction.owner_type == TransactionOwnerType.PERSONAL,
             Transaction.owner_user_id == user1.id,
             Transaction.deleted_at.is_(None),
+            Transaction.state == TransactionState.REALIZED,
+            Transaction.transaction_date <= today
         )
         user1_personal = Decimal(str((await self.db.execute(stmt)).scalar()))
 
@@ -348,6 +356,8 @@ class HouseholdService:
             Transaction.owner_type == TransactionOwnerType.PERSONAL,
             Transaction.owner_user_id == user2.id,
             Transaction.deleted_at.is_(None),
+            Transaction.state == TransactionState.REALIZED,
+            Transaction.transaction_date <= today
         )
         user2_personal = Decimal(str((await self.db.execute(stmt)).scalar()))
 
@@ -356,6 +366,8 @@ class HouseholdService:
             Transaction.household_id == household_id,
             Transaction.owner_type == TransactionOwnerType.SHARED,
             Transaction.deleted_at.is_(None),
+            Transaction.state == TransactionState.REALIZED,
+            Transaction.transaction_date <= today
         )
         shared_total = Decimal(str((await self.db.execute(stmt)).scalar()))
 
@@ -364,6 +376,8 @@ class HouseholdService:
             Transaction.household_id == household_id,
             Transaction.owner_type.is_(None),
             Transaction.deleted_at.is_(None),
+            Transaction.state == TransactionState.REALIZED,
+            Transaction.transaction_date <= today
         )
         null_transactions = Decimal(str((await self.db.execute(stmt)).scalar()))
 

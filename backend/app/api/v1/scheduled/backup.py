@@ -5,7 +5,14 @@ Invoked by Cloud Scheduler with OIDC authentication
 from fastapi import APIRouter, Header, HTTPException, status, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from google.cloud import storage
+
+try:
+    from google.cloud import storage
+    GCS_AVAILABLE = True
+except ImportError:
+    GCS_AVAILABLE = False
+    storage = None
+
 import subprocess
 import tempfile
 import os

@@ -1,372 +1,465 @@
-# 🚀 Mimo Finance
+<p align="center">
+  <img src="https://img.icons8.com/fluency/96/money-bag.png" alt="Mimo Finance Logo" width="96" />
+</p>
 
-[![CI Pipeline](https://github.com/Linerror99/Mimo-core/actions/workflows/ci.yml/badge.svg)](https://github.com/Linerror99/Mimo-core/actions/workflows/ci.yml)
-[![SonarCloud](https://github.com/Linerror99/Mimo-core/actions/workflows/sonar.yml/badge.svg)](https://github.com/Linerror99/Mimo-core/actions/workflows/sonar.yml)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Linerror99_Mimo-core)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=coverage)](https://sonarcloud.io/summary/new_code?id=Linerror99_Mimo-core)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<h1 align="center">💰 Mimo Finance</h1>
 
-> 💰 Application moderne de gestion financière collaborative pour individus et couples
+<p align="center">
+  <strong>Application moderne de gestion financière collaborative pour individus et couples</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Linerror99/Mimo-core/actions/workflows/ci.yml">
+    <img src="https://github.com/Linerror99/Mimo-core/actions/workflows/ci.yml/badge.svg" alt="CI Pipeline" />
+  </a>
+  <a href="https://github.com/Linerror99/Mimo-core/actions/workflows/deploy-production.yml">
+    <img src="https://github.com/Linerror99/Mimo-core/actions/workflows/deploy-production.yml/badge.svg" alt="Deploy Production" />
+  </a>
+  <a href="https://sonarcloud.io/summary/new_code?id=Linerror99_Mimo-core">
+    <img src="https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=alert_status" alt="Quality Gate Status" />
+  </a>
+  <a href="https://sonarcloud.io/summary/new_code?id=Linerror99_Mimo-core">
+    <img src="https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=coverage" alt="Coverage" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12" />
+  <img src="https://img.shields.io/badge/react-18-61DAFB?logo=react&logoColor=white" alt="React 18" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/GCP-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white" alt="GCP Cloud Run" />
+  <img src="https://img.shields.io/badge/Terraform-7B42BC?logo=terraform&logoColor=white" alt="Terraform" />
+</p>
+
+<p align="center">
+  <a href="#-démo-live"><strong>🌐 Démo Live</strong></a> •
+  <a href="#-fonctionnalités"><strong>✨ Fonctionnalités</strong></a> •
+  <a href="#️-architecture"><strong>🏗️ Architecture</strong></a> •
+  <a href="#-infrastructure-gcp"><strong>☁️ Infrastructure GCP</strong></a> •
+  <a href="#-installation-locale"><strong>🚀 Installation</strong></a>
+</p>
 
 ---
 
-## 📋 Vue d'Ensemble
+## 🌐 Démo Live
 
-**Mimo Finance** est une application complète de gestion financière qui permet aux utilisateurs individuels et aux couples de suivre leurs finances avec une timeline unifiée (passé → présent → futur).
+<p align="center">
+  <a href="https://mimo-frontend-301595415100.europe-west1.run.app">
+    <img src="https://img.shields.io/badge/🚀_ACCÉDER_À_L'APPLICATION-Mimo_Finance-4285F4?style=for-the-badge&logoColor=white" alt="Demo Live" />
+  </a>
+</p>
 
-### ✨ Fonctionnalités Principales
+| Environnement | URL |
+|--------------|-----|
+| **🖥️ Frontend** | https://mimo-frontend-301595415100.europe-west1.run.app |
+| **🔌 Backend API** | https://mimo-backend-xpaldfrvjq-ew.a.run.app |
+| **📚 API Docs (Swagger)** | https://mimo-backend-xpaldfrvjq-ew.a.run.app/docs |
+| **❤️ Health Check** | https://mimo-backend-xpaldfrvjq-ew.a.run.app/health |
 
-- 🔐 **Authentification sécurisée** (JWT + bcrypt)
-- 👥 **Mode Couple** avec invitations et 3 portefeuilles tracés
-- 💳 **Comptes multiples** (bancaires, cash, épargne)
-- 💸 **Transactions** avec états (PROJECTED → PENDING → REALIZED)
-- 🔄 **Transactions récurrentes** automatiques
-- 📊 **Catégories personnalisables** et statistiques
-- 🎯 **Objectifs financiers** avec suivi de progression
-- 🔔 **Notifications** in-app temps réel
-- 📄 **Reçus PDF** uploadables
-- 🗑️ **Corbeille** avec restauration
-- 📈 **Dashboard** avec graphiques et KPIs
-- 🌓 **Mode sombre** responsive mobile/desktop
+> 💡 **Créez un compte gratuit** pour tester toutes les fonctionnalités : gestion des comptes, transactions, projections 12 mois, mode couple, objectifs d'épargne...
 
 ---
 
-## 🛠️ Stack Technique
+## 🎯 À propos du projet
+
+**Mimo Finance** remplace la gestion financière par Excel avec une **timeline unifiée** (passé → présent → futur). L'application permet de :
+
+- 📊 **Visualiser** l'évolution de vos finances sur 12 mois
+- 🔄 **Automatiser** les transactions récurrentes (loyer, salaire, abonnements)
+- 👫 **Partager** vos finances en couple avec 3 portefeuilles tracés
+- ⏰ **Valider** automatiquement les transactions du jour
+- 🎯 **Atteindre** vos objectifs d'épargne
+
+### Pourquoi Mimo ?
+
+| ❌ Avant (Excel) | ✅ Avec Mimo |
+|-----------------|-------------|
+| Perte d'historique | Timeline continue illimitée |
+| Pas de projections | Projections automatiques 12 mois |
+| Gestion couple complexe | Mode couple avec fusion/dissolution |
+| Transactions manuelles | Récurrences auto-générées |
+| Pas de notifications | Alertes validation quotidienne |
+
+---
+
+## ✨ Fonctionnalités
+
+<table>
+<tr>
+<td width="50%">
+
+### 🔐 Authentification
+- Inscription / Connexion sécurisée (JWT)
+- Tokens refresh (7 jours)
+- Blacklist Redis (déconnexion instantanée)
+- Modification profil / mot de passe
+
+### 💳 Gestion des Comptes
+- 6 types : Courant, Épargne, Investissement, Prêt, Cash, Autre
+- Solde dynamique calculé automatiquement
+- Fermeture compte (soft delete avec historique)
+
+### 💸 Transactions
+- États : PROJETÉ → EN ATTENTE → RÉALISÉ → ANNULÉ
+- Timeline mensuelle interactive
+- Corbeille avec restauration (30 jours)
+- Upload reçus PDF sur Cloud Storage
+
+</td>
+<td width="50%">
+
+### 🔄 Récurrences
+- Fréquences : Hebdo, Mensuel, Trimestriel, Annuel
+- Génération automatique 12 mois à l'avance
+- Modification/suppression groupée
+- Badge "Récurrent" sur timeline
+
+### 👥 Mode Couple
+- Invitation par email (in-app ou nouveau user)
+- Fusion automatique des foyers
+- 3 portefeuilles : Mon / Partenaire / Commun
+- Dissolution avec redistribution intelligente
+
+### 📊 Analytics & Objectifs
+- Dashboard avec KPIs temps réel
+- Graphiques revenus/dépenses (Recharts)
+- Projections balance sur 12 mois
+- Objectifs épargne avec barre de progression
+
+</td>
+</tr>
+</table>
+
+### 🔔 Système de Notifications
+- Validation quotidienne automatique (job Cloud Scheduler)
+- Notifications in-app temps réel (polling 30s)
+- Actions rapides : Valider, Reporter, Modifier, Supprimer
+
+---
+
+## 🏗️ Architecture
+
+### Vue d'ensemble
 
 ```
-Frontend       React 18 + TypeScript + Vite + Tailwind CSS + Shadcn/ui
-Backend        FastAPI + Python 3.12 + SQLAlchemy 2.0 (async)
-Database       PostgreSQL 15 + Redis 7
-Infrastructure Docker Compose + Nginx
-CI/CD          GitHub Actions + SonarCloud
-Testing        Pytest (247 tests, 75% coverage) + Locust (load tests)
-Linting        Ruff + ESLint + Mypy + TypeScript
+┌─────────────────────────────────────────────────────────────────────┐
+│                         UTILISATEURS                                │
+│                    (Desktop / Mobile / Tablet)                      │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │ HTTPS
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      GOOGLE CLOUD PLATFORM                          │
+│                        (europe-west1)                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                   Cloud Run (Serverless)                     │   │
+│  │  ┌─────────────────────┐      ┌─────────────────────┐       │   │
+│  │  │      Frontend       │      │       Backend       │       │   │
+│  │  │    React + Vite     │ ───► │      FastAPI        │       │   │
+│  │  │   (auto-scale 0-10) │      │   (auto-scale 0-10) │       │   │
+│  │  └─────────────────────┘      └──────────┬──────────┘       │   │
+│  └──────────────────────────────────────────┼──────────────────┘   │
+│                                             │                       │
+│  ┌──────────────────────────────────────────┼──────────────────┐   │
+│  │                    VPC Network (Private)                    │   │
+│  │                                          │                  │   │
+│  │            ┌─────────────────────────────┤                  │   │
+│  │            │     VPC Connector           │                  │   │
+│  │            │     (10.8.0.0/28)           │                  │   │
+│  │            └─────────────────────────────┤                  │   │
+│  │                     │                    │                  │   │
+│  │        ┌────────────┴────────────┐       │                  │   │
+│  │        ▼                         ▼       ▼                  │   │
+│  │  ┌───────────────┐        ┌───────────────┐                 │   │
+│  │  │   Cloud SQL   │        │    Redis      │                 │   │
+│  │  │ PostgreSQL 15 │        │  Memorystore  │                 │   │
+│  │  │ (10.165.0.3)  │        │(10.198.211.99)│                 │   │
+│  │  └───────────────┘        └───────────────┘                 │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                    Services Additionnels                     │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │   │
+│  │  │Cloud Storage │  │Secret Manager│  │   Artifact   │       │   │
+│  │  │ (Uploads/    │  │ (Credentials)│  │   Registry   │       │   │
+│  │  │  Backups)    │  │              │  │(Docker imgs) │       │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘       │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
+
+### Stack Technique
+
+| Couche | Technologies |
+|--------|-------------|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Shadcn/ui, Zustand, Recharts |
+| **Backend** | FastAPI, Python 3.12, SQLAlchemy 2.0 (async), Pydantic v2, Alembic |
+| **Database** | PostgreSQL 15 (Cloud SQL), Redis 7 (Memorystore) |
+| **Infrastructure** | Terraform, Cloud Run, VPC, Secret Manager, Cloud Scheduler |
+| **CI/CD** | GitHub Actions, Workload Identity Federation, Artifact Registry |
+| **Monitoring** | Cloud Monitoring, Uptime Checks, Alerting |
+| **Qualité** | Pytest (111+ tests), Ruff, ESLint, Mypy, SonarCloud |
 
 ---
 
-## ⚡ Quick Start (3 commandes)
+## ☁️ Infrastructure GCP
+
+### Ressources déployées via Terraform (42+ ressources)
+
+```
+📦 Compute
+├── Cloud Run (Frontend)     → mimo-frontend (auto-scaling 0-10)
+├── Cloud Run (Backend)      → mimo-backend (auto-scaling 0-10)
+└── VPC Connector            → mimo-vpc-connector (e2-micro, 2-3 instances)
+
+💾 Data
+├── Cloud SQL PostgreSQL 15  → mimo-db-7100c619 (db-f1-micro, 10GB SSD)
+├── Redis Memorystore        → mimo-redis (1GB, BASIC tier)
+└── Cloud Storage            → mimo-uploads-prod, mimo-backups-prod
+
+🔒 Network
+├── VPC Network              → mimo-vpc (custom mode)
+├── Private Service Access   → 10.165.0.0/16 (Cloud SQL peering)
+└── Firewall Rules           → allow-health-check, allow-redis
+
+🔐 Security
+├── Secret Manager           → db-password, jwt-secret, admin-token
+├── Service Accounts (3)     → cloud-run-sa, github-actions-sa, scheduler-sa
+└── IAM Bindings             → Principle of least privilege
+
+🚀 CI/CD
+├── Artifact Registry        → mimo-repo (Docker images)
+├── Workload Identity Pool   → github-pool (OIDC, no JSON keys!)
+└── GitHub Actions           → Build → Test → Deploy (auto on push main)
+
+📊 Monitoring
+├── Uptime Checks            → Backend health (every 5 min)
+├── Alert Policies           → Email notification on downtime
+└── Cloud Scheduler          → Daily validation job, Weekly backup
+```
+
+### Sécurité & Bonnes Pratiques
+
+| Aspect | Implementation |
+|--------|---------------|
+| **🔐 Secrets** | Secret Manager (zéro credential en clair) |
+| **🌐 Network** | VPC privé, Cloud SQL/Redis sans IP publique |
+| **🔑 Auth CI/CD** | Workload Identity Federation (pas de clés JSON) |
+| **🛡️ CORS** | Origins restreints aux frontends autorisés |
+| **🎫 Tokens** | JWT signé HS256, refresh 7j, blacklist Redis |
+| **📝 Audit** | Cloud Audit Logs activés |
+
+### Coûts estimés (Free tier + pay-per-use)
+
+| Ressource | Coût/mois |
+|-----------|-----------|
+| Cloud Run (2 services) | ~$5-15 |
+| Cloud SQL (db-f1-micro) | ~$8 |
+| Redis Memorystore (1GB) | ~$35 |
+| Cloud Storage | ~$1-2 |
+| Autres (DNS, monitoring) | ~$2-5 |
+| **Total estimé** | **~$50-65/mois** |
+
+---
+
+## 🚀 Installation Locale
 
 ### Prérequis
+
 - Docker Desktop 24.0+
 - Git
 
-### Installation
+### Quick Start
 
 ```bash
 # 1. Cloner le projet
 git clone https://github.com/Linerror99/Mimo-core.git
 cd Mimo-core
 
-# 2. Copier et configurer l'environnement
+# 2. Configurer l'environnement
 cp .env.example .env
-# Éditer .env avec vos valeurs (JWT_SECRET_KEY, DB_PASSWORD, etc.)
 
-# 3. Démarrer les services
+# 3. Démarrer l'application
 docker compose up -d
 
-# 4. Initialiser la base de données
-bash scripts/init-db.sh
+# 4. Vérifier que tout fonctionne
+docker compose ps
 ```
 
-**✅ C'est tout ! L'application est prête.**
+### URLs locales
 
----
+| Service | URL |
+|---------|-----|
+| **Frontend** | http://localhost:5173 |
+| **Backend API** | http://localhost:8000 |
+| **API Docs (Swagger)** | http://localhost:8000/docs |
+| **Health Check** | http://localhost:8000/health |
 
-## 🌐 URLs d'Accès
-
-| Service | URL | Description |
-|---------|-----|-------------|
-| **Frontend** | http://localhost:5173 | Interface utilisateur React |
-| **Backend API** | http://localhost:8000 | API REST FastAPI |
-| **API Docs** | http://localhost:8000/docs | Documentation Swagger interactive |
-| **Health Check** | http://localhost:8000/health | Statut système |
-
----
-
-## 📁 Structure Projet
-
-```
-Mimo-core/
-├── backend/                 # Backend FastAPI
-│   ├── app/
-│   │   ├── api/v1/         # Endpoints REST
-│   │   ├── models/         # SQLAlchemy models
-│   │   ├── services/       # Business logic
-│   │   ├── schemas/        # Pydantic validation
-│   │   └── core/           # Config, security, DB
-│   ├── tests/              # Tests unitaires (247 tests)
-│   ├── scripts/            # Scripts gestion (init, backup, restore)
-│   └── alembic/            # Migrations DB
-├── frontend/               # Frontend React
-│   ├── src/
-│   │   ├── components/     # Composants réutilisables
-│   │   ├── pages/          # Pages Next.js
-│   │   ├── services/       # API calls
-│   │   ├── stores/         # Zustand state
-│   │   └── hooks/          # Custom hooks
-│   └── public/             # Assets statiques
-├── .github/workflows/      # CI/CD GitHub Actions
-├── docs/                   # Documentation complète
-│   ├── ARCHITECTURE.md     # Architecture système
-│   ├── DEPLOYMENT.md       # Guide déploiement
-│   ├── CI-CD-SETUP.md      # Setup CI/CD
-│   └── SPRINT-PLANNING.md  # Planning sprints
-└── docker-compose.yml      # Orchestration services
-```
-
----
-
-## 🔧 Commandes Développement
+### Commandes utiles
 
 ```bash
-# Démarrer tous les services
-docker compose up -d
-
-# Voir les logs en temps réel
+# Logs en temps réel
 docker compose logs -f
 
-# Arrêter les services
-docker compose down
+# Logs backend uniquement
+docker compose logs -f backend
 
 # Rebuild après modifications
 docker compose up -d --build
 
-# Health check système
-bash scripts/health-check.sh
-
-# Backup base de données
-bash scripts/backup-db.sh
-
-# Reset complet DB (⚠️ danger)
-bash scripts/reset-db.sh
-
-# Générer données de test
-docker compose exec backend python scripts/seed-test-data.py
-
 # Lancer les tests backend
-docker compose exec backend pytest tests/ -v --cov=app
+docker compose exec backend pytest tests/ -v
 
-# Voir les logs backend
-docker compose logs -f backend
+# Reset base de données
+docker compose exec backend alembic upgrade head
 
-# Entrer dans le container backend
-docker compose exec backend bash
+# Arrêter tous les services
+docker compose down
+```
+
+---
+
+## 📁 Structure du Projet
+
+```
+Mimo-core/
+├── 📂 backend/                    # API FastAPI (Python)
+│   ├── app/
+│   │   ├── api/v1/               # Routes REST
+│   │   │   ├── auth.py           # Authentification
+│   │   │   ├── accounts.py       # Comptes bancaires
+│   │   │   ├── transactions.py   # Transactions
+│   │   │   ├── categories.py     # Catégories
+│   │   │   ├── recurring.py      # Récurrences
+│   │   │   ├── notifications.py  # Notifications
+│   │   │   └── households.py     # Foyers (couple)
+│   │   ├── models/               # Modèles SQLAlchemy
+│   │   ├── services/             # Logique métier
+│   │   ├── schemas/              # Validation Pydantic
+│   │   └── config.py             # Configuration
+│   ├── alembic/                  # Migrations DB (13 migrations)
+│   └── tests/                    # Tests unitaires (111+ tests)
+│
+├── 📂 frontend/                   # App React (TypeScript)
+│   ├── src/
+│   │   ├── components/           # Composants UI réutilisables
+│   │   ├── pages/                # Pages (Dashboard, Timeline, Settings...)
+│   │   ├── services/             # Appels API (fetch)
+│   │   ├── stores/               # State Zustand
+│   │   └── types/                # Types TypeScript
+│   └── public/                   # Assets statiques
+│
+├── 📂 terraform/                  # Infrastructure as Code
+│   ├── main.tf                   # Ressources GCP (~800 lignes)
+│   ├── variables.tf              # Variables
+│   ├── outputs.tf                # Outputs
+│   └── terraform.tfvars          # Valeurs (gitignored)
+│
+├── 📂 .github/workflows/          # CI/CD GitHub Actions
+│   ├── ci.yml                    # Tests + Lint
+│   └── deploy-production.yml     # Déploiement GCP
+│
+├── 📂 docs/                       # Documentation
+│   ├── SPECIFICATIONS.md         # Spécifications fonctionnelles
+│   ├── SPRINT-PLANNING.md        # Historique des 10 sprints
+│   └── STACK-TECHNIQUE.md        # Stack technique détaillée
+│
+├── docker-compose.yml            # Orchestration locale
+└── README.md                     # Ce fichier
 ```
 
 ---
 
 ## 🧪 Tests & Qualité
 
-### Coverage Tests
+### Métriques
+
+| Métrique | Valeur |
+|----------|--------|
+| **Tests unitaires** | 111+ (100% GREEN) |
+| **Couverture** | 70%+ |
+| **Migrations Alembic** | 13 |
+| **Lignes de code** | ~20,000+ |
+
+### Lancer les tests
 
 ```bash
-# Backend tests (247 tests, 75% coverage)
-docker compose exec backend pytest tests/ -v --cov=app --cov-report=html
+# Backend (pytest)
+docker compose exec backend pytest tests/ -v --cov=app
 
-# Voir rapport HTML
-open backend/htmlcov/index.html
-```
+# Frontend (vitest)
+cd frontend && npm run test
 
-### Linting & Formatting
-
-```bash
-# Backend (Ruff)
-docker compose exec backend ruff check app/ tests/
-docker compose exec backend ruff format app/ tests/
-
-# Frontend (ESLint)
+# Linting
+docker compose exec backend ruff check app/
 cd frontend && npm run lint
-cd frontend && npm run lint:fix
-```
-
-### Load Tests
-
-```bash
-# Tests de charge (Locust)
-cd backend/tests
-locust -f locustfile.py --host=http://localhost:8000
-
-# Résultats: 806 req/s, p95 < 35ms, 95.5% success rate
 ```
 
 ---
 
-## 📊 CI/CD Pipeline
+## 📊 Métriques du Projet
 
-### Workflows GitHub Actions
-
-- **ci.yml** (7 jobs, ~10min)
-  - ✅ Backend lint (Ruff)
-  - ✅ Backend tests (Pytest 247 tests, 75% coverage)
-  - ✅ Frontend lint (ESLint)
-  - ✅ Build Docker images
-  - ✅ Integration tests (docker-compose)
-  - ✅ CI summary
-
-- **sonar.yml** (~5min)
-  - ✅ SonarCloud analysis
-  - ✅ Coverage reports
-  - ✅ Quality Gate check
-
-### Badges Status
-
-![CI Pipeline](https://github.com/Linerror99/Mimo-core/actions/workflows/ci.yml/badge.svg)
-![SonarCloud](https://github.com/Linerror99/Mimo-core/actions/workflows/sonar.yml/badge.svg)
-![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=alert_status)
-![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=coverage)
-
----
-
-## 🗄️ Scripts Gestion Base de Données
-
-```bash
-# Initialiser DB (migrations + seed optionnel)
-bash scripts/init-db.sh
-
-# Backup avec nom personnalisé
-bash scripts/backup-db.sh "pre-migration"
-
-# Restaurer un backup
-bash scripts/restore-db.sh backups/mimo_backup_20251213_143022.sql
-
-# Reset complet (⚠️ DANGER: supprime TOUT)
-bash scripts/reset-db.sh
-
-# Health check complet
-bash scripts/health-check.sh
-```
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture système complète, diagrammes, flow |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Guide déploiement, scripts, troubleshooting |
-| [CI-CD-SETUP.md](docs/CI-CD-SETUP.md) | Setup CI/CD, GitHub Actions, SonarCloud |
-| [SPRINT-PLANNING.md](docs/SPRINT-PLANNING.md) | Planning complet 8 sprints |
-| [SPECIFICATIONS.md](docs/SPECIFICATIONS.md) | Spécifications fonctionnelles |
-| [API Docs](http://localhost:8000/docs) | Documentation Swagger interactive |
-
----
-
-## 🔐 Sécurité
-
-- ✅ **JWT Authentication** (access 30min, refresh 7j)
-- ✅ **Bcrypt hashing** (12 rounds production)
-- ✅ **Rate limiting** (60/min général, 5/min auth)
-- ✅ **CORS configuré** (origins whitelisted)
-- ✅ **Security headers** (CSP, HSTS, X-Frame-Options)
-- ✅ **SQL injection protection** (SQLAlchemy parameterized queries)
-- ✅ **XSS protection** (Pydantic validation + sanitization)
-- ✅ **Secrets management** (environment variables)
-
----
-
-## 🚀 Performance
-
-### Optimisations Backend
-- ✅ SQLAlchemy async queries
-- ✅ N+1 prevention (selectinload)
-- ✅ Redis caching (sessions, hot data)
-- ✅ Connection pooling (PostgreSQL)
-- ✅ Bcrypt rounds optimisés (4 dev, 12 prod)
-
-### Optimisations Frontend
-- ✅ Code splitting (dynamic imports)
-- ✅ React.memo (prevent re-renders)
-- ✅ TanStack Query (cache + deduplication)
-- ✅ Image optimization
-- ✅ Vite build optimizations
-
-### Résultats Load Tests
-- **Throughput:** 806 requêtes/60s (13.4 req/s)
-- **Success rate:** 95.5%
-- **Latency p50:** 14ms
-- **Latency p95:** 35ms
-- **Latency p99:** 87ms
+| Métrique | Valeur |
+|----------|--------|
+| **Sprints complétés** | 10 |
+| **Durée développement** | ~5 mois |
+| **Ressources Terraform** | 42+ |
+| **Endpoints API** | 35+ |
+| **Composants React** | 50+ |
 
 ---
 
 ## 🛣️ Roadmap
 
-### Sprint 8 (Actuel) ✅ 95% Complete
-- ✅ Sécurité (logs, CORS, headers)
-- ✅ Performance (load tests 75% coverage)
-- ✅ Scripts déploiement (7 scripts)
-- ✅ CI/CD complet (GitHub Actions + SonarCloud)
-- 🚧 Documentation finale (en cours)
+### ✅ Complété (v1.0)
+- [x] Authentification JWT + Redis blacklist
+- [x] CRUD Comptes & Catégories
+- [x] Transactions avec timeline
+- [x] Récurrences automatiques (12 mois)
+- [x] Validation quotidienne + Notifications
+- [x] Mode Couple (fusion/dissolution)
+- [x] Objectifs épargne
+- [x] Dashboard analytics avec graphiques
+- [x] Upload fichiers (Cloud Storage)
+- [x] Déploiement GCP production
 
-### Sprint 9 (Prochain) - Infrastructure GCP
-- [ ] Terraform modules (12 resources)
-- [ ] Cloud SQL + Memorystore
-- [ ] Cloud Run deployment
-- [ ] Cloud Scheduler (cron jobs)
-- [ ] Monitoring + Alerting
-
-### Sprint 10 - Production Release
-- [ ] Déploiement production
-- [ ] Tests utilisateurs
-- [ ] Communication (LinkedIn, etc.)
-
----
-
-## 👥 Contribution
-
-Les contributions sont les bienvenues ! Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour les guidelines.
+### 🔜 À venir (v2.0)
+- [ ] Import CSV/OFX bancaire
+- [ ] Règles de catégorisation automatique
+- [ ] Budgets par catégorie avec alertes
+- [ ] Rappels email (SendGrid)
+- [ ] Application mobile (React Native)
+- [ ] Connexion bancaire (Plaid/Bridge)
+- [ ] Multi-langue (i18n)
+- [ ] Mode sombre
 
 ---
 
-## 📄 License
+## 🤝 Contribution
 
-MIT License - voir [LICENSE](LICENSE)
+Les contributions sont les bienvenues ! 
 
----
-
-## 📞 Support & Contact
-
-- **Issues:** [GitHub Issues](https://github.com/Linerror99/Mimo-core/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/Linerror99/Mimo-core/discussions)
-- **Email:** support@mimocompleto.com
+1. Fork le projet
+2. Créer une branche (`git checkout -b feature/amazing-feature`)
+3. Commit (`git commit -m 'Add amazing feature'`)
+4. Push (`git push origin feature/amazing-feature`)
+5. Ouvrir une Pull Request
 
 ---
 
-**Développé avec ❤️ par l'équipe Mimo Finance**
+## 📝 Licence
 
-# Rebuild
-docker-compose up -d --build
-```
+Ce projet est sous licence MIT. Voir [LICENSE](LICENSE) pour plus de détails.
 
 ---
 
-## 📚 Documentation
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/Linerror99">Linerror99</a>
+</p>
 
-- **[Specifications](docs/SPECIFICATIONS.md)** - Complete feature specs
-- **[Sprint Planning](docs/SPRINT-PLANNING.md)** - Development roadmap
-- **[Tech Stack](docs/STACK-TECHNIQUE.md)** - Architecture details
-
----
-
-## 🎯 Current Status
-
-**Sprint 0** ✅ Complete
-- Infrastructure setup
-- Docker orchestration
-- Health checks
-
-**Sprint 1** 🚧 In Progress
-- Authentication (JWT)
-- User management
-- Profile settings
-
----
-
-## 📄 License
-
-MIT License
-
----
-
-**Happy Coding! 🚀**
+<p align="center">
+  <a href="https://mimo-frontend-301595415100.europe-west1.run.app">
+    <img src="https://img.shields.io/badge/🚀_Essayer_Mimo_Finance-Demo_Live-00C853?style=for-the-badge" alt="Demo Live" />
+  </a>
+</p>
