@@ -114,22 +114,27 @@ class AccountService:
         db: AsyncSession,
         account_id: str
     ) -> Decimal:
-        """Calculate current account balance (initial + transactions sum)"""
-        from app.models.transaction import Transaction
+        """Calculate current account balance (initial + realized transactions up to today)"""
+        from datetime import date
+        from app.models.transaction import Transaction, TransactionState
 
         account = await db.get(Account, account_id)
         if not account:
             return Decimal("0")
 
-        # Calculer la somme des transactions non supprimées pour ce compte
+        # Calculer la somme des transactions REALIZED jusqu'à aujourd'hui uniquement
+        # Exclut les transactions futures (PROJECTED) et en attente (PENDING)
+        today = date.today()
         result = await db.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0))
             .where(
                 Transaction.account_id == account_id,
-                Transaction.deleted_at.is_(None)
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
             )
         )
         transactions_sum = result.scalar_one()
 
-        # Balance = initial_balance + somme transactions
+        # Balance = initial_balance + somme transactions réalisées
         return account.initial_balance + Decimal(str(transactions_sum))
