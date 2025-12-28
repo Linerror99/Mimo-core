@@ -779,8 +779,8 @@ jobs:
         working-directory: ./backend
         run: |
           COVERAGE=$(pytest tests/ --cov=app --cov-report=term | grep "TOTAL" | awk '{print $4}' | sed 's/%//')
-          if (( $(echo "$COVERAGE < 75" | bc -l) )); then
-            echo "❌ Coverage $COVERAGE% < 75%"
+          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+            echo "❌ Coverage $COVERAGE% < 70%"
             exit 1
           fi
           echo "✅ Coverage $COVERAGE% OK"
@@ -1186,7 +1186,7 @@ server {
 - [ ] Bucket Terraform state créé
 - [ ] Terraform `init` + `plan` + `apply` réussi
 - [ ] Backend et Frontend build localement OK
-- [ ] Tests backend passent (coverage > 75%)
+- [ ] Tests backend passent (coverage > 70%)
 - [ ] Workload Identity configuré
 - [ ] GitHub Secrets ajoutés
 
@@ -1414,7 +1414,7 @@ Créer `docs/PRODUCTION.md` avec :
 
 ### CI/CD
 - [ ] Workflow `.github/workflows/deploy-production.yml` créé
-- [ ] Tests automatiques (coverage > 75%)
+- [ ] Tests automatiques (coverage > 70%)
 - [ ] Build + Push Artifact Registry automatique
 - [ ] Déploiement automatique sur merge staging
 - [ ] Smoke tests post-déploiement

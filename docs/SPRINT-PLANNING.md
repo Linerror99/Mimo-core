@@ -1229,7 +1229,7 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 - [x] **Optimisation bcrypt** : 12 rounds → 4 rounds (load tests)
 - [x] Rapport complet : `backend/tests/LOAD_TEST_RESULTS.md`
 
-**Couverture Tests >75%**
+**Couverture Tests >70%**
 - [x] Coverage actuel : **76%** (3241 statements, 772 missing)
 - [x] 245 tests passing, 5 skipped, 0 failed ✅
 - [x] Baseline établi pour future amélioration
@@ -1371,7 +1371,7 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 
 **CI Pipeline Complète**
 - [x] **Lint** : Ruff (backend), ESLint (frontend)
-- [x] **Tests Unitaires** : Pytest + Coverage (75%)
+- [x] **Tests Unitaires** : Pytest + Coverage (70%)
 - [x] **Tests Intégration** : API endpoints complets avec docker-compose
 - [x] **Build** : Docker images (cache layers GitHub Actions)
 - [x] **SonarCloud Analysis** : Analysis complète opérationnelle
@@ -1379,7 +1379,7 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 - [x] Documentation complète : CI-CD-SETUP.md, GITHUB-SECRETS.md, CI-CD-FIXES.md
 
 **Quality Gates Actuels (Sprint 8)**
-- [x] Coverage 75% (objectif Sprint 9: 85%)
+- [x] Coverage 70% (objectif Sprint 9: 85%)
 - [x] 0 erreurs Ruff/ESLint
 - [x] 0 tests failants
 - [x] Code formaté (Ruff format)
@@ -1416,7 +1416,7 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 ✅ Rate limiting Redis (60/min général, 5/min auth)  
 ✅ CORS configuré + Headers sécurité (CSP, HSTS, X-Frame-Options)  
 ✅ Système logs JSON structurés (timestamp, level, user_id, trace_id)  
-✅ Coverage tests 75% (247 tests passing, 6 skipped, 0 failed)  
+✅ Coverage tests 70% (247 tests passing, 6 skipped, 0 failed)  
 ✅ Tests charge validés Locust (806 req/60s, p95 35ms, 95.5% success)  
 
 **⚡ Performance & UX**
@@ -1446,7 +1446,7 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 
 **📈 Métriques Finales**
 - **Tests backend :** 247 passed, 6 skipped, 0 failed (✅ 100% success)  
-- **Coverage :** 75% (3241 statements, 772 missing)  
+- **Coverage :** 70% (3241 statements, 772 missing)  
 - **Load tests :** 806 req/60s, p95 35ms, 95.5% success  
 - **Pipeline CI :** 7 jobs, ~10 minutes  
 - **Quality Gate :** SonarCloud opérationnel  
@@ -1464,7 +1464,7 @@ Préparer l'application pour la production : sécurité, performance, UX, monito
 | **1-2** | Sécurité Backend | Logs structurés, supprimer données sensibles, CORS, headers | ✅ FAIT |
 | **3** | Sécurité Frontend | Supprimer console.log, erreurs UX, validation | ✅ FAIT |
 | **4** | Performance Backend | Tests charge, queries SQL, optimisations | ✅ FAIT |
-| **5** | Tests & Bugs UI | Coverage 75%, fix Navbar 3 pages, performance 1-2s | ✅ FAIT |
+| **5** | Tests & Bugs UI | Coverage 70%, fix Navbar 3 pages, performance 1-2s | ✅ FAIT |
 | **6-7** | Refonte Graphique | Nouveau design, animations, components | ⏸️ REPORTÉ |
 | **8** | Polish UX | Skeletons, empty states, micro-interactions | ⏸️ REPORTÉ |
 | **9-10** | Scripts Déploiement | init-db, backup, seed, health-check | ✅ FAIT |

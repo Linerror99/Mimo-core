@@ -378,7 +378,7 @@ Mimo-core/
 | Métrique | Valeur |
 |----------|--------|
 | **Tests unitaires** | 111+ (100% GREEN) |
-| **Couverture** | 75%+ |
+| **Couverture** | 70%+ |
 | **Migrations Alembic** | 13 |
 | **Lignes de code** | ~20,000+ |
 

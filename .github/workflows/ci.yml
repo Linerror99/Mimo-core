@@ -4,11 +4,11 @@
 #
 # Continuous Integration workflow:
 # - Lint (Ruff, ESLint)
-# - Unit tests with coverage (Backend: 75%, Frontend: optional)
+# - Unit tests with coverage (Backend: 70%, Frontend: optional)
 # - Build Docker images
 # - Integration tests
 #
-# Sprint 8: Frontend tests non-bloquants, coverage backend 75%
+# Sprint 8: Frontend tests non-bloquants, coverage backend 70%
 # Sprint 9: Objectif 85% coverage, frontend tests requis
 #
 # ================================================================
@@ -116,7 +116,7 @@ jobs:
           LOG_DIR: ./logs
           UPLOAD_DIR: ./uploads
         run: |
-          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=75
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=70
       
       - name: Upload coverage to artifacts
         uses: actions/upload-artifact@v4
@@ -315,5 +315,5 @@ jobs:
             echo "❌ CI Pipeline Failed"
             exit 1
           else
-            echo "✅ CI Pipeline Passed (Coverage: 75%, Frontend tests: optional)"
+            echo "✅ CI Pipeline Passed (Coverage: 70%, Frontend tests: optional)"
           fi

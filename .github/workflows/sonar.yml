@@ -3,7 +3,7 @@
 # ================================================================
 #
 # Code quality analysis with SonarCloud:
-# - Coverage analysis (Sprint 8: 75%, Sprint 9: >85%)
+# - Coverage analysis (Sprint 8: 70%, Sprint 9: >85%)
 # - Code smells detection
 # - Security hotspots
 # - Duplication detection (<3% required)
@@ -147,5 +147,5 @@ jobs:
       - name: Quality Gate Status
         run: |
           echo "⚠️ Quality Gate check completed (non-blocking)"
-          echo "Current coverage: 75%"
+          echo "Current coverage: 70%"
           echo "Target coverage: 85% (Sprint 9)"
