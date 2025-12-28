@@ -70,7 +70,7 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     }
 
     return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col">
+    <aside className="w-64 bg-background border-r border-border flex flex-col">
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">

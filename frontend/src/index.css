@@ -8,6 +8,7 @@
   
   body {
     font-family: 'Inter', sans-serif;
+    background-color: oklch(0.94 0.04 278);
   }
   
   .font-mono-amounts {
@@ -70,7 +71,7 @@
 }
 
 :root {
-  --background: oklch(0.98 0 0);
+  --background: oklch(0.97 0.015 278);
   --foreground: oklch(0.25 0 0);
 
   --card: oklch(1 0 0);
@@ -82,10 +83,10 @@
   --primary: oklch(0.59 0.19 278);
   --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.96 0.01 278);
+  --secondary: oklch(0.96 0.015 278);
   --secondary-foreground: oklch(0.25 0 0);
 
-  --muted: oklch(0.96 0 0);
+  --muted: oklch(0.96 0.01 278);
   --muted-foreground: oklch(0.50 0 0);
 
   --accent: oklch(0.65 0.20 300);
@@ -100,8 +101,8 @@
   --warning: oklch(0.75 0.15 70);
   --warning-foreground: oklch(0.25 0 0);
 
-  --border: oklch(0.90 0 0);
-  --input: oklch(0.90 0 0);
+  --border: oklch(0.90 0.005 278);
+  --input: oklch(0.90 0.005 278);
   --ring: oklch(0.59 0.19 278);
 
   --radius: 0.5rem;
@@ -110,8 +111,8 @@
   --card-bg: oklch(1 0 0);
   --text-primary: oklch(0.25 0 0);
   --text-secondary: oklch(0.50 0 0);
-  --border-color: oklch(0.90 0 0);
-  --hover-bg: oklch(0.96 0 0);
+  --border-color: oklch(0.90 0.005 278);
+  --hover-bg: oklch(0.97 0.02 278);
   --input-bg: oklch(1 0 0);
   --primary-color: oklch(0.59 0.19 278);
   --error-color: oklch(0.63 0.22 25);
@@ -203,4 +204,9 @@
     linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+/* Landing page gradient background */
+.landing-gradient {
+  background: linear-gradient(135deg, #f8f7ff 0%, #fafbfc 40%, #f5f3ff 100%) !important;
 }
