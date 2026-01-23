@@ -139,6 +139,7 @@ jobs:
       #       echo "Migration failed with HTTP $HTTP_CODE"
       #       exit 1
       #     fi
+      #   test ci
 
       - name: Smoke Tests
         run: |
