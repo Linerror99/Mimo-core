@@ -8,7 +8,7 @@ on:
       - sprint_9
 
 env:
-  PROJECT_ID: mimo-finance-prod
+  PROJECT_ID: mimo-finance-production
   REGION: europe-west1
   BACKEND_SERVICE: mimo-backend
   FRONTEND_SERVICE: mimo-frontend
@@ -30,8 +30,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/301595415100/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'github-actions-sa@mimo-finance-prod.iam.gserviceaccount.com'
+          workload_identity_provider: 'projects/630066653084/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions-sa@mimo-finance-production.iam.gserviceaccount.com'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -101,10 +101,10 @@ jobs:
           
           # Build CORS origins with both possible frontend URLs
           # Cloud Run can have different URL formats depending on the deployment
-          CORS_ORIGINS="https://mimo-frontend-xpaldfrvjq-ew.a.run.app,https://mimo-frontend-301595415100.europe-west1.run.app"
+          CORS_ORIGINS="https://mimo-frontend-7ivz6pjoba-ew.a.run.app,https://mimo-frontend-630066653084.europe-west1.run.app"
           
           # Add the dynamic frontend URL if different from the known ones
-          if [[ "$FRONTEND_URL" != *"xpaldfrvjq"* ]] && [[ "$FRONTEND_URL" != *"301595415100"* ]]; then
+          if [[ "$FRONTEND_URL" != *"7ivz6pjoba"* ]] && [[ "$FRONTEND_URL" != *"630066653084"* ]]; then
             CORS_ORIGINS="${CORS_ORIGINS},${FRONTEND_URL}"
           fi
           
