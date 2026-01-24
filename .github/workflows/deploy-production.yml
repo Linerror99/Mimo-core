@@ -110,35 +110,38 @@ jobs:
           
           echo "Updating backend CORS to allow: $CORS_ORIGINS"
           
+          # Escape commas for gcloud (replace , with ^,)
+          CORS_ESCAPED="${CORS_ORIGINS//,/^,}"
+          
           # Update backend with correct CORS
           gcloud run services update ${{ env.BACKEND_SERVICE }} \
             --region=${{ env.REGION }} \
-            --update-env-vars="CORS_ORIGINS='$CORS_ORIGINS'" \
+            --update-env-vars="CORS_ORIGINS=$CORS_ESCAPED" \
             --quiet
           
           echo "CORS updated successfully. Waiting for backend to restart..."
           sleep 15
 
-      # - name: Run Database Migrations
-      #   run: |
-      #     BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} \
-      #       --region=${{ env.REGION }} \
-      #       --format='value(status.url)')
-      #     
-      #     # Call migration endpoint
-      #     RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-      #       -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" \
-      #       "$BACKEND_URL/api/v1/admin/migrate")
-      #     
-      #     HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-      #     BODY=$(echo "$RESPONSE" | sed '$d')
-      #     
-      #     echo "Migration response: $BODY"
-      #     
-      #     if [ "$HTTP_CODE" != "200" ]; then
-      #       echo "Migration failed with HTTP $HTTP_CODE"
-      #       exit 1
-      #     fi
+      - name: Run Database Migrations
+        run: |
+          BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          
+          # Call migration endpoint
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "X-Admin-Token: ${{ secrets.ADMIN_TOKEN }}" \
+            "$BACKEND_URL/api/v1/admin/migrate")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Migration response: $BODY"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Migration failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
       #   test ci
 
       - name: Smoke Tests
