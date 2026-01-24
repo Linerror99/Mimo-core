@@ -113,7 +113,7 @@ jobs:
           # Update backend with correct CORS
           gcloud run services update ${{ env.BACKEND_SERVICE }} \
             --region=${{ env.REGION }} \
-            --update-env-vars="CORS_ORIGINS=$CORS_ORIGINS" \
+            --update-env-vars="CORS_ORIGINS='$CORS_ORIGINS'" \
             --quiet
           
           echo "CORS updated successfully. Waiting for backend to restart..."
