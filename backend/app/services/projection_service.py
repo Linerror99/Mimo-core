@@ -49,40 +49,28 @@ def get_next_occurrence(
         return current_date + timedelta(days=days_until_target)
 
     elif frequency == Frequency.MONTHLY:
-        # Prochain mois avec le jour spécifié
-        next_month = current_date + relativedelta(months=1)
+        max_day_current = monthrange(current_date.year, current_date.month)[1]
+        target_day_current = min(day_of_month, max_day_current) if day_of_month else 1
 
-        # Si on est avant le jour cible dans le mois actuel, utiliser ce mois
-        if current_date.day < day_of_month:
-            next_month = current_date
-
-        # Ajuster si le jour n'existe pas dans le mois (ex: 31 en février)
-        max_day = monthrange(next_month.year, next_month.month)[1]
-        actual_day = min(day_of_month, max_day)
-
-        return date(next_month.year, next_month.month, actual_day)
+        if current_date.day < target_day_current:
+            return date(current_date.year, current_date.month, target_day_current)
+        else:
+            first_of_next = current_date.replace(day=1) + relativedelta(months=1)
+            max_day_next = monthrange(first_of_next.year, first_of_next.month)[1]
+            actual_day = min(day_of_month, max_day_next) if day_of_month else 1
+            return date(first_of_next.year, first_of_next.month, actual_day)
 
     elif frequency == Frequency.QUARTERLY:
-        # Tous les 3 mois
-        # Chercher la prochaine occurrence trimestrielle
-        # Si on est avant le jour cible dans le mois actuel, utiliser ce mois
-        if current_date.day < day_of_month:
-            # Vérifier si le jour cible existe dans ce mois
-            max_day_current = monthrange(current_date.year, current_date.month)[1]
-            if day_of_month <= max_day_current:
-                next_occurrence = current_date
-            else:
-                # Le jour n'existe pas ce mois, passer au prochain trimestre
-                next_occurrence = current_date + relativedelta(months=3)
+        max_day_current = monthrange(current_date.year, current_date.month)[1]
+        target_day_current = min(day_of_month, max_day_current) if day_of_month else 1
+
+        if current_date.day < target_day_current:
+            return date(current_date.year, current_date.month, target_day_current)
         else:
-            # On est déjà passé, passer au prochain trimestre
-            next_occurrence = current_date + relativedelta(months=3)
-
-        # Ajuster le jour
-        max_day = monthrange(next_occurrence.year, next_occurrence.month)[1]
-        actual_day = min(day_of_month, max_day)
-
-        return date(next_occurrence.year, next_occurrence.month, actual_day)
+            first_of_next = current_date.replace(day=1) + relativedelta(months=3)
+            max_day_next = monthrange(first_of_next.year, first_of_next.month)[1]
+            actual_day = min(day_of_month, max_day_next) if day_of_month else 1
+            return date(first_of_next.year, first_of_next.month, actual_day)
 
     elif frequency == Frequency.YEARLY:
         # Annuelle : même mois/jour que start_date chaque année

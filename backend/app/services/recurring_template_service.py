@@ -7,6 +7,7 @@ Crée automatiquement toutes les transactions pour les 12 prochains mois.
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
+from dateutil.relativedelta import relativedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,11 +72,15 @@ class RecurringTemplateService:
             Nombre de transactions créées
         """
         today = date.today()
-        end_date = today + timedelta(days=30 * months)
+        # Générer 12 mois complets à partir de la date de début (ou aujourd'hui si start_date est dans le passé)
+        base_date = max(today, template.start_date)
+        max_end_date = base_date + relativedelta(months=months)
 
         # Si le template a une end_date, utiliser la plus petite
-        if template.end_date and template.end_date < end_date:
+        if template.end_date and template.end_date < max_end_date:
             end_date = template.end_date
+        else:
+            end_date = max_end_date
 
         current_date = template.start_date
         transactions_created = 0

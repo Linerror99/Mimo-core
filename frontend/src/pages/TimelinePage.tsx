@@ -56,7 +56,19 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [deleteOption, setDeleteOption] = useState<'single' | 'all' | 'period'>('single');
   const [deletePeriod, setDeletePeriod] = useState({ start: '', end: '' });
+  // View mode: 'list' | 'calendar'
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  // Selected day in calendar view (YYYY-MM-DD)
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
   
+  // Helper pour formater une Date en YYYY-MM-DD local
+  const formatLocalDate = (d: Date = new Date()): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Date navigation
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -64,7 +76,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [formData, setFormData] = useState<TransactionCreate>({
     amount: 0,
     description: "",
-    transaction_date: new Date().toISOString().split('T')[0],
+    transaction_date: formatLocalDate(),
     type: TransactionType.EXPENSE,
     account_id: "",
     category_id: undefined,
@@ -74,7 +86,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [recurringFormData, setRecurringFormData] = useState({
     ...formData,
     recurrence_frequency: RecurrenceFrequency.MONTHLY,
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: formatLocalDate(),
     end_date: undefined,
   });
 
@@ -97,13 +109,16 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       setCategories(categoriesData);
       setCurrentBalance(balanceData.total_balance);
 
-      // Charger les transactions du mois
-      const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      // Charger les transactions du mois en évitant les décalages UTC
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth(); // 0-11
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
       
       const transactionsData = await transactionService.list({
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
+        start_date: startDateStr,
+        end_date: endDateStr,
       });
       
       setTransactions(transactionsData);
@@ -181,15 +196,27 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             'YEARLY': 'YEARLY'
           };
           
+          const frequency = frequencyMap[recurringFormData.recurrence_frequency] || 'MONTHLY';
+          const startDate = recurringFormData.start_date || formData.transaction_date;
+
+          // Extraire jour du mois et jour de semaine depuis la date de début choisie
+          const [yearStr, monthStr, dayStr] = startDate.split('-');
+          const dayOfMonth = parseInt(dayStr, 10);
+          const startDateObj = new Date(parseInt(yearStr, 10), parseInt(monthStr, 10) - 1, parseInt(dayStr, 10));
+          const jsDay = startDateObj.getDay(); // 0=Dimanche, 1=Lundi...
+          const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; // 0=Lundi, 6=Dimanche pour le backend
+
           await recurringTemplateService.create({
             name: formData.description || `${formData.type === TransactionType.INCOME ? 'Revenu' : 'Dépense'} récurrent`,
             amount: Math.abs(formData.amount),  // Toujours positif, le backend gère le signe
             type: formData.type,
             description: formData.description,
-            frequency: frequencyMap[recurringFormData.recurrence_frequency] || 'MONTHLY',
-            start_date: recurringFormData.start_date,
+            frequency: frequency,
+            start_date: startDate,
             end_date: recurringFormData.end_date || null,
-            day_of_month: recurringFormData.recurrence_frequency === 'MONTHLY' ? new Date().getDate() : undefined,
+            day_of_month: ['MONTHLY', 'QUARTERLY', 'YEARLY'].includes(frequency) ? dayOfMonth : undefined,
+            day_of_week: frequency === 'WEEKLY' ? dayOfWeek : undefined,
+            custom_days: frequency === 'CUSTOM' ? 1 : undefined,
             account_id: formData.account_id,
             category_id: formData.category_id || null,
           });
@@ -270,7 +297,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',
@@ -279,22 +307,80 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
   const goToPreviousMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+    setSelectedCalendarDay(null);
   };
 
   const goToNextMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+    setSelectedCalendarDay(null);
   };
 
   const goToToday = () => {
     setCurrentMonth(new Date());
+    setSelectedCalendarDay(null);
   };
 
-  // Grouper les transactions par date (memoized)
-  const groupedTransactions = useMemo(() => groupByDate(transactions), [transactions]);
+  const handleMonthSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), parseInt(e.target.value), 1));
+    setSelectedCalendarDay(null);
+  };
+
+  const handleYearSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentMonth(new Date(parseInt(e.target.value), currentMonth.getMonth(), 1));
+    setSelectedCalendarDay(null);
+  };
+
+  // Build calendar grid for current month
+  const calendarGrid = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    // Monday=0 in our grid (ISO week)
+    const startDow = (firstDay.getDay() + 6) % 7; // convert Sun=0 to Mon=0
+    const days: (string | null)[] = [];
+    for (let i = 0; i < startDow; i++) days.push(null);
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      const mm = String(month + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      days.push(`${year}-${mm}-${dd}`);
+    }
+    return days;
+  }, [currentMonth]);
+
+  // Grouper les transactions par date (memoized), sorted by date
+  const groupedTransactions = useMemo(() => {
+    const raw = groupByDate(transactions);
+    // Sort each day's transactions by date (they share the same date key, but sort by creation isn't needed)
+    return raw;
+  }, [transactions]);
+
+  // Sorted date keys for list view
+  const sortedDateKeys = useMemo(() => {
+    return Object.keys(groupedTransactions).sort((a, b) => a.localeCompare(b));
+  }, [groupedTransactions]);
 
   // Calculer les totaux du mois (memoized)
   const totals = useMemo(() => calculateTotalsByType(transactions), [transactions]);
   const monthBalance = totals.income + totals.expense; // expense est déjà négatif
+
+  // Transactions for selected calendar day
+  const selectedDayTransactions = useMemo(() => {
+    if (!selectedCalendarDay) return [];
+    return groupedTransactions[selectedCalendarDay] || [];
+  }, [selectedCalendarDay, groupedTransactions]);
+
+  // Years range for year selector
+  const yearRange = useMemo(() => {
+    const current = new Date().getFullYear();
+    const years: number[] = [];
+    for (let y = current - 5; y <= current + 10; y++) years.push(y);
+    return years;
+  }, []);
+
+  const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   if (loading && transactions.length === 0) {
     return (
@@ -314,29 +400,65 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <h1>📅 Timeline</h1>
             <p className="subtitle">Toutes vos transactions</p>
           </div>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-            + Ajouter
-          </button>
+          <div className="timeline-header-actions">
+            <div className="view-toggle">
+              <button
+                className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                onClick={() => setViewMode('list')}
+                title="Vue liste"
+              >
+                ☰ Liste
+              </button>
+              <button
+                className={`view-toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`}
+                onClick={() => setViewMode('calendar')}
+                title="Vue calendrier"
+              >
+                📅 Calendrier
+              </button>
+            </div>
+            <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+              + Ajouter
+            </button>
+          </div>
         </div>
 
         {error && <div className="error-message">{error}</div>}
 
         {/* Sélecteur de mois */}
         <div className="month-selector">
-          <button className="btn btn-icon" onClick={goToPreviousMonth}>
+          <button className="btn btn-icon" onClick={goToPreviousMonth} title="Mois précédent">
             ◀
           </button>
           <div className="month-info">
-            <h2>
-              {currentMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-            </h2>
+            <div className="month-selects">
+              <select
+                className="month-select"
+                value={currentMonth.getMonth()}
+                onChange={handleMonthSelect}
+              >
+                {MONTHS_FR.map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              <select
+                className="month-select"
+                value={currentMonth.getFullYear()}
+                onChange={handleYearSelect}
+              >
+                {yearRange.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
             <p className="month-balance">
-              Transactions: <span className={totals.balance >= 0 ? "positive" : "negative"}>
-                {formatAmount(totals.balance)}
+              <span className={totals.balance >= 0 ? "positive" : "negative"}>
+                {totals.balance >= 0 ? '+' : ''}{formatAmount(totals.balance)}
               </span>
+              {' '}ce mois
             </p>
           </div>
-          <button className="btn btn-icon" onClick={goToNextMonth}>
+          <button className="btn btn-icon" onClick={goToNextMonth} title="Mois suivant">
             ▶
           </button>
           <button className="btn btn-secondary" onClick={goToToday}>
@@ -361,85 +483,123 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           </div>
           <div className="total-card transfer">
             <span className="total-label">🔄 Virements</span>
-            <span className="total-amount">{totals.transfer}</span>
+            <span className="total-amount">{formatAmount(totals.transfer)}</span>
           </div>
         </div>
 
-        {/* Liste des transactions */}
-        {Object.keys(groupedTransactions).length === 0 ? (
-          <div className="empty-state">
-            <p>Aucune transaction ce mois-ci</p>
-            <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-              Ajouter une transaction
-            </button>
-          </div>
+        {/* Vue Liste ou Calendrier */}
+        {viewMode === 'list' ? (
+          /* LISTE */
+          sortedDateKeys.length === 0 ? (
+            <div className="empty-state">
+              <p>Aucune transaction ce mois-ci</p>
+              <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+                Ajouter une transaction
+              </button>
+            </div>
+          ) : (
+            <div className="transactions-list">
+              {sortedDateKeys.map((date) => {
+                const dayTransactions = groupedTransactions[date];
+                return (
+                  <div key={date} className="transaction-day">
+                    <h3 className="day-header">{formatDate(date)}</h3>
+                    <div className="day-transactions">
+                      {dayTransactions.map((transaction) => (
+                        <TransactionCard
+                          key={transaction.id}
+                          transaction={transaction}
+                          accounts={accounts}
+                          categories={categories}
+                          onEdit={handleOpenModal}
+                          onDelete={handleDelete}
+                          formatAmount={formatAmount}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
         ) : (
-          <div className="transactions-list">
-            {Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
-              <div key={date} className="transaction-day">
-                <h3 className="day-header">{formatDate(date)}</h3>
-                <div className="day-transactions">
-                  {dayTransactions.map((transaction) => {
-                    const account = accounts.find(a => a.id === transaction.account_id);
-                    const category = categories.find(c => c.id === transaction.category_id);
-                    const isProjected = transaction.state === TransactionState.PROJECTED;
-                    
-                    return (
-                      <div 
-                        key={transaction.id} 
-                        className={`transaction-card ${isProjected ? 'projected' : ''}`}
-                      >
-                        <div className="transaction-icon">
-                          {TRANSACTION_TYPE_ICONS[transaction.type]}
-                        </div>
-                        <div className="transaction-info">
-                          <div className="transaction-main">
-                            <span className="transaction-description">
-                              {transaction.description}
-                            </span>
-                            {isProjected && (
-                              <span className="badge badge-projected">Projeté</span>
-                            )}
-                            {transaction.recurring_template_id && (
-                              <span className="badge badge-recurring">
-                                Récurrent
-                              </span>
-                            )}
-                          </div>
-                          <div className="transaction-details">
-                            {account && <span className="detail-item">💳 {account.name}</span>}
-                            {category && <span className="detail-item">🏷️ {category.name}</span>}
-                          </div>
-                        </div>
-                        <div className="transaction-amount-actions">
-                          <span className={`transaction-amount ${
-                            transaction.type === TransactionType.INCOME ? 'income' : 'expense'
-                          }`}>
-                            {formatAmount(Math.abs(transaction.amount))}
-                          </span>
-                          <div className="transaction-actions">
-                            <button
-                              className="btn-action"
-                              onClick={() => handleOpenModal(transaction)}
-                              title="Modifier"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              className="btn-action"
-                              onClick={() => handleDelete(transaction)}
-                              title="Supprimer"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+          /* CALENDRIER */
+          <div className="calendar-container">
+            {/* Jours de semaine */}
+            <div className="calendar-grid">
+              {DAYS_FR.map(d => (
+                <div key={d} className="calendar-dow">{d}</div>
+              ))}
+              {calendarGrid.map((dayStr, idx) => {
+                if (!dayStr) return <div key={`empty-${idx}`} className="calendar-cell empty" />;
+                const dayTxs = groupedTransactions[dayStr] || [];
+                const isToday = dayStr === formatLocalDate();
+                const isSelected = dayStr === selectedCalendarDay;
+                const dayNum = parseInt(dayStr.split('-')[2], 10);
+                return (
+                  <div
+                    key={dayStr}
+                    className={`calendar-cell${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${dayTxs.length > 0 ? ' has-events' : ''}`}
+                    onClick={() => setSelectedCalendarDay(isSelected ? null : dayStr)}
+                  >
+                    <span className="cal-day-num">{dayNum}</span>
+                    <div className="cal-dots">
+                      {dayTxs.map((t) => {
+                        let dotClass = 'expense-dot';
+                        let dotTitle = 'Dépense';
+                        if (t.type === TransactionType.INCOME) {
+                          dotClass = 'income-dot';
+                          dotTitle = 'Revenu';
+                        } else if (t.type === TransactionType.TRANSFER) {
+                          dotClass = 'transfer-dot';
+                          dotTitle = 'Virement';
+                        }
+                        return (
+                          <span
+                            key={t.id}
+                            className={`cal-dot ${dotClass}`}
+                            title={`${dotTitle}: ${t.description || formatAmount(Math.abs(t.amount))}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Panneau du jour sélectionné */}
+            {selectedCalendarDay && (
+              <div className="calendar-day-panel">
+                <div className="calendar-day-panel-header">
+                  <h3>📅 {formatDate(selectedCalendarDay)}</h3>
+                  <button className="close-btn" onClick={() => setSelectedCalendarDay(null)}>×</button>
                 </div>
+                {selectedDayTransactions.length === 0 ? (
+                  <div className="calendar-day-empty">
+                    <p>Aucune transaction ce jour</p>
+                    <button className="btn btn-primary btn-sm" onClick={() => {
+                      setFormData(prev => ({ ...prev, transaction_date: selectedCalendarDay }));
+                      handleOpenModal();
+                    }}>+ Ajouter</button>
+                  </div>
+                ) : (
+                  <div className="calendar-day-transactions">
+                    {selectedDayTransactions.map(transaction => (
+                      <TransactionCard
+                        key={transaction.id}
+                        transaction={transaction}
+                        accounts={accounts}
+                        categories={categories}
+                        onEdit={handleOpenModal}
+                        onDelete={handleDelete}
+                        formatAmount={formatAmount}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -467,7 +627,12 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           type="radio"
                           name="recurring"
                           checked={!isRecurring}
-                          onChange={() => setIsRecurring(false)}
+                          onChange={() => {
+                            setIsRecurring(false);
+                            if (recurringFormData.start_date) {
+                              setFormData(prev => ({ ...prev, transaction_date: recurringFormData.start_date }));
+                            }
+                          }}
                         />
                         Transaction ponctuelle
                       </label>
@@ -476,7 +641,12 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           type="radio"
                           name="recurring"
                           checked={isRecurring}
-                          onChange={() => setIsRecurring(true)}
+                          onChange={() => {
+                            setIsRecurring(true);
+                            if (formData.transaction_date) {
+                              setRecurringFormData(prev => ({ ...prev, start_date: formData.transaction_date }));
+                            }
+                          }}
                         />
                         Transaction récurrente
                       </label>
@@ -540,17 +710,22 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                   />
                 </div>
 
-                {/* Date */}
-                <div className="form-group">
-                  <label htmlFor="transaction_date">Date *</label>
-                  <input
-                    type="date"
-                    id="transaction_date"
-                    value={formData.transaction_date}
-                    onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })}
-                    required
-                  />
-                </div>
+                {/* Date (uniquement pour transaction ponctuelle) */}
+                {!isRecurring && (
+                  <div className="form-group">
+                    <label htmlFor="transaction_date">Date *</label>
+                    <input
+                      type="date"
+                      id="transaction_date"
+                      value={formData.transaction_date}
+                      onChange={(e) => {
+                        setFormData({ ...formData, transaction_date: e.target.value });
+                        setRecurringFormData(prev => ({ ...prev, start_date: e.target.value }));
+                      }}
+                      required
+                    />
+                  </div>
+                )}
 
                 {/* Compte */}
                 <div className="form-group">
@@ -642,10 +817,13 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           type="date"
                           id="start_date"
                           value={recurringFormData.start_date}
-                          onChange={(e) => setRecurringFormData({ 
-                            ...recurringFormData, 
-                            start_date: e.target.value 
-                          })}
+                          onChange={(e) => {
+                            setRecurringFormData({ 
+                              ...recurringFormData, 
+                              start_date: e.target.value 
+                            });
+                            setFormData(prev => ({ ...prev, transaction_date: e.target.value }));
+                          }}
                           required
                         />
                       </div>
@@ -735,6 +913,11 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                     />
                     <div>
                       <strong>Sur une période</strong>
+                      checked={deleteOption === 'period'}
+                      onChange={() => setDeleteOption('period')}
+                    />
+                    <div>
+                      <strong>Sur une période</strong>
                       <p>Supprimer les occurrences entre deux dates</p>
                     </div>
                   </label>
@@ -783,5 +966,58 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
         )}
       </div>
     </Layout>
+  );
+}
+
+// ─── TransactionCard sub-component ───────────────────────────────────────────
+interface TransactionCardProps {
+  transaction: Transaction;
+  accounts: Account[];
+  categories: Category[];
+  onEdit: (t: Transaction) => void;
+  onDelete: (t: Transaction) => void;
+  formatAmount: (n: number) => string;
+}
+
+function TransactionCard({ transaction, accounts, categories, onEdit, onDelete, formatAmount }: TransactionCardProps) {
+  const account = accounts.find(a => a.id === transaction.account_id);
+  const destinationAccount = accounts.find(a => a.id === transaction.destination_account_id);
+  const category = categories.find(c => c.id === transaction.category_id);
+  const isProjected = transaction.state === TransactionState.PROJECTED;
+  const isIncome = transaction.type === TransactionType.INCOME;
+  const isTransfer = transaction.type === TransactionType.TRANSFER;
+
+  return (
+    <div className={`transaction-card ${isProjected ? 'projected' : ''}`}>
+      <div className="transaction-icon">
+        {TRANSACTION_TYPE_ICONS[transaction.type]}
+      </div>
+      <div className="transaction-info">
+        <div className="transaction-main">
+          <span className="transaction-description">{transaction.description}</span>
+          {isProjected && <span className="badge badge-projected">Projeté</span>}
+          {transaction.recurring_template_id && (
+            <span className="badge badge-recurring">Récurrent</span>
+          )}
+        </div>
+        <div className="transaction-details">
+          {isTransfer && account && destinationAccount ? (
+            <span className="detail-item">💳 {account.name} ➔ 💳 {destinationAccount.name}</span>
+          ) : (
+            account && <span className="detail-item">💳 {account.name}</span>
+          )}
+          {category && <span className="detail-item">🏷️ {category.name}</span>}
+        </div>
+      </div>
+      <div className="transaction-amount-actions">
+        <span className={`transaction-amount ${isIncome ? 'income' : isTransfer ? 'transfer' : 'expense'}`}>
+          {isIncome ? '+' : isTransfer ? '⇄ ' : '-'}{formatAmount(Math.abs(transaction.amount))}
+        </span>
+        <div className="transaction-actions">
+          <button className="btn-action" onClick={() => onEdit(transaction)} title="Modifier">✏️</button>
+          <button className="btn-action" onClick={() => onDelete(transaction)} title="Supprimer">🗑️</button>
+        </div>
+      </div>
+    </div>
   );
 }

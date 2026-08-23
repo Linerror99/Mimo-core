@@ -184,17 +184,18 @@ export function calculateTotalsByType(transactions: Transaction[]): {
     
     switch (transaction.type) {
       case 'INCOME':
-        totals.income += amount;
+        totals.income += Math.abs(amount);
+        totals.balance += Math.abs(amount);
         break;
       case 'EXPENSE':
-        totals.expense += amount;  // Garder le montant négatif pour le calcul algébrique
+        totals.expense += -Math.abs(amount);  // Garder le montant négatif pour le calcul algébrique
+        totals.balance += -Math.abs(amount);
         break;
       case 'TRANSFER':
-        totals.transfer += amount;
+        totals.transfer += Math.abs(amount);  // Montant positif pour l'affichage des virements
+        // Un virement interne n'impacte pas le solde net global
         break;
     }
-    
-    totals.balance += amount;
   });
 
   return totals;
