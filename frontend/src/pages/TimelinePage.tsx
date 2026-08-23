@@ -41,6 +41,7 @@ interface TimelineProps {
 
 export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [cumulativeTransactions, setCumulativeTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [endOfMonthBalance, setEndOfMonthBalance] = useState<number>(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [deleteOption, setDeleteOption] = useState<'single' | 'all' | 'period'>('single');
@@ -56,7 +58,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   // Selected day in calendar view (YYYY-MM-DD)
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
-
+  
   // Helper pour formater une Date en YYYY-MM-DD local
   const formatLocalDate = (d: Date = new Date()): string => {
     const year = d.getFullYear();
@@ -110,12 +112,30 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      const transactionsData = await transactionService.list({
-        start_date: startDateStr,
-        end_date: endDateStr,
-      });
+      // Charger les transactions du mois et les transactions cumulées jusqu'à la fin de ce mois
+      const [monthTransactions, cumulativeTxs] = await Promise.all([
+        transactionService.list({
+          start_date: startDateStr,
+          end_date: endDateStr,
+        }),
+        transactionService.list({
+          end_date: endDateStr,
+        }),
+      ]);
 
-      setTransactions(transactionsData);
+      setTransactions(monthTransactions);
+      setCumulativeTransactions(cumulativeTxs);
+
+      // Calculer le solde de fin de mois : soldes initiaux + somme de toutes les transactions jusqu'à la fin du mois
+      const totalInitialBalance = accountsData.reduce((sum, acc) => sum + Number(acc.initial_balance || 0), 0);
+      const cumulativeNet = cumulativeTxs.reduce((sum, t) => {
+        if (t.deleted_at) return sum;
+        if (t.type === TransactionType.INCOME) return sum + Math.abs(Number(t.amount));
+        if (t.type === TransactionType.EXPENSE) return sum - Math.abs(Number(t.amount));
+        return sum;
+      }, 0);
+
+      setEndOfMonthBalance(totalInitialBalance + cumulativeNet);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors du chargement");
@@ -344,6 +364,56 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   // Calculer les totaux du mois
   const totals = useMemo(() => calculateTotalsByType(transactions), [transactions]);
 
+  // Helper pour déterminer le niveau et la classe de couleur du solde
+  // Rouge: < 0 | Jaune: 0 - 50 | Vert clair: 50 - 100 | Vert: > 100
+  const getBalanceStatus = (amount: number): 'danger' | 'warning' | 'normal' | 'success' => {
+    if (amount < 0) return 'danger';
+    if (amount <= 50) return 'warning';
+    if (amount <= 100) return 'normal';
+    return 'success';
+  };
+
+  const getBalanceBadgeIcon = (amount: number): string => {
+    if (amount < 0) return '🔴';
+    if (amount <= 50) return '🟡';
+    return '🟢';
+  };
+
+  // Solde cumulé à la fin de chaque jour du mois
+  const dailyBalancesMap = useMemo(() => {
+    const totalInitialBalance = accounts.reduce((sum, acc) => sum + Number(acc.initial_balance || 0), 0);
+    const sorted = [...cumulativeTransactions].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+    
+    const balanceMap: Record<string, number> = {};
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDayStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    
+    // Calculer le solde au début du mois
+    let currentRunning = totalInitialBalance;
+    for (const tx of sorted) {
+      if (tx.deleted_at) continue;
+      if (tx.transaction_date < firstDayStr) {
+        if (tx.type === TransactionType.INCOME) currentRunning += Math.abs(Number(tx.amount));
+        else if (tx.type === TransactionType.EXPENSE) currentRunning -= Math.abs(Number(tx.amount));
+      }
+    }
+
+    // Calculer le solde pour chaque jour du mois
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= lastDay; d++) {
+      const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayTxs = sorted.filter(t => t.transaction_date === dStr && !t.deleted_at);
+      for (const tx of dayTxs) {
+        if (tx.type === TransactionType.INCOME) currentRunning += Math.abs(Number(tx.amount));
+        else if (tx.type === TransactionType.EXPENSE) currentRunning -= Math.abs(Number(tx.amount));
+      }
+      balanceMap[dStr] = currentRunning;
+    }
+
+    return balanceMap;
+  }, [accounts, cumulativeTransactions, currentMonth]);
+
   // Transactions for selected calendar day
   const selectedDayTransactions = useMemo(() => {
     if (!selectedCalendarDay) return [];
@@ -436,6 +506,13 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                 {totals.balance >= 0 ? '+' : ''}{formatAmount(totals.balance)}
               </span>
               {' '}ce mois
+              <span className="month-balance-sep"> • </span>
+              <span className="month-end-balance-text">
+                Solde fin de mois :{' '}
+                <strong className={endOfMonthBalance >= 0 ? "positive" : "negative"}>
+                  {formatAmount(endOfMonthBalance)}
+                </strong>
+              </span>
             </p>
           </div>
           <button className="btn btn-icon" onClick={goToNextMonth} title="Mois suivant">
@@ -465,6 +542,12 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <span className="total-label">🔄 Virements</span>
             <span className="total-amount">{formatAmount(totals.transfer)}</span>
           </div>
+          <div className="total-card balance">
+            <span className="total-label">🏦 Solde fin de mois</span>
+            <span className={`total-amount ${endOfMonthBalance >= 0 ? 'positive' : 'negative'}`}>
+              {formatAmount(endOfMonthBalance)}
+            </span>
+          </div>
         </div>
 
         {/* Vue Liste ou Calendrier */}
@@ -481,9 +564,18 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <div className="transactions-list">
               {sortedDateKeys.map((date) => {
                 const dayTransactions = groupedTransactions[date];
+                const dayBalance = dailyBalancesMap[date];
+
                 return (
                   <div key={date} className="transaction-day">
-                    <h3 className="day-header">{formatDate(date)}</h3>
+                    <div className="day-header-container">
+                      <h3 className="day-header">{formatDate(date)}</h3>
+                      {dayBalance !== undefined && (
+                        <span className={`day-balance-badge badge-${getBalanceStatus(dayBalance)}`} title="Solde en fin de journée">
+                          {getBalanceBadgeIcon(dayBalance)} Solde : {formatAmount(dayBalance)}
+                        </span>
+                      )}
+                    </div>
                     <div className="day-transactions">
                       {dayTransactions.map((transaction) => (
                         <TransactionCard
@@ -515,12 +607,17 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                 const dayTxs = groupedTransactions[dayStr] || [];
                 const isToday = dayStr === formatLocalDate();
                 const isSelected = dayStr === selectedCalendarDay;
+                const dayBalance = dailyBalancesMap[dayStr];
+                const hasTxs = dayTxs.length > 0;
                 const dayNum = parseInt(dayStr.split('-')[2], 10);
+                const balanceStatus = (hasTxs && dayBalance !== undefined) ? getBalanceStatus(dayBalance) : undefined;
+
                 return (
                   <div
                     key={dayStr}
-                    className={`calendar-cell${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${dayTxs.length > 0 ? ' has-events' : ''}`}
+                    className={`calendar-cell${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${hasTxs ? ' has-events' : ''}${balanceStatus ? ` cell-${balanceStatus}` : ''}`}
                     onClick={() => setSelectedCalendarDay(isSelected ? null : dayStr)}
+                    title={dayBalance !== undefined && hasTxs ? `Solde fin de journée : ${formatAmount(dayBalance)}` : undefined}
                   >
                     <span className="cal-day-num">{dayNum}</span>
                     <div className="cal-dots">
@@ -552,9 +649,21 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             {selectedCalendarDay && (
               <div className="calendar-day-panel">
                 <div className="calendar-day-panel-header">
-                  <h3>📅 {formatDate(selectedCalendarDay)}</h3>
+                  <div className="panel-header-info">
+                    <h3>📅 {formatDate(selectedCalendarDay)}</h3>
+                    {dailyBalancesMap[selectedCalendarDay] !== undefined && (
+                      <span className={`day-balance-badge badge-${getBalanceStatus(dailyBalancesMap[selectedCalendarDay])}`}>
+                        {getBalanceBadgeIcon(dailyBalancesMap[selectedCalendarDay])} Solde fin de journée : {formatAmount(dailyBalancesMap[selectedCalendarDay])}
+                      </span>
+                    )}
+                  </div>
                   <button className="close-btn" onClick={() => setSelectedCalendarDay(null)}>×</button>
                 </div>
+                {dailyBalancesMap[selectedCalendarDay] !== undefined && dailyBalancesMap[selectedCalendarDay] < 0 && (
+                  <div className="negative-balance-alert">
+                    ⚠️ <strong>Solde négatif :</strong> Votre compte sera à <strong>{formatAmount(dailyBalancesMap[selectedCalendarDay])}</strong> en fin de journée.
+                  </div>
+                )}
                 {selectedDayTransactions.length === 0 ? (
                   <div className="calendar-day-empty">
                     <p>Aucune transaction ce jour</p>

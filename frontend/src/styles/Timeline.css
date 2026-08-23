@@ -52,6 +52,24 @@
   font-size: 0.9rem;
   color: #666;
   margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.month-balance-sep {
+  color: #ccc;
+  margin: 0 0.25rem;
+}
+
+.month-end-balance-text strong.positive {
+  color: #27ae60;
+}
+
+.month-end-balance-text strong.negative {
+  color: #e74c3c;
 }
 
 .month-balance .positive {
@@ -94,6 +112,19 @@
   border-left: 4px solid #3498db;
 }
 
+.total-card.balance {
+  border-left: 4px solid #6366f1;
+  background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+}
+
+.total-card.balance .total-amount.positive {
+  color: #27ae60;
+}
+
+.total-card.balance .total-amount.negative {
+  color: #e74c3c;
+}
+
 .total-label {
   font-size: 0.9rem;
   color: #666;
@@ -118,13 +149,66 @@
   gap: 0.75rem;
 }
 
+.day-header-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .day-header {
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  color: #666;
+  color: #4b5563;
   letter-spacing: 0.5px;
   margin: 0;
+}
+
+/* Badges de solde journalier */
+.day-balance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+}
+
+/* Rouge: < 0 */
+.day-balance-badge.badge-danger {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #f87171;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.12);
+}
+
+/* Jaune/Orange: 0 - 50 */
+.day-balance-badge.badge-warning {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1.5px solid #facc15;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.12);
+}
+
+/* Vert clair: 50 - 100 */
+.day-balance-badge.badge-normal {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1.5px solid #86efac;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.1);
+}
+
+/* Vert: > 100 */
+.day-balance-badge.badge-success {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1.5px solid #34d399;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.1);
 }
 
 .day-transactions {
@@ -783,6 +867,47 @@
   background: #3498db;
 }
 
+/* ─── Styles cellules calendrier par niveau de solde (uniquement jours avec transactions) ─── */
+.calendar-cell.cell-danger {
+  background-color: #fef2f2;
+  border: 2px solid #ef4444;
+}
+
+.calendar-cell.cell-danger .cal-day-num {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.calendar-cell.cell-warning {
+  background-color: #fffbeb;
+  border: 2px solid #f59e0b;
+}
+
+.calendar-cell.cell-warning .cal-day-num {
+  color: #d97706;
+  font-weight: 700;
+}
+
+.calendar-cell.cell-normal {
+  background-color: #f0fdf4;
+  border: 2px solid #22c55e;
+}
+
+.calendar-cell.cell-normal .cal-day-num {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.calendar-cell.cell-success {
+  background-color: #ecfdf5;
+  border: 2px solid #10b981;
+}
+
+.calendar-cell.cell-success .cal-day-num {
+  color: #059669;
+  font-weight: 700;
+}
+
 /* ─── Calendar Day Panel ─────────────────────────────────────────────────── */
 .calendar-day-panel {
   background: white;
@@ -806,11 +931,28 @@
   background: linear-gradient(135deg, #f8f9ff 0%, #f0f0ff 100%);
 }
 
+.panel-header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .calendar-day-panel-header h3 {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
   color: #333;
+}
+
+.negative-balance-alert {
+  margin: 0.75rem 1rem 0;
+  padding: 0.65rem 0.95rem;
+  background-color: #fef2f2;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 0.85rem;
 }
 
 .calendar-day-transactions {
