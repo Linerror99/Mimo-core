@@ -15,9 +15,7 @@ import {
   TransactionType,
   TransactionState,
   RecurrenceFrequency,
-  TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPE_ICONS,
-  TRANSACTION_STATE_LABELS,
   RECURRENCE_FREQUENCY_LABELS,
 } from "../types/transaction";
 import { Account } from "../types/account";
@@ -50,8 +48,6 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
-  const [currentBalance, setCurrentBalance] = useState<number>(0);
-  const [endOfMonthBalance, setEndOfMonthBalance] = useState<number>(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [deleteOption, setDeleteOption] = useState<'single' | 'all' | 'period'>('single');
@@ -60,7 +56,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   // Selected day in calendar view (YYYY-MM-DD)
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
-  
+
   // Helper pour formater une Date en YYYY-MM-DD local
   const formatLocalDate = (d: Date = new Date()): string => {
     const year = d.getFullYear();
@@ -87,7 +83,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     ...formData,
     recurrence_frequency: RecurrenceFrequency.MONTHLY,
     start_date: formatLocalDate(),
-    end_date: undefined,
+    end_date: undefined as string | undefined,
   });
 
   useEffect(() => {
@@ -97,17 +93,15 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       // Charger les comptes et catégories
-      const [accountsData, categoriesData, balanceData] = await Promise.all([
+      const [accountsData, categoriesData] = await Promise.all([
         accountService.getAccounts(),
         categoryService.getCategories(),
-        accountService.getTotalBalance(),
       ]);
-      
+
       setAccounts(accountsData);
       setCategories(categoriesData);
-      setCurrentBalance(balanceData.total_balance);
 
       // Charger les transactions du mois en évitant les décalages UTC
       const year = currentMonth.getFullYear();
@@ -115,17 +109,13 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       const lastDay = new Date(year, month + 1, 0).getDate();
       const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      
+
       const transactionsData = await transactionService.list({
         start_date: startDateStr,
         end_date: endDateStr,
       });
-      
+
       setTransactions(transactionsData);
-      
-      // Calculer le solde de fin de mois
-      const totals = calculateTotalsByType(transactionsData);
-      setEndOfMonthBalance(balanceData.total_balance + totals.balance);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors du chargement");
@@ -137,7 +127,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const handleOpenModal = (transaction?: Transaction) => {
     if (transaction) {
       setEditingTransaction(transaction);
-      setIsRecurring(!!transaction.recurrence_frequency);
+      setIsRecurring(!!transaction.recurring_template_id);
       setFormData({
         amount: Math.abs(transaction.amount),
         description: transaction.description,
@@ -153,7 +143,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       setFormData({
         amount: 0,
         description: "",
-        transaction_date: new Date().toISOString().split('T')[0],
+        transaction_date: formatLocalDate(),
         type: TransactionType.EXPENSE,
         account_id: accounts.length > 0 ? accounts[0].id : "",
         category_id: undefined,
@@ -173,8 +163,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     setError(null);
 
     try {
-      // Ajuster le montant selon le type (EXPENSE = négatif, INCOME = positif)
-      const adjustedAmount = formData.type === TransactionType.INCOME 
+      // Ajuster le montant selon le type (EXPENSE = négatif, INCOME = positif, TRANSFER = négatif pour le compte source)
+      const adjustedAmount = formData.type === TransactionType.INCOME
         ? Math.abs(formData.amount)
         : -Math.abs(formData.amount);
 
@@ -187,7 +177,6 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       } else {
         // Création
         if (isRecurring) {
-          // Mapper les champs vers RecurringTemplateCreate
           const frequencyMap: Record<string, string> = {
             'DAILY': 'CUSTOM',
             'WEEKLY': 'WEEKLY',
@@ -195,20 +184,19 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             'QUARTERLY': 'QUARTERLY',
             'YEARLY': 'YEARLY'
           };
-          
+
           const frequency = frequencyMap[recurringFormData.recurrence_frequency] || 'MONTHLY';
           const startDate = recurringFormData.start_date || formData.transaction_date;
 
-          // Extraire jour du mois et jour de semaine depuis la date de début choisie
           const [yearStr, monthStr, dayStr] = startDate.split('-');
           const dayOfMonth = parseInt(dayStr, 10);
           const startDateObj = new Date(parseInt(yearStr, 10), parseInt(monthStr, 10) - 1, parseInt(dayStr, 10));
-          const jsDay = startDateObj.getDay(); // 0=Dimanche, 1=Lundi...
-          const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1; // 0=Lundi, 6=Dimanche pour le backend
+          const jsDay = startDateObj.getDay();
+          const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
 
           await recurringTemplateService.create({
             name: formData.description || `${formData.type === TransactionType.INCOME ? 'Revenu' : 'Dépense'} récurrent`,
-            amount: Math.abs(formData.amount),  // Toujours positif, le backend gère le signe
+            amount: Math.abs(formData.amount),
             type: formData.type,
             description: formData.description,
             frequency: frequency,
@@ -227,7 +215,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           });
         }
       }
-      
+
       await loadData();
       handleCloseModal();
     } catch (err: any) {
@@ -236,19 +224,17 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   };
 
   const handleDelete = async (transaction: Transaction) => {
-    // Si c'est une transaction récurrente, ouvrir le modal de choix
     if (transaction.recurring_template_id) {
       setDeletingTransaction(transaction);
       setDeleteOption('single');
-      setDeletePeriod({ 
-        start: transaction.transaction_date, 
-        end: transaction.transaction_date 
+      setDeletePeriod({
+        start: transaction.transaction_date,
+        end: transaction.transaction_date
       });
       setShowDeleteModal(true);
       return;
     }
 
-    // Sinon, suppression simple
     if (!window.confirm("Supprimer cette transaction (envoi à la corbeille) ?")) {
       return;
     }
@@ -266,13 +252,10 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
     try {
       if (deleteOption === 'single') {
-        // Supprimer uniquement cette occurrence
         await transactionService.delete(deletingTransaction.id);
       } else if (deleteOption === 'all') {
-        // Supprimer toutes les occurrences (supprimer le template)
         await recurringTemplateService.delete(deletingTransaction.recurring_template_id!);
       } else if (deleteOption === 'period') {
-        // Supprimer sur une période
         await recurringTemplateService.bulkCancel(deletingTransaction.recurring_template_id!, {
           start_date: deletePeriod.start,
           end_date: deletePeriod.end
@@ -337,7 +320,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     // Monday=0 in our grid (ISO week)
-    const startDow = (firstDay.getDay() + 6) % 7; // convert Sun=0 to Mon=0
+    const startDow = (firstDay.getDay() + 6) % 7;
     const days: (string | null)[] = [];
     for (let i = 0; i < startDow; i++) days.push(null);
     for (let d = 1; d <= lastDay.getDate(); d++) {
@@ -348,21 +331,18 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     return days;
   }, [currentMonth]);
 
-  // Grouper les transactions par date (memoized), sorted by date
+  // Grouper les transactions par date
   const groupedTransactions = useMemo(() => {
-    const raw = groupByDate(transactions);
-    // Sort each day's transactions by date (they share the same date key, but sort by creation isn't needed)
-    return raw;
+    return groupByDate(transactions);
   }, [transactions]);
 
-  // Sorted date keys for list view
+  // Sorted date keys for list view (chronological)
   const sortedDateKeys = useMemo(() => {
     return Object.keys(groupedTransactions).sort((a, b) => a.localeCompare(b));
   }, [groupedTransactions]);
 
-  // Calculer les totaux du mois (memoized)
+  // Calculer les totaux du mois
   const totals = useMemo(() => calculateTotalsByType(transactions), [transactions]);
-  const monthBalance = totals.income + totals.expense; // expense est déjà négatif
 
   // Transactions for selected calendar day
   const selectedDayTransactions = useMemo(() => {
@@ -464,8 +444,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           <button className="btn btn-secondary" onClick={goToToday}>
             Aujourd'hui
           </button>
-          <ExportButton 
-            year={currentMonth.getFullYear()} 
+          <ExportButton
+            year={currentMonth.getFullYear()}
             month={currentMonth.getMonth() + 1}
             className="export-btn"
           />
@@ -796,9 +776,9 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                       <select
                         id="recurrence_frequency"
                         value={recurringFormData.recurrence_frequency}
-                        onChange={(e) => setRecurringFormData({ 
-                          ...recurringFormData, 
-                          recurrence_frequency: e.target.value as RecurrenceFrequency 
+                        onChange={(e) => setRecurringFormData({
+                          ...recurringFormData,
+                          recurrence_frequency: e.target.value as RecurrenceFrequency
                         })}
                         required
                       >
@@ -818,9 +798,9 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           id="start_date"
                           value={recurringFormData.start_date}
                           onChange={(e) => {
-                            setRecurringFormData({ 
-                              ...recurringFormData, 
-                              start_date: e.target.value 
+                            setRecurringFormData({
+                              ...recurringFormData,
+                              start_date: e.target.value
                             });
                             setFormData(prev => ({ ...prev, transaction_date: e.target.value }));
                           }}
@@ -834,9 +814,9 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           type="date"
                           id="end_date"
                           value={recurringFormData.end_date || ''}
-                          onChange={(e) => setRecurringFormData({ 
-                            ...recurringFormData, 
-                            end_date: e.target.value || undefined 
+                          onChange={(e) => setRecurringFormData({
+                            ...recurringFormData,
+                            end_date: e.target.value || undefined
                           })}
                         />
                       </div>
@@ -873,7 +853,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               </div>
               <div className="modal-body">
                 <p>Cette transaction fait partie d'une série récurrente. Comment souhaitez-vous la supprimer ?</p>
-                
+
                 <div className="delete-options">
                   <label className="delete-option">
                     <input
@@ -908,11 +888,6 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                       type="radio"
                       name="deleteOption"
                       value="period"
-                      checked={deleteOption === 'period'}
-                      onChange={() => setDeleteOption('period')}
-                    />
-                    <div>
-                      <strong>Sur une période</strong>
                       checked={deleteOption === 'period'}
                       onChange={() => setDeleteOption('period')}
                     />
@@ -1011,7 +986,7 @@ function TransactionCard({ transaction, accounts, categories, onEdit, onDelete, 
       </div>
       <div className="transaction-amount-actions">
         <span className={`transaction-amount ${isIncome ? 'income' : isTransfer ? 'transfer' : 'expense'}`}>
-          {isIncome ? '+' : isTransfer ? '⇄ ' : '-'}{formatAmount(Math.abs(transaction.amount))}
+          {isIncome ? '+' : isTransfer ? '🔄 ' : '-'}{formatAmount(Math.abs(transaction.amount))}
         </span>
         <div className="transaction-actions">
           <button className="btn-action" onClick={() => onEdit(transaction)} title="Modifier">✏️</button>
