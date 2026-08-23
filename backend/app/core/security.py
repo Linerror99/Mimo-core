@@ -260,8 +260,11 @@ def setup_cors(app: FastAPI, environment: str = "production", allowed_origins: O
             allowed_origins = [
                 "http://localhost:5000",
                 "http://localhost:5173",  # Vite default
+                "http://localhost:3000",
                 "http://127.0.0.1:5000",
                 "http://127.0.0.1:5173",
+                "http://host.docker.internal:5000",  # Docker for Mac/Windows
+                "http://host.docker.internal:5173",
             ]
 
     # NEVER allow "*" in production

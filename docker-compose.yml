@@ -47,6 +47,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - DEBUG=true
+      - ENVIRONMENT=development
+      - CORS_ORIGINS=http://localhost:5000,http://localhost:5173,http://localhost:3000,http://127.0.0.1:5000,http://127.0.0.1:5173
     ports:
       - "8000:8000"
     volumes:

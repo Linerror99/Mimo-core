@@ -72,16 +72,28 @@ if [ $retry_count -eq $max_retries ]; then
     exit 1
 fi
 
+# Apply database migrations
+echo ""
+echo "🗄️  Applying database migrations..."
+if docker-compose exec -T backend alembic upgrade head; then
+    echo -e "${GREEN}✅ Migrations applied successfully!${NC}"
+else
+    echo -e "${RED}❌ Migrations failed${NC}"
+    echo "Run 'docker-compose logs backend' to see the logs"
+    exit 1
+fi
+
 # Check detailed health
 echo ""
 echo "🔍 Checking detailed health (Database + Redis)..."
-curl -s http://localhost:8000/health/detailed | python3 -m json.tool
+curl -s http://localhost:8000/health/detailed | python3 -m json.tool 2>/dev/null || \
+    curl -s http://localhost:8000/health/detailed
 
 echo ""
 echo -e "${GREEN}✅ Setup complete!${NC}"
 echo ""
 echo "📋 Available services:"
-echo "   Frontend:  http://localhost:5173"
+echo "   Frontend:  http://localhost:5000"
 echo "   Backend:   http://localhost:8000"
 echo "   API Docs:  http://localhost:8000/docs"
 echo "   ReDoc:     http://localhost:8000/redoc"
@@ -91,4 +103,5 @@ echo "   Stop:      docker-compose down"
 echo "   Logs:      docker-compose logs -f"
 echo "   Restart:   docker-compose restart"
 echo "   Rebuild:   docker-compose up -d --build"
+echo "   Migrations: docker-compose exec backend alembic upgrade head"
 echo ""
