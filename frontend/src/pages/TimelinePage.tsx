@@ -420,11 +420,11 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     return groupedTransactions[selectedCalendarDay] || [];
   }, [selectedCalendarDay, groupedTransactions]);
 
-  // Years range for year selector
+  // Years range for year selector (jusqu'en 2060)
   const yearRange = useMemo(() => {
     const current = new Date().getFullYear();
     const years: number[] = [];
-    for (let y = current - 5; y <= current + 10; y++) years.push(y);
+    for (let y = current - 5; y <= 2060; y++) years.push(y);
     return years;
   }, []);
 

@@ -68,6 +68,26 @@ class ProjectionService {
   }
 
   /**
+   * Récupérer les projections pour une plage de mois personnalisée
+   */
+  async getRange(startYear: number, startMonth: number, endYear: number, endMonth: number): Promise<MonthlyProjection[]> {
+    const monthsToFetch: { year: number; month: number }[] = [];
+    let curY = startYear;
+    let curM = startMonth;
+
+    while (curY < endYear || (curY === endYear && curM <= endMonth)) {
+      monthsToFetch.push({ year: curY, month: curM });
+      curM++;
+      if (curM > 12) {
+        curM = 1;
+        curY++;
+      }
+    }
+
+    return await Promise.all(monthsToFetch.map(({ year, month }) => this.getMonthly(month, year)));
+  }
+
+  /**
    * Récupérer les projections à partir d'un mois donné
    */
   async getMonthlyProjections(year: number, month: number) {
