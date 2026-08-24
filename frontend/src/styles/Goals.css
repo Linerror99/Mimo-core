@@ -1,0 +1,294 @@
+/* ─── Goals & Decision Simulator Styles ────────────────────────────────── */
+.goals-container {
+  padding: 1.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Tabs */
+.goals-tabs-nav {
+  display: flex;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  padding: 0.35rem;
+  border-radius: 14px;
+  width: fit-content;
+  margin-bottom: 1.75rem;
+  border: 1px solid #e2e8f0;
+}
+
+.goals-tab-btn {
+  padding: 0.6rem 1.25rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.18s ease;
+}
+
+.goals-tab-btn:hover {
+  color: #1e293b;
+}
+
+.goals-tab-btn.active {
+  background: white;
+  color: #4f46e5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* Goals Grid */
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
+}
+
+.goal-card {
+  background: white;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.goal-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -6px rgba(79, 70, 229, 0.12);
+  border-color: #c7d2fe;
+}
+
+.goal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.goal-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+}
+
+.goal-badge.personal {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.goal-badge.household {
+  background: #fdf4ff;
+  color: #c026d3;
+}
+
+.goal-card-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.25rem 0 0.25rem 0;
+}
+
+.goal-card-desc {
+  font-size: 0.84rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 1rem;
+}
+
+.goal-amounts-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.goal-saved-amount {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.goal-target-amount {
+  font-size: 0.88rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.goal-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.78rem;
+}
+
+.goal-meta-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-meta-label {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.goal-meta-val {
+  color: #334155;
+  font-weight: 700;
+}
+
+/* ─── Simulator Styles ────────────────────────────────────────── */
+.simulator-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 960px) {
+  .simulator-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.simulator-form-card {
+  background: white;
+  border-radius: 18px;
+  padding: 1.75rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.simulator-results-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.feasibility-card {
+  border-radius: 18px;
+  padding: 1.5rem;
+  border: 2px solid;
+  transition: all 0.2s ease;
+}
+
+.feasibility-card.SUCCESS {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.feasibility-card.WARNING {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.feasibility-card.DANGER {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.feasibility-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.feasibility-status-badge {
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.35rem 0.85rem;
+  border-radius: 30px;
+}
+
+.feasibility-card.SUCCESS .feasibility-status-badge {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.feasibility-card.WARNING .feasibility-status-badge {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.feasibility-card.DANGER .feasibility-status-badge {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.feasibility-message {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.schedule-table-card {
+  background: white;
+  border-radius: 18px;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.schedule-table th {
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.schedule-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.btn-commit-simulation {
+  width: 100%;
+  padding: 0.9rem 1.5rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-commit-simulation:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4);
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+}
