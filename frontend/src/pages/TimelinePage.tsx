@@ -58,6 +58,20 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   // Selected day in calendar view (YYYY-MM-DD)
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
+
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState<'ALL' | TransactionType>('ALL');
+  const [filterAccount, setFilterAccount] = useState<string>('ALL');
+  const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [filterState, setFilterState] = useState<'ALL' | TransactionState>('ALL');
+  const [filterMinAmount, setFilterMinAmount] = useState<string>('');
+  const [filterMaxAmount, setFilterMaxAmount] = useState<string>('');
+  const [filterScope, setFilterScope] = useState<'current_month' | 'all_time' | 'custom'>('current_month');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   
   // Helper pour formater une Date en YYYY-MM-DD local
   const formatLocalDate = (d: Date = new Date()): string => {
@@ -91,6 +105,13 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   useEffect(() => {
     loadData();
   }, [currentMonth]);
+
+  // Si le scope de recherche change vers all_time ou custom, charger toutes les transactions
+  useEffect(() => {
+    if (filterScope === 'all_time' || filterScope === 'custom') {
+      transactionService.list().then(txs => setAllTransactions(txs)).catch(console.error);
+    }
+  }, [filterScope]);
 
   const loadData = async () => {
     try {
@@ -351,18 +372,113 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     return days;
   }, [currentMonth]);
 
-  // Grouper les transactions par date
+  // Base de transactions selon le scope de recherche
+  const baseTransactions = useMemo(() => {
+    if (filterScope === 'all_time') return allTransactions;
+    if (filterScope === 'custom') {
+      return allTransactions.filter(t => {
+        if (filterStartDate && t.transaction_date < filterStartDate) return false;
+        if (filterEndDate && t.transaction_date > filterEndDate) return false;
+        return true;
+      });
+    }
+    return transactions;
+  }, [filterScope, allTransactions, transactions, filterStartDate, filterEndDate]);
+
+  // Filtrage multi-critères
+  const filteredTransactions = useMemo(() => {
+    return baseTransactions.filter(t => {
+      if (t.deleted_at) return false;
+
+      // 1. Recherche texte (libellé, catégorie, compte)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const descMatch = (t.description || '').toLowerCase().includes(q);
+        const cat = categories.find(c => c.id === t.category_id);
+        const catMatch = (cat?.name || '').toLowerCase().includes(q);
+        const acc = accounts.find(a => a.id === t.account_id);
+        const accMatch = (acc?.name || '').toLowerCase().includes(q);
+        if (!descMatch && !catMatch && !accMatch) return false;
+      }
+
+      // 2. Type
+      if (filterType !== 'ALL' && t.type !== filterType) return false;
+
+      // 3. Compte
+      if (filterAccount !== 'ALL' && t.account_id !== filterAccount) return false;
+
+      // 4. Catégorie
+      if (filterCategory !== 'ALL' && t.category_id !== filterCategory) return false;
+
+      // 5. Statut
+      if (filterState !== 'ALL' && t.state !== filterState) return false;
+
+      // 6. Montant Min
+      if (filterMinAmount !== '') {
+        const min = parseFloat(filterMinAmount);
+        if (!isNaN(min) && Math.abs(Number(t.amount)) < min) return false;
+      }
+
+      // 7. Montant Max
+      if (filterMaxAmount !== '') {
+        const max = parseFloat(filterMaxAmount);
+        if (!isNaN(max) && Math.abs(Number(t.amount)) > max) return false;
+      }
+
+      return true;
+    });
+  }, [baseTransactions, searchQuery, filterType, filterAccount, filterCategory, filterState, filterMinAmount, filterMaxAmount, categories, accounts]);
+
+  // Nombre de filtres actifs
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (filterType !== 'ALL') count++;
+    if (filterAccount !== 'ALL') count++;
+    if (filterCategory !== 'ALL') count++;
+    if (filterState !== 'ALL') count++;
+    if (filterMinAmount !== '') count++;
+    if (filterMaxAmount !== '') count++;
+    if (filterScope !== 'current_month') count++;
+    return count;
+  }, [searchQuery, filterType, filterAccount, filterCategory, filterState, filterMinAmount, filterMaxAmount, filterScope]);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setFilterType('ALL');
+    setFilterAccount('ALL');
+    setFilterCategory('ALL');
+    setFilterState('ALL');
+    setFilterMinAmount('');
+    setFilterMaxAmount('');
+    setFilterScope('current_month');
+    setFilterStartDate('');
+    setFilterEndDate('');
+  };
+
+  // Total net des transactions filtrées
+  const filteredTotalNet = useMemo(() => {
+    return filteredTransactions.reduce((sum, t) => {
+      if (t.type === TransactionType.INCOME) return sum + Math.abs(Number(t.amount));
+      if (t.type === TransactionType.EXPENSE) return sum - Math.abs(Number(t.amount));
+      return sum;
+    }, 0);
+  }, [filteredTransactions]);
+
+  // Grouper les transactions filtrées par date
   const groupedTransactions = useMemo(() => {
-    return groupByDate(transactions);
-  }, [transactions]);
+    return groupByDate(filteredTransactions);
+  }, [filteredTransactions]);
 
   // Sorted date keys for list view (chronological)
   const sortedDateKeys = useMemo(() => {
     return Object.keys(groupedTransactions).sort((a, b) => a.localeCompare(b));
   }, [groupedTransactions]);
 
-  // Calculer les totaux du mois
-  const totals = useMemo(() => calculateTotalsByType(transactions), [transactions]);
+  // Calculer les totaux du mois / de la sélection
+  const totals = useMemo(() => calculateTotalsByType(filteredTransactions), [filteredTransactions]);
 
   // Helper pour déterminer le niveau et la classe de couleur du solde
   // Rouge: < 0 | Jaune: 0 - 50 | Vert clair: 50 - 100 | Vert: > 100
@@ -548,6 +664,196 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               {formatAmount(endOfMonthBalance)}
             </span>
           </div>
+        </div>
+
+        {/* Barre de Recherche et Filtres Avancés */}
+        <div className="timeline-search-filter-card">
+          <div className="search-main-row">
+            <div className="search-input-wrapper">
+              <span className="search-icon">🔍</span>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Rechercher par libellé, compte, catégorie..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={() => setSearchQuery('')}
+                  title="Effacer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className={`filter-toggle-btn ${showFilters || hasActiveFilters ? 'active' : ''}`}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <span>⚡ Filtres</span>
+              {activeFiltersCount > 0 && (
+                <span className="filter-count-badge">{activeFiltersCount}</span>
+              )}
+              <span className="filter-chevron">{showFilters ? '▲' : '▼'}</span>
+            </button>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn-reset-filters"
+                onClick={resetFilters}
+                title="Réinitialiser tous les filtres"
+              >
+                ✕ Réinitialiser
+              </button>
+            )}
+          </div>
+
+          {/* Panneau dépliable des filtres */}
+          {showFilters && (
+            <div className="advanced-filters-panel">
+              <div className="filter-grid">
+                {/* Période / Scope */}
+                <div className="filter-group">
+                  <label className="filter-label">📅 Période</label>
+                  <select
+                    className="filter-select"
+                    value={filterScope}
+                    onChange={(e) => setFilterScope(e.target.value as any)}
+                  >
+                    <option value="current_month">Mois affiché ({MONTHS_FR[currentMonth.getMonth()]})</option>
+                    <option value="all_time">Tout l'historique</option>
+                    <option value="custom">Dates personnalisées</option>
+                  </select>
+                </div>
+
+                {filterScope === 'custom' && (
+                  <>
+                    <div className="filter-group">
+                      <label className="filter-label">Du</label>
+                      <input
+                        type="date"
+                        className="filter-input"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="filter-group">
+                      <label className="filter-label">Au</label>
+                      <input
+                        type="date"
+                        className="filter-input"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Type */}
+                <div className="filter-group">
+                  <label className="filter-label">📊 Type</label>
+                  <select
+                    className="filter-select"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as any)}
+                  >
+                    <option value="ALL">Tous les types</option>
+                    <option value={TransactionType.EXPENSE}>Dépenses</option>
+                    <option value={TransactionType.INCOME}>Revenus</option>
+                    <option value={TransactionType.TRANSFER}>Virements</option>
+                  </select>
+                </div>
+
+                {/* Compte */}
+                <div className="filter-group">
+                  <label className="filter-label">💳 Compte</label>
+                  <select
+                    className="filter-select"
+                    value={filterAccount}
+                    onChange={(e) => setFilterAccount(e.target.value)}
+                  >
+                    <option value="ALL">Tous les comptes</option>
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Catégorie */}
+                <div className="filter-group">
+                  <label className="filter-label">🏷️ Catégorie</label>
+                  <select
+                    className="filter-select"
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                  >
+                    <option value="ALL">Toutes les catégories</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Statut */}
+                <div className="filter-group">
+                  <label className="filter-label">🔘 Statut</label>
+                  <select
+                    className="filter-select"
+                    value={filterState}
+                    onChange={(e) => setFilterState(e.target.value as any)}
+                  >
+                    <option value="ALL">Tous les statuts</option>
+                    <option value={TransactionState.REALIZED}>Réalisé</option>
+                    <option value={TransactionState.PENDING}>En attente</option>
+                    <option value={TransactionState.PROJECTED}>Projeté</option>
+                  </select>
+                </div>
+
+                {/* Montant Min / Max */}
+                <div className="filter-group">
+                  <label className="filter-label">💶 Montant Min (€)</label>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    className="filter-input"
+                    value={filterMinAmount}
+                    onChange={(e) => setFilterMinAmount(e.target.value)}
+                  />
+                </div>
+                <div className="filter-group">
+                  <label className="filter-label">💶 Montant Max (€)</label>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    className="filter-input"
+                    value={filterMaxAmount}
+                    onChange={(e) => setFilterMaxAmount(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Résumé des résultats si filtres actifs */}
+          {hasActiveFilters && (
+            <div className="filter-results-banner">
+              <span className="results-text">
+                🎯 <strong>{filteredTransactions.length}</strong> transaction(s) trouvée(s)
+                {filterScope === 'all_time' ? " (sur tout l'historique)" : ''}
+              </span>
+              <span className="results-total">
+                Total net : <strong className={filteredTotalNet >= 0 ? 'positive' : 'negative'}>
+                  {filteredTotalNet >= 0 ? '+' : ''}{formatAmount(filteredTotalNet)}
+                </strong>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Vue Liste ou Calendrier */}
