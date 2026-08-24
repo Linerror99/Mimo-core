@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { type Goal, type GoalCreate, type GoalUpdate } from '@/services/goalService'
+import { accountService } from '@/services/accountService'
+import { Account } from '@/types/account'
 import { User, Home } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -21,39 +23,64 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
   const [goalType, setGoalType] = useState<'personal' | 'household'>('personal')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [hasTargetAmount, setHasTargetAmount] = useState(true)
   const [targetAmount, setTargetAmount] = useState('')
   const [currentAmount, setCurrentAmount] = useState('')
+  const [monthlyContribution, setMonthlyContribution] = useState('')
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [targetDate, setTargetDate] = useState('')
+  const [accountId, setAccountId] = useState('')
+  const [destinationAccountId, setDestinationAccountId] = useState('')
+  const [accounts, setAccounts] = useState<Account[]>([])
+
+  useEffect(() => {
+    accountService.getAccounts().then(setAccounts).catch(console.error)
+  }, [])
 
   useEffect(() => {
     if (goal) {
       setGoalType(goal.user_id ? 'personal' : 'household')
       setName(goal.name)
       setDescription(goal.description || '')
-      setTargetAmount(goal.target_amount.toString())
+      setHasTargetAmount(goal.target_amount !== null && goal.target_amount !== undefined)
+      setTargetAmount(goal.target_amount ? goal.target_amount.toString() : '')
       setCurrentAmount(goal.current_amount.toString())
-      setTargetDate(goal.target_date.split('T')[0])
+      setMonthlyContribution(goal.monthly_contribution ? goal.monthly_contribution.toString() : '')
+      setStartDate(new Date().toISOString().split('T')[0])
+      setTargetDate(goal.target_date ? goal.target_date.split('T')[0] : '')
+      setAccountId(goal.account_id || '')
+      setDestinationAccountId(goal.destination_account_id || '')
     } else {
       setGoalType('personal')
       setName('')
       setDescription('')
+      setHasTargetAmount(true)
       setTargetAmount('')
       setCurrentAmount('0')
+      setMonthlyContribution('')
+      setStartDate(new Date().toISOString().split('T')[0])
       setTargetDate('')
+      setAccountId('')
+      setDestinationAccountId('')
     }
   }, [goal, open])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const currentAmountValue = parseFloat(currentAmount || '0')
+    const targetAmt = hasTargetAmount && targetAmount ? parseFloat(targetAmount) : undefined
+    const monthlyContrib = monthlyContribution ? parseFloat(monthlyContribution) : undefined
     
     if (goal) {
       // Mode édition - envoyer GoalUpdate
       const updateData: GoalUpdate = {
         name,
         description: description || undefined,
-        target_amount: parseFloat(targetAmount),
-        target_date: targetDate,
+        target_amount: targetAmt,
+        monthly_contribution: monthlyContrib,
+        target_date: targetDate || undefined,
+        account_id: accountId || undefined,
+        destination_account_id: destinationAccountId || undefined,
       }
       onSave(updateData, currentAmountValue)
     } else {
@@ -62,27 +89,28 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
         goal_type: goalType,
         name,
         description: description || undefined,
-        target_amount: parseFloat(targetAmount),
+        target_amount: targetAmt,
         current_amount: currentAmountValue,
-        target_date: targetDate,
+        monthly_contribution: monthlyContrib,
+        start_date: startDate || undefined,
+        target_date: targetDate || undefined,
+        account_id: accountId || undefined,
+        destination_account_id: destinationAccountId || undefined,
       }
       onSave(createData, currentAmountValue)
     }
     
-    // Reset form
-    setGoalType('personal')
-    setName('')
-    setDescription('')
-    setTargetAmount('')
-    setCurrentAmount('0')
-    setTargetDate('')
+    onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{goal ? "Modifier l'objectif" : 'Nouvel objectif'}</DialogTitle>
+          <DialogTitle>{goal ? "Modifier l'épargne / objectif" : 'Nouvel objectif ou épargne'}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Formulaire de gestion d'objectif financier ou d'épargne
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -90,7 +118,7 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
             <RadioGroup 
               value={goalType} 
               onValueChange={(value: 'personal' | 'household') => setGoalType(value)}
-              disabled={goal ? true : false} // Désactiver la modification du type en édition
+              disabled={goal ? true : false}
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="personal" id="personal" />
@@ -103,7 +131,7 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
                 <RadioGroupItem 
                   value="household" 
                   id="household" 
-                  disabled={!user?.is_in_couple} // Désactiver si pas en couple
+                  disabled={!user?.is_in_couple}
                 />
                 <Label 
                   htmlFor="household" 
@@ -117,12 +145,12 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Nom de l'objectif</Label>
+            <Label htmlFor="name">Nom de l'épargne ou projet</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Vacances d'été"
+              placeholder="Ex: Épargne précaution, Voyage Japon, etc."
               required
             />
           </div>
@@ -133,45 +161,111 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Décrivez votre objectif..."
-              rows={3}
+              placeholder="Détails du projet..."
+              rows={2}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="target_amount">Montant cible (€)</Label>
-            <Input
-              id="target_amount"
-              type="number"
-              step="0.01"
-              value={targetAmount}
-              onChange={(e) => setTargetAmount(e.target.value)}
-              placeholder="0.00"
-              required
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="target_amount">Montant cible (€)</Label>
+              <label className="text-xs text-muted-foreground flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!hasTargetAmount}
+                  onChange={(e) => setHasTargetAmount(!e.target.checked)}
+                />
+                Épargne libre (sans cible fixe)
+              </label>
+            </div>
+            {hasTargetAmount && (
+              <Input
+                id="target_amount"
+                type="number"
+                step="0.01"
+                value={targetAmount}
+                onChange={(e) => setTargetAmount(e.target.value)}
+                placeholder="Ex: 5000.00"
+                required={hasTargetAmount}
+              />
+            )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="current_amount">Montant actuel (€)</Label>
-            <Input
-              id="current_amount"
-              type="number"
-              step="0.01"
-              value={currentAmount}
-              onChange={(e) => setCurrentAmount(e.target.value)}
-              placeholder="0.00"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="current_amount">Montant déjà épargné (€)</Label>
+              <Input
+                id="current_amount"
+                type="number"
+                step="0.01"
+                value={currentAmount}
+                onChange={(e) => setCurrentAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="monthly_contribution">Prélèvement mensuel (€)</Label>
+              <Input
+                id="monthly_contribution"
+                type="number"
+                step="0.01"
+                value={monthlyContribution}
+                onChange={(e) => setMonthlyContribution(e.target.value)}
+                placeholder="Ex: 200.00"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="target_date">Date limite</Label>
-            <Input
-              id="target_date"
-              type="date"
-              value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="start_date">Date de début / 1ère échéance</Label>
+              <Input
+                id="start_date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="target_date">Date limite (optionnel)</Label>
+              <Input
+                id="target_date"
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="account_id">Compte source</Label>
+              <select
+                id="account_id"
+                className="w-full p-2 border rounded-md text-sm bg-background"
+                value={accountId}
+                onChange={(e) => setAccountId(e.target.value)}
+              >
+                <option value="">Sélectionner un compte</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="destination_account_id">Compte épargne / livret</Label>
+              <select
+                id="destination_account_id"
+                className="w-full p-2 border rounded-md text-sm bg-background"
+                value={destinationAccountId}
+                onChange={(e) => setDestinationAccountId(e.target.value)}
+              >
+                <option value="">Sélectionner un compte</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex gap-2 pt-4">
@@ -179,7 +273,7 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
               Annuler
             </Button>
             <Button type="submit" className="flex-1">
-              {goal ? 'Modifier' : 'Créer'}
+              {goal ? 'Mettre à jour' : 'Créer l\'objectif'}
             </Button>
           </div>
         </form>

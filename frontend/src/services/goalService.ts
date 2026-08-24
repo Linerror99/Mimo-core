@@ -1,10 +1,6 @@
-/**
- * Goal API Service
- * 
- * API calls for goal CRUD operations
- */
 import api from './api';
 import { useAuthStore } from '@/stores/authStore';
+import { Transaction } from '@/types/transaction';
 
 export type GoalType = 'personal' | 'household';
 
@@ -15,42 +11,58 @@ export interface Goal {
   created_by: string;
   name: string;
   description: string | null;
-  target_amount: number;
+  target_amount?: number | null;
   current_amount: number;
-  target_date: string; // ISO date
+  monthly_contribution?: number | null;
+  target_date?: string | null; // ISO date
+  account_id?: string | null;
+  destination_account_id?: string | null;
   created_at: string;
   updated_at: string;
   // Computed fields
   progress_percentage?: number;
   is_completed?: boolean;
+  remaining_amount?: number;
 }
 
 export interface GoalCreate {
   goal_type: GoalType;
   name: string;
   description?: string;
-  target_amount: number;
+  target_amount?: number;
   current_amount?: number;
-  target_date: string; // ISO date
+  monthly_contribution?: number;
+  start_date?: string; // ISO date
+  target_date?: string; // ISO date
+  account_id?: string;
+  destination_account_id?: string;
 }
 
 export interface GoalUpdate {
   name?: string;
   description?: string;
   target_amount?: number;
+  monthly_contribution?: number;
   target_date?: string;
+  account_id?: string;
+  destination_account_id?: string;
 }
 
 export interface GoalContributionUpdate {
   amount: number;
 }
 
-// Interface pour l'API backend (différente du frontend)
+// Interface pour l'API backend
 interface GoalCreateBackend {
   name: string;
   description?: string;
-  target_amount: number;
+  target_amount?: number;
+  current_amount?: number;
+  monthly_contribution?: number;
+  start_date?: string;
   target_date?: string;
+  account_id?: string;
+  destination_account_id?: string;
   user_id?: string;
   household_id?: string;
 }
@@ -76,7 +88,12 @@ export const goalService = {
       name: data.name,
       description: data.description,
       target_amount: data.target_amount,
-      target_date: data.target_date,
+      current_amount: data.current_amount || 0,
+      monthly_contribution: data.monthly_contribution,
+      start_date: data.start_date || undefined,
+      target_date: data.target_date || undefined,
+      account_id: data.account_id || undefined,
+      destination_account_id: data.destination_account_id || undefined,
     };
     
     if (data.goal_type === 'personal') {
@@ -101,39 +118,47 @@ export const goalService = {
   /**
    * Récupérer un objectif par ID
    */
-  async getById(goalId: string): Promise<Goal> {
-    const response = await api.get<Goal>(`/goals/${goalId}`);
+  async get(id: string): Promise<Goal> {
+    const response = await api.get<Goal>(`/goals/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Récupérer les transactions liées à un objectif
+   */
+  async getGoalTransactions(goalId: string): Promise<Transaction[]> {
+    const response = await api.get<Transaction[]>(`/goals/${goalId}/transactions`);
     return response.data;
   },
 
   /**
    * Mettre à jour un objectif
    */
-  async update(goalId: string, data: GoalUpdate): Promise<Goal> {
-    const response = await api.patch<Goal>(`/goals/${goalId}`, data);
+  async update(id: string, data: GoalUpdate): Promise<Goal> {
+    const response = await api.patch<Goal>(`/goals/${id}`, data);
     return response.data;
   },
 
   /**
    * Supprimer un objectif
    */
-  async delete(goalId: string): Promise<void> {
-    await api.delete(`/goals/${goalId}`);
+  async delete(id: string): Promise<void> {
+    await api.delete(`/goals/${id}`);
   },
 
   /**
-   * Mettre à jour la contribution à un objectif (ajoute au montant actuel)
+   * Mettre à jour la contribution (ajouter/retirer)
    */
-  async updateContribution(goalId: string, data: GoalContributionUpdate): Promise<Goal> {
-    const response = await api.patch<Goal>(`/goals/${goalId}/contribution`, data);
+  async updateContribution(id: string, data: GoalContributionUpdate): Promise<Goal> {
+    const response = await api.patch<Goal>(`/goals/${id}/contribution`, data);
     return response.data;
   },
 
   /**
-   * Définir le montant actuel d'un objectif (remplace le montant actuel)
+   * Définir la contribution (remplace le montant actuel)
    */
-  async setContribution(goalId: string, data: GoalContributionUpdate): Promise<Goal> {
-    const response = await api.put<Goal>(`/goals/${goalId}/contribution`, data);
+  async setContribution(id: string, data: GoalContributionUpdate): Promise<Goal> {
+    const response = await api.put<Goal>(`/goals/${id}/contribution`, data);
     return response.data;
   },
 };

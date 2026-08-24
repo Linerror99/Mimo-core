@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ValidationModal } from '@/components/ValidationModal'
 import { WalletCards } from '@/components/WalletCards'
+import { SafeToSpendCard } from '@/components/SafeToSpendCard'
 import { TrendingUp, Clock, Check, AlertCircle } from 'lucide-react'
 import toast from '@/utils/toast'
 import logger from '@/utils/logger'
@@ -163,6 +164,9 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
 
         {/* Portefeuilles - Utilise WalletCards (Sprint 6) */}
         <WalletCards />
+
+        {/* Reste à Vivre Réel (Sprint V2) */}
+        <SafeToSpendCard onOpenSimulator={() => navigate('goals')} />
 
         {pendingTransactions.length > 0 && (
           <Card className="p-6 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
