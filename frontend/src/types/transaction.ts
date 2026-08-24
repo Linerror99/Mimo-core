@@ -75,6 +75,9 @@ export interface TransactionUpdate {
   description?: string;
   amount?: number;
   transaction_date?: string;
+  type?: TransactionType;
+  account_id?: string;
+  destination_account_id?: string | null;
   category_id?: string | null;
   notes?: string | null;
   is_active?: boolean;

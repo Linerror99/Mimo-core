@@ -213,6 +213,14 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
     }).format(amount);
   };
 
+  const formatDuration = (monthsCount: number): string => {
+    const years = Math.floor(monthsCount / 12);
+    const remMonths = monthsCount % 12;
+    if (years === 0) return `${monthsCount} mois`;
+    if (remMonths === 0) return `${years} an${years > 1 ? 's' : ''} (${monthsCount} mois)`;
+    return `${years} an${years > 1 ? 's' : ''} et ${remMonths} mois (${monthsCount} mois)`;
+  };
+
   const getBalanceClass = (balance: number) => {
     if (balance > 0) return 'positive';
     if (balance < 0) return 'negative';
@@ -538,7 +546,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
 
             {/* Résumé global */}
             <div className="summary">
-              <h2>Résumé sur la période ({totalMonths} mois / {yearGroups.length} an{yearGroups.length > 1 ? 's' : ''})</h2>
+              <h2>Résumé sur la période ({formatDuration(totalMonths)})</h2>
               <div className="summary-cards">
                 <div className="summary-card income-card">
                   <div className="summary-label">💰 Revenus totaux</div>
@@ -577,19 +585,19 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                   if (negativeMonths.length === 0) {
                     return (
                       <p className="insight positive">
-                        ✅ <strong>Excellente santé financière :</strong> Aucun découvert projeté sur l'ensemble des {totalMonths} mois ({yearGroups.length} an{yearGroups.length > 1 ? 's' : ''}) !
+                        ✅ <strong>Excellente santé financière :</strong> Aucun découvert projeté sur la période de {formatDuration(totalMonths)} !
                       </p>
                     );
                   } else if (negativeMonths.length <= 3) {
                     return (
                       <p className="insight warning">
-                        ⚠️ <strong>Attention :</strong> {negativeMonths.length} mois avec solde négatif détecté(s) : {negativeMonths.map(m => formatMonth(m.month, m.year)).join(', ')}.
+                        ⚠️ <strong>Attention :</strong> {negativeMonths.length} mois avec solde négatif détecté(s) sur la période de {formatDuration(totalMonths)} : {negativeMonths.map(m => formatMonth(m.month, m.year)).join(', ')}.
                       </p>
                     );
                   } else {
                     return (
                       <p className="insight negative">
-                        ❌ <strong>Alerte découvert prolongé :</strong> {negativeMonths.length} mois en négatif sur cette période. Vos dépenses dépassent durablement vos revenus.
+                        ❌ <strong>Alerte découvert prolongé :</strong> {negativeMonths.length} mois en négatif sur la période de {formatDuration(totalMonths)}. Vos dépenses dépassent durablement vos revenus.
                       </p>
                     );
                   }

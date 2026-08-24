@@ -46,6 +46,20 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
+      // Auto-check du job quotidien pour passer automatiquement les transactions PROJECTED échues en PENDING
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        await fetch(`${apiUrl}/api/v1/jobs/daily-maintenance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (e) {
+        // En cas d'erreur réseau, continuer le chargement normal
+        console.warn('Auto daily-maintenance trigger notice:', e);
+      }
+
       await Promise.all([
         fetchPendingTransactions(),
         fetchRecentTransactions(),

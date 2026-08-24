@@ -68,11 +68,11 @@ class DailyMaintenanceJob:
 
         today = date.today()
 
-        # Récupérer les transactions projetées pour aujourd'hui
+        # Récupérer les transactions projetées pour aujourd'hui ou échues
         query = select(Transaction).where(
             and_(
                 Transaction.state == TransactionState.PROJECTED,
-                Transaction.transaction_date == today,
+                Transaction.transaction_date <= today,
                 Transaction.deleted_at.is_(None)
             )
         )

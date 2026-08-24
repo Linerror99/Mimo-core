@@ -68,7 +68,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [filterState, setFilterState] = useState<'ALL' | TransactionState>('ALL');
   const [filterMinAmount, setFilterMinAmount] = useState<string>('');
   const [filterMaxAmount, setFilterMaxAmount] = useState<string>('');
-  const [filterScope, setFilterScope] = useState<'current_month' | 'all_time' | 'custom'>('current_month');
+  const [filterScope, setFilterScope] = useState<'all_time' | 'current_month' | 'custom'>('all_time');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -106,12 +106,51 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     loadData();
   }, [currentMonth]);
 
-  // Si le scope de recherche change vers all_time ou custom, charger toutes les transactions
+  // Charger tout l'historique pour la recherche globale instantanée
   useEffect(() => {
-    if (filterScope === 'all_time' || filterScope === 'custom') {
-      transactionService.list().then(txs => setAllTransactions(txs)).catch(console.error);
+    transactionService.list().then(txs => setAllTransactions(txs)).catch(console.error);
+  }, []);
+
+  // Sélection multiple pour suppression groupée
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const toggleSelectTransaction = (id: string) => {
+    setSelectedTransactionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedTransactionIds(new Set(filteredTransactions.map(t => t.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedTransactionIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTransactionIds.size === 0) return;
+    const count = selectedTransactionIds.size;
+    if (!window.confirm(`Supprimer ces ${count} transactions sélectionnées (envoi à la corbeille) ?`)) {
+      return;
     }
-  }, [filterScope]);
+    try {
+      setIsBulkDeleting(true);
+      await Promise.all(Array.from(selectedTransactionIds).map(id => transactionService.delete(id)));
+      setSelectedTransactionIds(new Set());
+      await loadData();
+      const txs = await transactionService.list();
+      setAllTransactions(txs);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Erreur lors de la suppression groupée");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -236,7 +275,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
 
           await recurringTemplateService.create({
-            name: formData.description || `${formData.type === TransactionType.INCOME ? 'Revenu' : 'Dépense'} récurrent`,
+            name: formData.description || `${formData.type === TransactionType.INCOME ? 'Revenu' : formData.type === TransactionType.TRANSFER ? 'Virement' : 'Dépense'} récurrent`,
             amount: Math.abs(formData.amount),
             type: formData.type,
             description: formData.description,
@@ -247,6 +286,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             day_of_week: frequency === 'WEEKLY' ? dayOfWeek : undefined,
             custom_days: frequency === 'CUSTOM' ? 1 : undefined,
             account_id: formData.account_id,
+            destination_account_id: formData.type === TransactionType.TRANSFER ? (formData.destination_account_id || null) : null,
             category_id: formData.category_id || null,
           });
         } else {
@@ -372,18 +412,50 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     return days;
   }, [currentMonth]);
 
+  // Nombre de filtres actifs
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (filterType !== 'ALL') count++;
+    if (filterAccount !== 'ALL') count++;
+    if (filterCategory !== 'ALL') count++;
+    if (filterState !== 'ALL') count++;
+    if (filterMinAmount !== '') count++;
+    if (filterMaxAmount !== '') count++;
+    if (filterScope !== 'all_time') count++;
+    return count;
+  }, [searchQuery, filterType, filterAccount, filterCategory, filterState, filterMinAmount, filterMaxAmount, filterScope]);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setFilterType('ALL');
+    setFilterAccount('ALL');
+    setFilterCategory('ALL');
+    setFilterState('ALL');
+    setFilterMinAmount('');
+    setFilterMaxAmount('');
+    setFilterScope('all_time');
+    setFilterStartDate('');
+    setFilterEndDate('');
+  };
+
   // Base de transactions selon le scope de recherche
   const baseTransactions = useMemo(() => {
-    if (filterScope === 'all_time') return allTransactions;
-    if (filterScope === 'custom') {
-      return allTransactions.filter(t => {
-        if (filterStartDate && t.transaction_date < filterStartDate) return false;
-        if (filterEndDate && t.transaction_date > filterEndDate) return false;
-        return true;
-      });
+    if (hasActiveFilters) {
+      if (filterScope === 'current_month') return transactions;
+      if (filterScope === 'custom') {
+        return allTransactions.filter(t => {
+          if (filterStartDate && t.transaction_date < filterStartDate) return false;
+          if (filterEndDate && t.transaction_date > filterEndDate) return false;
+          return true;
+        });
+      }
+      return allTransactions.length > 0 ? allTransactions : transactions;
     }
     return transactions;
-  }, [filterScope, allTransactions, transactions, filterStartDate, filterEndDate]);
+  }, [hasActiveFilters, filterScope, allTransactions, transactions, filterStartDate, filterEndDate]);
 
   // Filtrage multi-critères
   const filteredTransactions = useMemo(() => {
@@ -428,35 +500,6 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       return true;
     });
   }, [baseTransactions, searchQuery, filterType, filterAccount, filterCategory, filterState, filterMinAmount, filterMaxAmount, categories, accounts]);
-
-  // Nombre de filtres actifs
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (searchQuery.trim()) count++;
-    if (filterType !== 'ALL') count++;
-    if (filterAccount !== 'ALL') count++;
-    if (filterCategory !== 'ALL') count++;
-    if (filterState !== 'ALL') count++;
-    if (filterMinAmount !== '') count++;
-    if (filterMaxAmount !== '') count++;
-    if (filterScope !== 'current_month') count++;
-    return count;
-  }, [searchQuery, filterType, filterAccount, filterCategory, filterState, filterMinAmount, filterMaxAmount, filterScope]);
-
-  const hasActiveFilters = activeFiltersCount > 0;
-
-  const resetFilters = () => {
-    setSearchQuery('');
-    setFilterType('ALL');
-    setFilterAccount('ALL');
-    setFilterCategory('ALL');
-    setFilterState('ALL');
-    setFilterMinAmount('');
-    setFilterMaxAmount('');
-    setFilterScope('current_month');
-    setFilterStartDate('');
-    setFilterEndDate('');
-  };
 
   // Total net des transactions filtrées
   const filteredTotalNet = useMemo(() => {
@@ -591,82 +634,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
         {error && <div className="error-message">{error}</div>}
 
-        {/* Sélecteur de mois */}
-        <div className="month-selector">
-          <button className="btn btn-icon" onClick={goToPreviousMonth} title="Mois précédent">
-            ◀
-          </button>
-          <div className="month-info">
-            <div className="month-selects">
-              <select
-                className="month-select"
-                value={currentMonth.getMonth()}
-                onChange={handleMonthSelect}
-              >
-                {MONTHS_FR.map((m, i) => (
-                  <option key={i} value={i}>{m}</option>
-                ))}
-              </select>
-              <select
-                className="month-select"
-                value={currentMonth.getFullYear()}
-                onChange={handleYearSelect}
-              >
-                {yearRange.map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-            <p className="month-balance">
-              <span className={totals.balance >= 0 ? "positive" : "negative"}>
-                {totals.balance >= 0 ? '+' : ''}{formatAmount(totals.balance)}
-              </span>
-              {' '}ce mois
-              <span className="month-balance-sep"> • </span>
-              <span className="month-end-balance-text">
-                Solde fin de mois :{' '}
-                <strong className={endOfMonthBalance >= 0 ? "positive" : "negative"}>
-                  {formatAmount(endOfMonthBalance)}
-                </strong>
-              </span>
-            </p>
-          </div>
-          <button className="btn btn-icon" onClick={goToNextMonth} title="Mois suivant">
-            ▶
-          </button>
-          <button className="btn btn-secondary" onClick={goToToday}>
-            Aujourd'hui
-          </button>
-          <ExportButton
-            year={currentMonth.getFullYear()}
-            month={currentMonth.getMonth() + 1}
-            className="export-btn"
-          />
-        </div>
-
-        {/* Résumé des totaux */}
-        <div className="totals-summary">
-          <div className="total-card income">
-            <span className="total-label">💰 Revenus</span>
-            <span className="total-amount">{formatAmount(totals.income)}</span>
-          </div>
-          <div className="total-card expense">
-            <span className="total-label">💸 Dépenses</span>
-            <span className="total-amount">{formatAmount(Math.abs(totals.expense))}</span>
-          </div>
-          <div className="total-card transfer">
-            <span className="total-label">🔄 Virements</span>
-            <span className="total-amount">{formatAmount(totals.transfer)}</span>
-          </div>
-          <div className="total-card balance">
-            <span className="total-label">🏦 Solde fin de mois</span>
-            <span className={`total-amount ${endOfMonthBalance >= 0 ? 'positive' : 'negative'}`}>
-              {formatAmount(endOfMonthBalance)}
-            </span>
-          </div>
-        </div>
-
-        {/* Barre de Recherche et Filtres Avancés */}
+        {/* Barre de Recherche et Filtres Avancés (Tout l'historique par défaut) */}
         <div className="timeline-search-filter-card">
           <div className="search-main-row">
             <div className="search-input-wrapper">
@@ -674,7 +642,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               <input
                 type="text"
                 className="search-input"
-                placeholder="Rechercher par libellé, compte, catégorie..."
+                placeholder="Rechercher dans tout l'historique (libellé, compte, catégorie...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -726,8 +694,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                     value={filterScope}
                     onChange={(e) => setFilterScope(e.target.value as any)}
                   >
+                    <option value="all_time">Tout l'historique (par défaut)</option>
                     <option value="current_month">Mois affiché ({MONTHS_FR[currentMonth.getMonth()]})</option>
-                    <option value="all_time">Tout l'historique</option>
                     <option value="custom">Dates personnalisées</option>
                   </select>
                 </div>
@@ -843,10 +811,21 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           {/* Résumé des résultats si filtres actifs */}
           {hasActiveFilters && (
             <div className="filter-results-banner">
-              <span className="results-text">
-                🎯 <strong>{filteredTransactions.length}</strong> transaction(s) trouvée(s)
-                {filterScope === 'all_time' ? " (sur tout l'historique)" : ''}
-              </span>
+              <div className="results-left">
+                <span className="results-text">
+                  🎯 <strong>{filteredTransactions.length}</strong> transaction(s) trouvée(s)
+                  {filterScope === 'all_time' ? " (sur tout l'historique)" : ''}
+                </span>
+                {filteredTransactions.length > 0 && (
+                  <button
+                    type="button"
+                    className="bulk-select-toggle-btn"
+                    onClick={selectedTransactionIds.size === filteredTransactions.length ? deselectAll : selectAllFiltered}
+                  >
+                    {selectedTransactionIds.size === filteredTransactions.length ? '◻️ Tout désélectionner' : `☑️ Tout sélectionner (${filteredTransactions.length})`}
+                  </button>
+                )}
+              </div>
               <span className="results-total">
                 Total net : <strong className={filteredTotalNet >= 0 ? 'positive' : 'negative'}>
                   {filteredTotalNet >= 0 ? '+' : ''}{formatAmount(filteredTotalNet)}
@@ -854,6 +833,108 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Barre d'action groupée si des transactions sont sélectionnées */}
+        {selectedTransactionIds.size > 0 && (
+          <div className="bulk-actions-bar">
+            <div className="bulk-actions-info">
+              <span className="bulk-badge">{selectedTransactionIds.size}</span>
+              <span className="bulk-label">transaction(s) sélectionnée(s)</span>
+            </div>
+            <div className="bulk-actions-buttons">
+              <button
+                type="button"
+                className="btn-danger-bulk"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+              >
+                {isBulkDeleting ? "Suppression en cours..." : `🗑️ Supprimer la sélection (${selectedTransactionIds.size})`}
+              </button>
+              <button
+                type="button"
+                className="btn-cancel-bulk"
+                onClick={deselectAll}
+              >
+                ✕ Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sélecteur de mois */}
+        <div className="month-selector">
+          <button className="btn btn-icon" onClick={goToPreviousMonth} title="Mois précédent">
+            ◀
+          </button>
+          <div className="month-info">
+            <div className="month-selects">
+              <select
+                className="month-select"
+                value={currentMonth.getMonth()}
+                onChange={handleMonthSelect}
+              >
+                {MONTHS_FR.map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              <select
+                className="month-select"
+                value={currentMonth.getFullYear()}
+                onChange={handleYearSelect}
+              >
+                {yearRange.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <p className="month-balance">
+              <span className={totals.balance >= 0 ? "positive" : "negative"}>
+                {totals.balance >= 0 ? '+' : ''}{formatAmount(totals.balance)}
+              </span>
+              {' '}ce mois
+              <span className="month-balance-sep"> • </span>
+              <span className="month-end-balance-text">
+                Solde fin de mois :{' '}
+                <strong className={endOfMonthBalance >= 0 ? "positive" : "negative"}>
+                  {formatAmount(endOfMonthBalance)}
+                </strong>
+              </span>
+            </p>
+          </div>
+          <button className="btn btn-icon" onClick={goToNextMonth} title="Mois suivant">
+            ▶
+          </button>
+          <button className="btn btn-secondary" onClick={goToToday}>
+            Aujourd'hui
+          </button>
+          <ExportButton
+            year={currentMonth.getFullYear()}
+            month={currentMonth.getMonth() + 1}
+            className="export-btn"
+          />
+        </div>
+
+        {/* Résumé des totaux */}
+        <div className="totals-summary">
+          <div className="total-card income">
+            <span className="total-label">💰 Revenus</span>
+            <span className="total-amount">{formatAmount(totals.income)}</span>
+          </div>
+          <div className="total-card expense">
+            <span className="total-label">💸 Dépenses</span>
+            <span className="total-amount">{formatAmount(Math.abs(totals.expense))}</span>
+          </div>
+          <div className="total-card transfer">
+            <span className="total-label">🔄 Virements</span>
+            <span className="total-amount">{formatAmount(totals.transfer)}</span>
+          </div>
+          <div className="total-card balance">
+            <span className="total-label">🏦 Solde fin de mois</span>
+            <span className={`total-amount ${endOfMonthBalance >= 0 ? 'positive' : 'negative'}`}>
+              {formatAmount(endOfMonthBalance)}
+            </span>
+          </div>
         </div>
 
         {/* Vue Liste ou Calendrier */}
@@ -892,6 +973,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           onEdit={handleOpenModal}
                           onDelete={handleDelete}
                           formatAmount={formatAmount}
+                          isSelected={selectedTransactionIds.has(transaction.id)}
+                          onToggleSelect={toggleSelectTransaction}
                         />
                       ))}
                     </div>
@@ -989,6 +1072,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                         onEdit={handleOpenModal}
                         onDelete={handleDelete}
                         formatAmount={formatAmount}
+                        isSelected={selectedTransactionIds.has(transaction.id)}
+                        onToggleSelect={toggleSelectTransaction}
                       />
                     ))}
                   </div>
@@ -1367,9 +1452,20 @@ interface TransactionCardProps {
   onEdit: (t: Transaction) => void;
   onDelete: (t: Transaction) => void;
   formatAmount: (n: number) => string;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-function TransactionCard({ transaction, accounts, categories, onEdit, onDelete, formatAmount }: TransactionCardProps) {
+function TransactionCard({
+  transaction,
+  accounts,
+  categories,
+  onEdit,
+  onDelete,
+  formatAmount,
+  isSelected,
+  onToggleSelect
+}: TransactionCardProps) {
   const account = accounts.find(a => a.id === transaction.account_id);
   const destinationAccount = accounts.find(a => a.id === transaction.destination_account_id);
   const category = categories.find(c => c.id === transaction.category_id);
@@ -1378,7 +1474,21 @@ function TransactionCard({ transaction, accounts, categories, onEdit, onDelete, 
   const isTransfer = transaction.type === TransactionType.TRANSFER;
 
   return (
-    <div className={`transaction-card ${isProjected ? 'projected' : ''}`}>
+    <div className={`transaction-card ${isProjected ? 'projected' : ''} ${isSelected ? 'selected' : ''}`}>
+      {onToggleSelect && (
+        <label
+          className="transaction-checkbox-wrapper"
+          onClick={(e) => e.stopPropagation()}
+          title="Sélectionner cette transaction"
+        >
+          <input
+            type="checkbox"
+            className="transaction-checkbox"
+            checked={!!isSelected}
+            onChange={() => onToggleSelect(transaction.id)}
+          />
+        </label>
+      )}
       <div className="transaction-icon">
         {TRANSACTION_TYPE_ICONS[transaction.type]}
       </div>

@@ -1164,7 +1164,14 @@
   font-size: 0.88rem;
   color: #166534;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
+}
+
+.results-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .results-text strong {
@@ -1177,4 +1184,118 @@
 
 .results-total strong.negative {
   color: #dc2626;
+}
+
+.bulk-select-toggle-btn {
+  background: white;
+  border: 1px solid #86efac;
+  color: #15803d;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bulk-select-toggle-btn:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+/* ─── Floating / Sticky Bulk Actions Bar ──────────────────────────────────── */
+.bulk-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  animation: slideDown 0.2s ease;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.bulk-actions-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.bulk-badge {
+  background: #ef4444;
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.bulk-actions-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btn-danger-bulk {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-danger-bulk:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.btn-danger-bulk:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel-bulk {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: none;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-cancel-bulk:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ─── Transaction Card Selection Styles ───────────────────────────────────── */
+.transaction-card.selected {
+  background: #f0f7ff;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.transaction-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding-right: 0.25rem;
+}
+
+.transaction-checkbox {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: #4f46e5;
 }
