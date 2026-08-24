@@ -13,6 +13,7 @@ import { transactionService } from '@/services/transactionService'
 import { notificationService } from '@/services/notificationService'
 import { Notification } from '@/types/notification'
 import { Transaction } from '@/types/transaction'
+import { useFeedback } from '@/context/FeedbackContext'
 
 interface ValidationModalProps {
   notification: Notification
@@ -22,6 +23,7 @@ interface ValidationModalProps {
 }
 
 export function ValidationModal({ notification, isOpen, onClose, onSuccess }: ValidationModalProps) {
+  const { showFeedback } = useFeedback()
   const [transaction, setTransaction] = useState<Transaction | null>(null)
   const [amount, setAmount] = useState<string>('')
   const [newDate, setNewDate] = useState<Date>(new Date())
@@ -62,9 +64,13 @@ export function ValidationModal({ notification, isOpen, onClose, onSuccess }: Va
         await notificationService.markAsRead(notification.id)
       }
       
-      toast.success('Transaction validée avec succès')
       onSuccess()
       onClose()
+      showFeedback({
+        title: "Transaction validée ! ✅",
+        message: `La transaction "${transaction.description}" de ${amountValue} € a été validée et enregistrée comme réalisée.`,
+        type: "success"
+      })
     } catch (error) {
       toast.error('Échec de la validation')
     } finally {
@@ -83,9 +89,13 @@ export function ValidationModal({ notification, isOpen, onClose, onSuccess }: Va
         await notificationService.markAsRead(notification.id)
       }
       
-      toast.success('Transaction reportée')
       onSuccess()
       onClose()
+      showFeedback({
+        title: "Transaction reportée 🗓️",
+        message: `La transaction "${transaction.description}" a été reportée au ${formattedDate}.`,
+        type: "info"
+      })
     } catch (error) {
       toast.error('Échec du report')
     } finally {
@@ -103,9 +113,13 @@ export function ValidationModal({ notification, isOpen, onClose, onSuccess }: Va
         await notificationService.markAsRead(notification.id)
       }
       
-      toast.success('Transaction supprimée')
       onSuccess()
       onClose()
+      showFeedback({
+        title: "Transaction supprimée 🗑️",
+        message: `La transaction "${transaction.description}" a été envoyée vers la corbeille.`,
+        type: "delete"
+      })
     } catch (error) {
       toast.error('Échec de la suppression')
     } finally {

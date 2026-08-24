@@ -16,6 +16,7 @@ import Settings from './pages/Settings'
 import { Trash } from './pages/TrashPage'
 import { Toaster } from '@/components/ui/sonner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { FeedbackProvider } from './context/FeedbackContext'
 import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
 
@@ -203,8 +204,10 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
-      <Toaster />
+      <FeedbackProvider>
+        <AppRoutes />
+        <Toaster />
+      </FeedbackProvider>
     </BrowserRouter>
   )
 }

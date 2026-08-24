@@ -21,6 +21,7 @@ import {
 import { Account } from "../types/account";
 import { Category } from "../types/category";
 import { ExportButton } from "../components/ExportButton";
+import { useFeedback } from "../context/FeedbackContext";
 import "../styles/Timeline.css";
 
 type Page =
@@ -40,6 +41,7 @@ interface TimelineProps {
 }
 
 export function Timeline({ navigate, onLogout }: TimelineProps) {
+  const { showFeedback } = useFeedback();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cumulativeTransactions, setCumulativeTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -145,6 +147,11 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       await loadData();
       const txs = await transactionService.list();
       setAllTransactions(txs);
+      showFeedback({
+        title: "Suppression groupée réussie",
+        message: `${count} transaction(s) ont été envoyées vers la corbeille.`,
+        type: "delete"
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la suppression groupée");
     } finally {
@@ -298,7 +305,14 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       }
 
       await loadData();
+      const txs = await transactionService.list();
+      setAllTransactions(txs);
       handleCloseModal();
+      showFeedback({
+        title: editingTransaction ? "Transaction modifiée ! ✅" : "Transaction enregistrée ! ✅",
+        message: `La transaction "${formData.description}" a été enregistrée avec succès.`,
+        type: "success"
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la sauvegarde");
     }
@@ -323,6 +337,13 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     try {
       await transactionService.delete(transaction.id);
       await loadData();
+      const txs = await transactionService.list();
+      setAllTransactions(txs);
+      showFeedback({
+        title: "Transaction supprimée 🗑️",
+        message: `La transaction "${transaction.description}" a été déplacée vers la corbeille.`,
+        type: "delete"
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la suppression");
     }
@@ -346,6 +367,13 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       setShowDeleteModal(false);
       setDeletingTransaction(null);
       await loadData();
+      const txs = await transactionService.list();
+      setAllTransactions(txs);
+      showFeedback({
+        title: "Suppression effectuée 🗑️",
+        message: "Les occurrences sélectionnées ont été supprimées avec succès.",
+        type: "delete"
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la suppression");
     }
