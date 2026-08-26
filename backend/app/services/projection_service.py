@@ -245,6 +245,7 @@ class ProjectionService:
             select(Transaction).where(
                 Transaction.household_id == household_id,
                 Transaction.state == "REALIZED",
+                Transaction.transaction_date <= today,
                 Transaction.deleted_at.is_(None)
             )
         )
@@ -341,7 +342,7 @@ class ProjectionService:
         """
         today = date.today()
 
-        # 1. Solde actuel réel (comptes actifs + initial_balance + transactions REALIZED)
+        # 1. Solde actuel réel (comptes actifs + initial_balance + transactions REALIZED jusqu'à aujourd'hui)
         accounts_res = await db.execute(
             select(Account).where(
                 Account.household_id == household_id,
@@ -355,6 +356,7 @@ class ProjectionService:
             select(Transaction).where(
                 Transaction.household_id == household_id,
                 Transaction.state == "REALIZED",
+                Transaction.transaction_date <= today,
                 Transaction.deleted_at.is_(None)
             )
         )

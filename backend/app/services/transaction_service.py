@@ -273,6 +273,14 @@ class TransactionService:
         for field, value in update_data.items():
             setattr(transaction, field, value)
 
+        # Si la date a été modifiée ou est dans le futur et que l'état n'a pas été explicitement forcé
+        if "state" not in update_data and transaction.transaction_date:
+            today = date.today()
+            if transaction.transaction_date > today:
+                transaction.state = TransactionState.PROJECTED
+            elif transaction.transaction_date == today and transaction.state == TransactionState.PROJECTED:
+                transaction.state = TransactionState.PENDING
+
         await self.db.commit()
         await self.db.refresh(transaction)
 

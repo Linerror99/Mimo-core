@@ -114,18 +114,18 @@ class AccountService:
         db: AsyncSession,
         account_id: str
     ) -> Decimal:
-        """Calculate current account balance (initial + realized transactions up to today)"""
+        """Calculate current account balance (initial + realized transactions up to today, including incoming transfers)"""
         from datetime import date
-        from app.models.transaction import Transaction, TransactionState
+        from app.models.transaction import Transaction, TransactionState, TransactionType
 
         account = await db.get(Account, account_id)
         if not account:
             return Decimal("0")
 
-        # Calculer la somme des transactions REALIZED jusqu'à aujourd'hui uniquement
-        # Exclut les transactions futures (PROJECTED) et en attente (PENDING)
         today = date.today()
-        result = await db.execute(
+
+        # 1. Transactions où le compte est le compte principal (EXPENSE, INCOME, et compte source pour TRANSFER)
+        outgoing_and_incomes_res = await db.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0))
             .where(
                 Transaction.account_id == account_id,
@@ -134,7 +134,21 @@ class AccountService:
                 Transaction.transaction_date <= today
             )
         )
-        transactions_sum = result.scalar_one()
+        outgoing_and_incomes = outgoing_and_incomes_res.scalar_one()
 
-        # Balance = initial_balance + somme transactions réalisées
-        return account.initial_balance + Decimal(str(transactions_sum))
+        # 2. Virements entrants où le compte est le compte de destination (destination_account_id)
+        # Sur le compte destination, on crédite la valeur absolue du montant du virement
+        incoming_transfers_res = await db.execute(
+            select(func.coalesce(func.sum(func.abs(Transaction.amount)), 0))
+            .where(
+                Transaction.destination_account_id == account_id,
+                Transaction.type == TransactionType.TRANSFER,
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
+            )
+        )
+        incoming_transfers = incoming_transfers_res.scalar_one()
+
+        # Balance = initial_balance + outgoing_and_incomes + incoming_transfers
+        return account.initial_balance + Decimal(str(outgoing_and_incomes)) + Decimal(str(incoming_transfers))

@@ -75,10 +75,11 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
 
   const fetchRecentTransactions = async () => {
     try {
-      // Récupérer les 5 dernières transactions réalisées
+      // Récupérer les 5 dernières transactions réalisées jusqu'à aujourd'hui
+      const todayStr = new Date().toISOString().split('T')[0]
       const allTransactions = await transactionService.list()
       const realized = allTransactions
-        .filter(t => t.state === 'REALIZED')
+        .filter(t => t.state === 'REALIZED' && t.transaction_date <= todayStr)
         .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
         .slice(0, 5)
       setRecentTransactions(realized)
