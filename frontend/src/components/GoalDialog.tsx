@@ -75,12 +75,12 @@ export function GoalDialog({ open, onOpenChange, onSave, goal }: GoalDialogProps
       // Mode édition - envoyer GoalUpdate
       const updateData: GoalUpdate = {
         name,
-        description: description || undefined,
-        target_amount: targetAmt,
-        monthly_contribution: monthlyContrib,
-        target_date: targetDate || undefined,
-        account_id: accountId || undefined,
-        destination_account_id: destinationAccountId || undefined,
+        description: description || null,
+        target_amount: (hasTargetAmount && targetAmount) ? parseFloat(targetAmount) : null,
+        monthly_contribution: monthlyContribution ? parseFloat(monthlyContribution) : null,
+        target_date: targetDate ? targetDate : null,
+        account_id: accountId || null,
+        destination_account_id: destinationAccountId || null,
       }
       onSave(updateData, currentAmountValue)
     } else {

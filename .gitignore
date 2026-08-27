@@ -43,3 +43,5 @@ Thumbs.db
 *.sqlite
 frontend/playwright-report/index.html
 backups/
+backend/logs/
+

@@ -364,83 +364,150 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      className={`p-2 rounded-xl text-xs font-bold border transition-all ${!simIsSaving ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}
-                      onClick={() => setSimIsSaving(false)}
+                      className={`p-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${!simIsSaving ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      onClick={() => {
+                        setSimIsSaving(false)
+                        setSimPaymentType('INSTALLMENTS')
+                      }}
                     >
-                      🛍️ Achat / Dépense
+                      <span>🛍️</span>
+                      <span>Achat / Dépense</span>
                     </button>
                     <button
                       type="button"
-                      className={`p-2 rounded-xl text-xs font-bold border transition-all ${simIsSaving ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}
-                      onClick={() => setSimIsSaving(true)}
+                      className={`p-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${simIsSaving ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      onClick={() => {
+                        setSimIsSaving(true)
+                        setSimPaymentType('RECURRING')
+                      }}
                     >
-                      🎯 Projet d'Épargne
+                      <span>🎯</span>
+                      <span>Projet d'Épargne</span>
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-600">Nom du projet</Label>
+                  <Label className="text-xs font-semibold text-slate-600">
+                    {simIsSaving ? "Nom de l'épargne ou projet" : "Nom de l'achat"}
+                  </Label>
                   <Input
                     required
-                    placeholder="Ex: MacBook Pro, Vacances été, etc."
+                    placeholder={simIsSaving ? "Ex: Fonds de secours, Vacances été, etc." : "Ex: MacBook Pro, TV OLED, etc."}
                     value={simName}
                     onChange={(e) => setSimName(e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-600">Mode de paiement / versement</Label>
-                  <select
-                    className="w-full p-2 border rounded-md text-sm bg-background"
-                    value={simPaymentType}
-                    onChange={(e) => setSimPaymentType(e.target.value as any)}
-                  >
-                    <option value="DIRECT">Paiement comptant (1x)</option>
-                    <option value="INSTALLMENTS">Paiement en plusieurs fois (Nx)</option>
-                    <option value="RECURRING">Épargne mensuelle sur N mois</option>
-                  </select>
-                </div>
+                {/* ─── CAS 1 : ACHAT / DÉPENSE ─── */}
+                {!simIsSaving ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-600">Mode de paiement</Label>
+                      <select
+                        className="w-full p-2 border rounded-md text-sm bg-background"
+                        value={simPaymentType}
+                        onChange={(e) => setSimPaymentType(e.target.value as any)}
+                      >
+                        <option value="DIRECT">Paiement comptant (1x)</option>
+                        <option value="INSTALLMENTS">Paiement en plusieurs fois (Nx : 3x, 4x, 10x, 12x...)</option>
+                      </select>
+                    </div>
 
-                {simPaymentType === 'DIRECT' ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-600">Montant total (€)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      required
-                      placeholder="Ex: 800.00"
-                      value={simTotalAmount}
-                      onChange={(e) => setSimTotalAmount(e.target.value)}
-                    />
-                  </div>
+                    {simPaymentType === 'DIRECT' ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600">Montant total (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="Ex: 800.00"
+                          value={simTotalAmount}
+                          onChange={(e) => setSimTotalAmount(e.target.value)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-slate-600">Montant total (€)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            required
+                            placeholder="Ex: 1200.00"
+                            value={simTotalAmount}
+                            onChange={(e) => setSimTotalAmount(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-slate-600">Nombre de fois / mois</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="60"
+                            value={simInstallmentsCount}
+                            onChange={(e) => setSimInstallmentsCount(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                  /* ─── CAS 2 : PROJET D'ÉPARGNE ─── */
+                  <>
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-600">Montant total (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Ex: 1200.00"
-                        value={simTotalAmount}
-                        onChange={(e) => setSimTotalAmount(e.target.value)}
-                      />
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-slate-600">Montant cible (€)</Label>
+                        <label className="text-xs text-muted-foreground flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!simTotalAmount}
+                            onChange={(e) => setSimTotalAmount(e.target.checked ? '' : '1000')}
+                          />
+                          Épargne libre (sans cible fixe)
+                        </label>
+                      </div>
+                      {simTotalAmount !== '' && (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Ex: 3000.00"
+                          value={simTotalAmount}
+                          onChange={(e) => setSimTotalAmount(e.target.value)}
+                        />
+                      )}
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-600">Nombre de fois / mois</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={simInstallmentsCount}
-                        onChange={(e) => setSimInstallmentsCount(e.target.value)}
-                      />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600">Prélèvement mensuel (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="Ex: 200.00"
+                          value={simMonthlyAmount}
+                          onChange={(e) => setSimMonthlyAmount(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-600">Durée (en mois)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={simInstallmentsCount}
+                          onChange={(e) => setSimInstallmentsCount(e.target.value)}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-600">Date de départ (première échéance)</Label>
+                  <Label className="text-xs font-semibold text-slate-600">
+                    {simIsSaving ? "Date de début (première échéance)" : "Date du premier paiement"}
+                  </Label>
                   <Input
                     type="date"
                     required

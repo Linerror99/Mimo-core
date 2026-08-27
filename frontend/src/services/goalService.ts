@@ -40,12 +40,12 @@ export interface GoalCreate {
 
 export interface GoalUpdate {
   name?: string;
-  description?: string;
-  target_amount?: number;
-  monthly_contribution?: number;
-  target_date?: string;
-  account_id?: string;
-  destination_account_id?: string;
+  description?: string | null;
+  target_amount?: number | null;
+  monthly_contribution?: number | null;
+  target_date?: string | null;
+  account_id?: string | null;
+  destination_account_id?: string | null;
 }
 
 export interface GoalContributionUpdate {
