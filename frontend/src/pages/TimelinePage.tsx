@@ -22,6 +22,8 @@ import { Account } from "../types/account";
 import { Category } from "../types/category";
 import { ExportButton } from "../components/ExportButton";
 import { useFeedback } from "../context/FeedbackContext";
+import { BankLogo } from "../components/BankLogo";
+import { TimelineSkeleton } from "../components/skeletons/TimelineSkeleton";
 import "../styles/Timeline.css";
 
 type Page =
@@ -622,9 +624,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   if (loading && transactions.length === 0) {
     return (
       <Layout currentPage="timeline" navigate={navigate} onLogout={onLogout}>
-        <div className="timeline-page">
-          <div className="loading">Chargement...</div>
-        </div>
+        <TimelineSkeleton />
       </Layout>
     );
   }
@@ -1530,9 +1530,20 @@ function TransactionCard({
         </div>
         <div className="transaction-details">
           {isTransfer && account && destinationAccount ? (
-            <span className="detail-item">💳 {account.name} ➔ 💳 {destinationAccount.name}</span>
+            <span className="detail-item flex items-center gap-1">
+              <BankLogo accountName={account.name} logoUrl={account.logo_url} size="xs" />
+              <span>{account.name}</span>
+              <span className="text-slate-400">➔</span>
+              <BankLogo accountName={destinationAccount.name} logoUrl={destinationAccount.logo_url} size="xs" />
+              <span>{destinationAccount.name}</span>
+            </span>
           ) : (
-            account && <span className="detail-item">💳 {account.name}</span>
+            account && (
+              <span className="detail-item flex items-center gap-1">
+                <BankLogo accountName={account.name} logoUrl={account.logo_url} size="xs" />
+                <span>{account.name}</span>
+              </span>
+            )
           )}
           {category && <span className="detail-item">🏷️ {category.name}</span>}
         </div>

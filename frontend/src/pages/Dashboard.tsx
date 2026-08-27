@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { ValidationModal } from '@/components/ValidationModal'
 import { WalletCards } from '@/components/WalletCards'
 import { SafeToSpendCard } from '@/components/SafeToSpendCard'
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
 import { TrendingUp, Clock, Check, AlertCircle } from 'lucide-react'
 import toast from '@/utils/toast'
 import logger from '@/utils/logger'
@@ -49,22 +50,15 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
       setLoading(true)
       // Auto-check du job quotidien pour passer automatiquement les transactions PROJECTED échues en PENDING
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        await fetch(`${apiUrl}/api/v1/jobs/daily-maintenance`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (e) {
-        // En cas d'erreur réseau, continuer le chargement normal
-        console.warn('Auto daily-maintenance trigger notice:', e);
+        await transactionService.triggerDailyJob()
+      } catch (err) {
+        logger.error('Failed to trigger daily job', err)
       }
 
       await Promise.all([
-        fetchPendingTransactions(),
         fetchRecentTransactions(),
-        fetchProjections()
+        fetchProjections(),
+        fetchPendingTransactions(),
       ])
     } catch (error) {
       logger.error('Failed to fetch dashboard data', error)
@@ -146,11 +140,19 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
     switch (status) {
       case 'realized':
         return <Check className="w-4 h-4 text-success" />
-      case 'pending':
+      case 'projected':
         return <Clock className="w-4 h-4 text-warning" />
       default:
         return <Clock className="w-4 h-4 text-muted-foreground" />
     }
+  }
+
+  if (loading) {
+    return (
+      <Layout currentPage="dashboard" navigate={navigate} onLogout={onLogout}>
+        <DashboardSkeleton />
+      </Layout>
+    )
   }
 
   return (

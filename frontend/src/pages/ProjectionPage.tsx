@@ -4,6 +4,7 @@ import { projectionService } from '../services/projectionService';
 import { accountService } from '../services/accountService';
 import { MonthlyProjection, formatMonth, formatProjectionAmount } from '../types/projection';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ProjectionSkeleton } from '@/components/skeletons/ProjectionSkeleton';
 import '../styles/Projection.css';
 
 type Page =
@@ -236,7 +237,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
   if (loading && projections.length === 0) {
     return (
       <Layout currentPage="projection" navigate={navigate} onLogout={onLogout}>
-        <div className="loading">Chargement des projections...</div>
+        <ProjectionSkeleton />
       </Layout>
     );
   }

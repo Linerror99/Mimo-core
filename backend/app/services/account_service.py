@@ -28,7 +28,8 @@ class AccountService:
             name=account_data.name,
             type=account_data.type,
             initial_balance=account_data.initial_balance,
-            currency=account_data.currency
+            currency=account_data.currency,
+            logo_url=account_data.logo_url
         )
 
         db.add(account)

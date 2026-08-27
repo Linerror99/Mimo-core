@@ -18,6 +18,7 @@ class AccountBase(BaseModel):
     type: AccountType = Field(..., description="Account type")
     initial_balance: Decimal = Field(default=0, description="Initial balance")
     currency: str = Field(default="EUR", min_length=3, max_length=3, description="Currency code")
+    logo_url: Optional[str] = Field(None, description="Bank logo (URL, preset identifier, or image)")
 
 
 class AccountCreate(AccountBase):
@@ -29,7 +30,9 @@ class AccountUpdate(BaseModel):
     """Schema for updating an account"""
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     type: Optional[AccountType] = None
+    initial_balance: Optional[Decimal] = None
     is_active: Optional[bool] = None
+    logo_url: Optional[str] = None
 
 
 class AccountResponse(AccountBase):

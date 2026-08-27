@@ -30,6 +30,7 @@ import { projectionService } from '@/services/projectionService'
 import { accountService } from '@/services/accountService'
 import { Account } from '@/types/account'
 import { useFeedback } from '@/context/FeedbackContext'
+import { GoalsSkeleton } from '@/components/skeletons/GoalsSkeleton'
 import '@/styles/Goals.css'
 
 type Page =
@@ -213,6 +214,14 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
     } finally {
       setIsCommitting(false)
     }
+  }
+
+  if (loading && goals.length === 0) {
+    return (
+      <Layout currentPage="goals" navigate={navigate} onLogout={onLogout}>
+        <GoalsSkeleton />
+      </Layout>
+    )
   }
 
   return (

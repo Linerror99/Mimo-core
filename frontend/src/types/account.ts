@@ -20,6 +20,7 @@ export interface Account {
   current_balance: number;
   currency: string;
   is_active: boolean;
+  logo_url?: string | null;
   closed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -30,6 +31,7 @@ export interface AccountCreate {
   type: AccountType;
   initial_balance?: number;
   currency?: string;
+  logo_url?: string | null;
 }
 
 export interface AccountUpdate {
@@ -38,6 +40,7 @@ export interface AccountUpdate {
   initial_balance?: number;
   currency?: string;
   is_active?: boolean;
+  logo_url?: string | null;
 }
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
