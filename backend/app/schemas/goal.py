@@ -44,8 +44,8 @@ class GoalCreate(BaseModel):
 class GoalUpdate(BaseModel):
     """Schema pour mettre à jour un objectif"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
-    target_amount: Optional[Decimal] = Field(None, gt=0)
-    monthly_contribution: Optional[Decimal] = Field(None, gt=0)
+    target_amount: Optional[Decimal] = None
+    monthly_contribution: Optional[Decimal] = None
     description: Optional[str] = None
     target_date: Optional[date] = None
     account_id: Optional[str] = None

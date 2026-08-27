@@ -294,15 +294,10 @@ async def update_goal(
         )
 
     try:
+        update_dict = goal_data.model_dump(exclude_unset=True)
         updated_goal = await service.update_goal(
             goal_id=goal_id,
-            name=goal_data.name,
-            target_amount=float(goal_data.target_amount) if goal_data.target_amount is not None else None,
-            monthly_contribution=float(goal_data.monthly_contribution) if goal_data.monthly_contribution is not None else None,
-            description=goal_data.description,
-            target_date=goal_data.target_date,
-            account_id=goal_data.account_id,
-            destination_account_id=goal_data.destination_account_id
+            update_dict=update_dict
         )
 
         if not updated_goal:

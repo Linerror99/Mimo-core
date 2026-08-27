@@ -151,7 +151,8 @@ class GoalService:
         description: Optional[str] = None,
         target_date: Optional[date] = None,
         account_id: Optional[str] = None,
-        destination_account_id: Optional[str] = None
+        destination_account_id: Optional[str] = None,
+        update_dict: Optional[dict] = None
     ) -> Goal:
         """
         Met à jour un objectif
@@ -160,23 +161,40 @@ class GoalService:
         if not goal:
             raise ValueError(f"Objectif {goal_id} introuvable")
 
-        # Mettre à jour champs fournis
-        if name is not None:
-            goal.name = name
-        if target_amount is not None:
-            if target_amount <= 0:
-                raise ValueError("Le montant cible doit être positif")
-            goal.target_amount = Decimal(str(target_amount))
-        if monthly_contribution is not None:
-            goal.monthly_contribution = Decimal(str(monthly_contribution)) if monthly_contribution > 0 else None
-        if description is not None:
-            goal.description = description
-        if target_date is not None:
-            goal.target_date = target_date
-        if account_id is not None:
-            goal.account_id = account_id
-        if destination_account_id is not None:
-            goal.destination_account_id = destination_account_id
+        if update_dict is not None:
+            if "name" in update_dict and update_dict["name"] is not None:
+                goal.name = update_dict["name"]
+            if "target_amount" in update_dict:
+                val = update_dict["target_amount"]
+                goal.target_amount = Decimal(str(val)) if val is not None else None
+            if "monthly_contribution" in update_dict:
+                val = update_dict["monthly_contribution"]
+                goal.monthly_contribution = Decimal(str(val)) if (val is not None and float(val) > 0) else None
+            if "description" in update_dict:
+                goal.description = update_dict["description"]
+            if "target_date" in update_dict:
+                goal.target_date = update_dict["target_date"]
+            if "account_id" in update_dict:
+                goal.account_id = update_dict["account_id"]
+            if "destination_account_id" in update_dict:
+                goal.destination_account_id = update_dict["destination_account_id"]
+        else:
+            if name is not None:
+                goal.name = name
+            if target_amount is not None:
+                if target_amount <= 0:
+                    raise ValueError("Le montant cible doit être positif")
+                goal.target_amount = Decimal(str(target_amount))
+            if monthly_contribution is not None:
+                goal.monthly_contribution = Decimal(str(monthly_contribution)) if monthly_contribution > 0 else None
+            if description is not None:
+                goal.description = description
+            if target_date is not None:
+                goal.target_date = target_date
+            if account_id is not None:
+                goal.account_id = account_id
+            if destination_account_id is not None:
+                goal.destination_account_id = destination_account_id
 
         await self.db.commit()
         await self.db.refresh(goal)
