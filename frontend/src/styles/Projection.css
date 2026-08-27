@@ -252,15 +252,77 @@
   overflow: hidden;
 }
 
+.projection-view-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.view-mode-toggle {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.view-mode-btn {
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.view-mode-btn:hover {
+  color: #1e293b;
+}
+
+.view-mode-btn.active {
+  background: white;
+  color: #4f46e5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
 .table-header {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
+  padding: 1rem 1.25rem;
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+}
+
+/* Grids according to viewMode */
+.projection-table.mode-patrimoine .table-header,
+.projection-table.mode-patrimoine .table-row {
+  display: grid;
+  grid-template-columns: 2.2fr 1.1fr 1.1fr 1.3fr;
+  gap: 0.75rem;
+}
+
+.projection-table.mode-tresorerie .table-header,
+.projection-table.mode-tresorerie .table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr;
+  gap: 0.75rem;
+}
+
+.projection-table.mode-both .table-header,
+.projection-table.mode-both .table-row {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr 1fr 1.2fr 1.2fr;
+  gap: 0.75rem;
 }
 
 .year-block {
@@ -345,9 +407,9 @@
 
 .table-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 1rem;
-  padding: 0.9rem 1.5rem;
+  grid-template-columns: 1.8fr 1fr 1fr 1fr 1.2fr 1.2fr;
+  gap: 0.75rem;
+  padding: 0.9rem 1.25rem;
   transition: background-color 0.15s;
 }
 
@@ -372,29 +434,43 @@
 .col-amount {
   text-align: right;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .col-amount.income {
-  color: #27ae60;
+  color: #10b981;
 }
 
 .col-amount.expense {
-  color: #e74c3c;
+  color: #ef4444;
+}
+
+.col-amount.transfers {
+  color: #0ea5e9;
 }
 
 .col-amount.balance.positive {
-  color: #27ae60;
+  color: #10b981;
   font-weight: 700;
 }
 
 .col-amount.balance.negative {
-  color: #e74c3c;
+  color: #ef4444;
   font-weight: 700;
 }
 
 .col-amount.balance.neutral {
-  color: #7f8c8d;
+  color: #64748b;
+}
+
+.col-amount.treasury.positive {
+  color: #6366f1;
+  font-weight: 700;
+}
+
+.col-amount.treasury.negative {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 /* Projection Details */

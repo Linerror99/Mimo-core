@@ -28,8 +28,10 @@ interface YearGroup {
   months: MonthlyProjection[];
   totalIncome: number;
   totalExpense: number;
+  totalTransfers: number;
   netFlow: number;
   finalBalance: number;
+  finalTreasuryBalance: number;
 }
 
 const MONTHS_FR = [
@@ -48,6 +50,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
   const [endMonth, setEndMonth] = useState<number>(defaultEnd.getMonth() + 1);
 
   const [preset, setPreset] = useState<'6m' | '1y' | '2y' | '5y' | '10y' | 'custom'>('1y');
+  const [viewMode, setViewMode] = useState<'both' | 'patrimoine' | 'tresorerie'>('both');
 
   const [projections, setProjections] = useState<MonthlyProjection[]>([]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
@@ -82,15 +85,19 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
     for (const [year, months] of groupsMap.entries()) {
       const totalIncome = months.reduce((sum, m) => sum + m.income, 0);
       const totalExpense = months.reduce((sum, m) => sum + m.expense, 0);
+      const totalTransfers = months.reduce((sum, m) => sum + (m.transfers || 0), 0);
       const netFlow = totalIncome - totalExpense;
       const finalBalance = months[months.length - 1].balance;
+      const finalTreasuryBalance = months[months.length - 1].treasury_balance ?? finalBalance;
       result.push({
         year,
         months,
         totalIncome,
         totalExpense,
+        totalTransfers,
         netFlow,
         finalBalance,
+        finalTreasuryBalance,
       });
     }
     return result.sort((a, b) => a.year - b.year);
@@ -231,8 +238,10 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
 
   const totalIncome = projections.reduce((sum, p) => sum + p.income, 0);
   const totalExpense = projections.reduce((sum, p) => sum + p.expense, 0);
+  const totalTransfers = projections.reduce((sum, p) => sum + (p.transfers || 0), 0);
   const netFlow = totalIncome - totalExpense;
   const finalProjectedBalance = projections.length > 0 ? projections[projections.length - 1].balance : totalBalance;
+  const finalTreasuryBalance = projections.length > 0 ? (projections[projections.length - 1].treasury_balance ?? finalProjectedBalance) : totalBalance;
   const totalMonths = projections.length;
 
   if (loading && projections.length === 0) {
@@ -272,7 +281,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
           </div>
         )}
 
-        {/* Sélecteur d'horizon et de dates personnalisées */}
+        {/* Sélecteur d'horizon et sélecteur de vue */}
         <div className="projection-horizon-card">
           <div className="horizon-presets">
             <span className="horizon-label">Horizon :</span>
@@ -310,6 +319,30 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
               onClick={() => applyPreset('10y')}
             >
               10 ans
+            </button>
+          </div>
+
+          <div className="view-mode-toggle">
+            <button
+              type="button"
+              className={`view-mode-btn ${viewMode === 'both' ? 'active' : ''}`}
+              onClick={() => setViewMode('both')}
+            >
+              <span>Vue Combinée</span>
+            </button>
+            <button
+              type="button"
+              className={`view-mode-btn ${viewMode === 'patrimoine' ? 'active' : ''}`}
+              onClick={() => setViewMode('patrimoine')}
+            >
+              <span>Patrimoine Global</span>
+            </button>
+            <button
+              type="button"
+              className={`view-mode-btn ${viewMode === 'tresorerie' ? 'active' : ''}`}
+              onClick={() => setViewMode('tresorerie')}
+            >
+              <span>Trésorerie (Après Épargne)</span>
             </button>
           </div>
 
@@ -386,7 +419,8 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={projections.map(p => ({
                     month: formatMonth(p.month, p.year),
-                    solde: p.balance
+                    patrimoine: p.balance,
+                    tresorerie: p.treasury_balance ?? p.balance
                   }))}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} interval={Math.ceil(totalMonths / 12) - 1} />
@@ -395,25 +429,44 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                       formatter={(value: number) => formatCurrency(value)}
                       labelStyle={{ color: '#333' }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="solde" 
-                      stroke="#6366f1" 
-                      strokeWidth={2}
-                      dot={{ r: totalMonths > 36 ? 0 : 3 }}
-                      name="Solde projeté"
-                    />
+                    <Legend />
+                    {(viewMode === 'both' || viewMode === 'patrimoine') && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="patrimoine" 
+                        stroke="#4f46e5" 
+                        strokeWidth={2.5}
+                        dot={{ r: totalMonths > 36 ? 0 : 3 }}
+                        name={viewMode === 'both' ? "Patrimoine Global (Avec Épargne)" : "Patrimoine Global"}
+                      />
+                    )}
+                    {(viewMode === 'both' || viewMode === 'tresorerie') && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="tresorerie" 
+                        stroke="#0ea5e9" 
+                        strokeWidth={2.5}
+                        strokeDasharray={viewMode === 'both' ? "4 4" : undefined}
+                        dot={{ r: totalMonths > 36 ? 0 : 3 }}
+                        name={viewMode === 'both' ? "Trésorerie Courante (Après Épargne)" : "Trésorerie Courante"}
+                      />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
 
               <div className="chart-container">
-                <h2>Revenus vs Dépenses ({totalMonths} mois)</h2>
+                <h2>
+                  {viewMode === 'patrimoine' 
+                    ? `Revenus vs Dépenses (${totalMonths} mois)`
+                    : `Revenus vs Dépenses vs Épargne (${totalMonths} mois)`}
+                </h2>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={projections.map(p => ({
                     month: formatMonth(p.month, p.year),
                     revenus: p.income,
-                    dépenses: Math.abs(p.expense)
+                    dépenses: Math.abs(p.expense),
+                    épargne: p.transfers || 0
                   }))}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} interval={Math.ceil(totalMonths / 12) - 1} />
@@ -425,6 +478,9 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                     <Legend />
                     <Bar dataKey="revenus" fill="#10b981" name="Revenus" />
                     <Bar dataKey="dépenses" fill="#ef4444" name="Dépenses" />
+                    {viewMode !== 'patrimoine' && (
+                      <Bar dataKey="épargne" fill="#0ea5e9" name="Épargne & Projets" />
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -444,12 +500,14 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                 </div>
               </div>
 
-              <div className="projection-table">
+              <div className={`projection-table mode-${viewMode}`}>
                 <div className="table-header">
                   <div className="col-month">Période</div>
                   <div className="col-amount">Revenus</div>
                   <div className="col-amount">Dépenses</div>
-                  <div className="col-amount">Solde fin de période</div>
+                  {viewMode !== 'patrimoine' && <div className="col-amount">Épargne</div>}
+                  {viewMode !== 'patrimoine' && <div className="col-amount">Trésorerie</div>}
+                  {viewMode !== 'tresorerie' && <div className="col-amount">Patrimoine</div>}
                 </div>
 
                 {yearGroups.map((group) => {
@@ -473,9 +531,21 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                         <div className="col-amount expense year-amount">
                           {formatCurrency(group.totalExpense)}
                         </div>
-                        <div className={`col-amount balance year-amount ${getBalanceClass(group.finalBalance)}`}>
-                          {formatCurrency(group.finalBalance)}
-                        </div>
+                        {viewMode !== 'patrimoine' && (
+                          <div className="col-amount transfers year-amount">
+                            {formatCurrency(group.totalTransfers)}
+                          </div>
+                        )}
+                        {viewMode !== 'patrimoine' && (
+                          <div className={`col-amount treasury year-amount ${getBalanceClass(group.finalTreasuryBalance)}`}>
+                            {formatCurrency(group.finalTreasuryBalance)}
+                          </div>
+                        )}
+                        {viewMode !== 'tresorerie' && (
+                          <div className={`col-amount balance year-amount ${getBalanceClass(group.finalBalance)}`}>
+                            {formatCurrency(group.finalBalance)}
+                          </div>
+                        )}
                       </div>
 
                       {/* Mois de cette année (si l'année est dépliée) */}
@@ -484,6 +554,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                           {group.months.map((projection) => {
                             const monthKey = `${projection.year}-${projection.month}`;
                             const isMonthExpanded = expandedMonths.has(monthKey);
+                            const treasuryVal = projection.treasury_balance ?? projection.balance;
 
                             return (
                               <div key={monthKey} className="month-row-wrapper">
@@ -501,9 +572,21 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                                   <div className="col-amount expense">
                                     {formatCurrency(projection.expense)}
                                   </div>
-                                  <div className={`col-amount balance ${getBalanceClass(projection.balance)}`}>
-                                    {formatCurrency(projection.balance)}
-                                  </div>
+                                  {viewMode !== 'patrimoine' && (
+                                    <div className="col-amount transfers">
+                                      {formatCurrency(projection.transfers || 0)}
+                                    </div>
+                                  )}
+                                  {viewMode !== 'patrimoine' && (
+                                    <div className={`col-amount treasury ${getBalanceClass(treasuryVal)}`}>
+                                      {formatCurrency(treasuryVal)}
+                                    </div>
+                                  )}
+                                  {viewMode !== 'tresorerie' && (
+                                    <div className={`col-amount balance ${getBalanceClass(projection.balance)}`}>
+                                      {formatCurrency(projection.balance)}
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Détail des transactions du mois */}
@@ -566,47 +649,67 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                 </div>
 
                 <div className="summary-card balance-card">
-                  <div className="summary-label">Flux net cumulé</div>
-                  <div className={`summary-value ${getBalanceClass(netFlow)}`}>
-                    {netFlow >= 0 ? '+' : ''}{formatCurrency(netFlow)}
+                  <div className="summary-label">Épargne totale projetée</div>
+                  <div className="summary-value">
+                    {formatCurrency(totalTransfers)}
                   </div>
                 </div>
 
                 <div className="summary-card final-balance-card">
-                  <div className="summary-label">Solde final projeté</div>
-                  <div className={`summary-value ${getBalanceClass(finalProjectedBalance)}`}>
-                    {formatCurrency(finalProjectedBalance)}
+                  <div className="summary-label">
+                    {viewMode === 'patrimoine' ? 'Solde final Patrimoine' : 'Solde final Trésorerie'}
+                  </div>
+                  <div className={`summary-value ${getBalanceClass(viewMode === 'patrimoine' ? finalProjectedBalance : finalTreasuryBalance)}`}>
+                    {formatCurrency(viewMode === 'patrimoine' ? finalProjectedBalance : finalTreasuryBalance)}
                   </div>
                 </div>
               </div>
 
               <div className="insights">
-                <h3>Analyse de viabilité</h3>
+                <h3>Analyse de viabilité & Trésorerie</h3>
                 {(() => {
-                  const negativeMonths = projections.filter(p => p.balance < 0);
-                  
-                  if (negativeMonths.length === 0) {
-                    return (
-                      <p className="insight positive flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                        <span><strong>Excellente santé financière :</strong> Aucun découvert projeté sur la période de {formatDuration(totalMonths)} !</span>
-                      </p>
-                    );
-                  } else if (negativeMonths.length <= 3) {
-                    return (
-                      <p className="insight warning flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                        <span><strong>Attention :</strong> {negativeMonths.length} mois avec solde négatif détecté(s) sur la période de {formatDuration(totalMonths)} : {negativeMonths.map(m => formatMonth(m.month, m.year)).join(', ')}.</span>
-                      </p>
-                    );
-                  } else {
-                    return (
-                      <p className="insight negative flex items-center gap-2">
-                        <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                        <span><strong>Alerte découvert prolongé :</strong> {negativeMonths.length} mois en négatif sur la période de {formatDuration(totalMonths)}. Vos dépenses dépassent durablement vos revenus.</span>
-                      </p>
-                    );
-                  }
+                  const negativePatrimoine = projections.filter(p => p.balance < 0);
+                  const negativeTreasury = projections.filter(p => (p.treasury_balance ?? p.balance) < 0);
+                  const strainedMonths = projections.filter(p => p.income - p.expense < (p.transfers || 0));
+
+                  return (
+                    <div className="space-y-3">
+                      {/* Patrimoine Global */}
+                      {negativePatrimoine.length === 0 ? (
+                        <p className="insight positive flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <span><strong>Patrimoine sain :</strong> Vos revenus couvrent l'ensemble de vos dépenses sur {formatDuration(totalMonths)}.</span>
+                        </p>
+                      ) : (
+                        <p className="insight negative flex items-center gap-2">
+                          <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                          <span><strong>Alerte déficit global :</strong> Vos dépenses dépassent vos revenus sur {negativePatrimoine.length} mois.</span>
+                        </p>
+                      )}
+
+                      {/* Trésorerie & Risque lié à l'épargne */}
+                      {negativeTreasury.length > 0 ? (
+                        <p className="insight warning flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                          <span>
+                            <strong>Risque de découvert sur compte courant :</strong> Vos virements d'épargne prévus rendent votre trésorerie négative sur {negativeTreasury.length} mois ({negativeTreasury.map(m => formatMonth(m.month, m.year)).join(', ')}). Ajustez vos montants d'épargne pour laisser une marge de sécurité.
+                          </span>
+                        </p>
+                      ) : strainedMonths.length > 0 ? (
+                        <p className="insight warning flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                          <span>
+                            <strong>Trésorerie sous tension :</strong> Sur {strainedMonths.length} mois, votre reste à vivre (Revenus - Dépenses) est inférieur au montant d'épargne programmé ({strainedMonths.map(m => formatMonth(m.month, m.year)).join(', ')}).
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="insight positive flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <span><strong>Trésorerie fluide :</strong> Vos virements d'épargne sont 100% compatibles avec vos charges sans aucun risque de découvert !</span>
+                        </p>
+                      )}
+                    </div>
+                  );
                 })()}
               </div>
             </div>

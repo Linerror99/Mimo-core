@@ -240,6 +240,22 @@ class ProjectionService:
         accounts = list(accounts_result.scalars().all())
         initial_balance = sum(float(acc.initial_balance) for acc in accounts)
 
+        # Identification des comptes de type Épargne / Placement
+        savings_account_ids = {
+            acc.id for acc in accounts
+            if hasattr(acc, 'type') and str(getattr(acc.type, 'value', acc.type)) in ["SAVINGS", "INVESTMENT"]
+        }
+
+        def is_real_saving(description: str, dest_account_id: Optional[str], goal_id: Optional[str]) -> bool:
+            if goal_id:
+                return True
+            if dest_account_id and dest_account_id in savings_account_ids:
+                return True
+            desc_lower = (description or "").lower()
+            if any(k in desc_lower for k in ["épargne", "epargne", "investissement"]):
+                return True
+            return False
+
         # 2. Toutes les transactions RÉALISÉES jusqu'à aujourd'hui
         past_tx_res = await db.execute(
             select(Transaction).where(
@@ -274,6 +290,14 @@ class ProjectionService:
                 end_date=end_date_of_target_month
             )
 
+        # Enrichir future_projections avec is_saving
+        for p in future_projections:
+            p["is_saving"] = is_real_saving(
+                description=p.get("template_name", ""),
+                dest_account_id=p.get("destination_account_id"),
+                goal_id=p.get("goal_id")
+            )
+
         # Projections spécifiques du mois cible
         month_projections = []
         for p in future_projections:
@@ -294,26 +318,43 @@ class ProjectionService:
                 )
             )
             for tx in cur_month_tx_res.scalars().all():
+                is_saving_flag = is_real_saving(
+                    description=tx.description,
+                    dest_account_id=tx.destination_account_id,
+                    goal_id=tx.goal_id
+                )
                 month_projections.append({
                     "id": tx.id,
                     "name": tx.description,
                     "amount": float(tx.amount),
-                    "type": tx.type.value,
+                    "type": tx.type.value if hasattr(tx.type, "value") else str(tx.type),
                     "date": tx.transaction_date,
+                    "is_saving": is_saving_flag,
                     "source": "database"
                 })
 
         income = sum(float(p["amount"]) for p in month_projections if p["type"] == "INCOME")
         expense = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "EXPENSE")
-        transfers = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "TRANSFER")
+        # UNIQUEMENT les vrais virements d'épargne / objectifs
+        transfers = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "TRANSFER" and p.get("is_saving", False))
 
-        # Solde cumulé final à la fin du mois cible
+        # Solde cumulé final Patrimoine (Tous comptes)
         final_balance = current_balance
         for p in future_projections:
             if p["type"] == "INCOME":
                 final_balance += float(p["amount"])
             elif p["type"] == "EXPENSE":
                 final_balance -= float(abs(p["amount"]))
+
+        # Solde cumulé Trésorerie Courante (Liquidités nettes après déduction des seules vraies épargnes)
+        treasury_balance = current_balance
+        for p in future_projections:
+            if p["type"] == "INCOME":
+                treasury_balance += float(p["amount"])
+            elif p["type"] == "EXPENSE":
+                treasury_balance -= float(abs(p["amount"]))
+            elif p["type"] == "TRANSFER" and p.get("is_saving", False):
+                treasury_balance -= float(abs(p["amount"]))
 
         # Formater les dates des projections pour l'API
         formatted_projections = []
@@ -326,10 +367,11 @@ class ProjectionService:
         return {
             "month": target_month,
             "year": target_year,
-            "income": income,
-            "expense": expense,
-            "transfers": transfers,
-            "balance": final_balance,
+            "income": round(income, 2),
+            "expense": round(expense, 2),
+            "transfers": round(transfers, 2),
+            "balance": round(final_balance, 2),
+            "treasury_balance": round(treasury_balance, 2),
             "projections": formatted_projections
         }
 

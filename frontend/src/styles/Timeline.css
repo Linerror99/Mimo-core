@@ -101,15 +101,27 @@
 }
 
 .total-card.income {
-  border-left: 4px solid #27ae60;
+  border-left: 4px solid #10b981;
+}
+
+.total-card.income .total-amount {
+  color: #10b981;
 }
 
 .total-card.expense {
-  border-left: 4px solid #e74c3c;
+  border-left: 4px solid #ef4444;
+}
+
+.total-card.expense .total-amount {
+  color: #ef4444;
 }
 
 .total-card.transfer {
-  border-left: 4px solid #3498db;
+  border-left: 4px solid #0ea5e9;
+}
+
+.total-card.transfer .total-amount {
+  color: #0ea5e9;
 }
 
 .total-card.balance {
@@ -118,16 +130,16 @@
 }
 
 .total-card.balance .total-amount.positive {
-  color: #27ae60;
+  color: #10b981;
 }
 
 .total-card.balance .total-amount.negative {
-  color: #e74c3c;
+  color: #ef4444;
 }
 
 .total-label {
   font-size: 0.9rem;
-  color: #666;
+  color: #64748b;
   font-weight: 500;
 }
 
