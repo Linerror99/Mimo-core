@@ -304,14 +304,15 @@ class ProjectionService:
                 })
 
         income = sum(float(p["amount"]) for p in month_projections if p["type"] == "INCOME")
-        expense = sum(float(abs(p["amount"])) for p in month_projections if p["type"] in ["EXPENSE", "TRANSFER"])
+        expense = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "EXPENSE")
+        transfers = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "TRANSFER")
 
         # Solde cumulé final à la fin du mois cible
         final_balance = current_balance
         for p in future_projections:
             if p["type"] == "INCOME":
                 final_balance += float(p["amount"])
-            elif p["type"] in ["EXPENSE", "TRANSFER"]:
+            elif p["type"] == "EXPENSE":
                 final_balance -= float(abs(p["amount"]))
 
         # Formater les dates des projections pour l'API
@@ -327,6 +328,7 @@ class ProjectionService:
             "year": target_year,
             "income": income,
             "expense": expense,
+            "transfers": transfers,
             "balance": final_balance,
             "projections": formatted_projections
         }
