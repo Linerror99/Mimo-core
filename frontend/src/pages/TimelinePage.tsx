@@ -15,7 +15,6 @@ import {
   TransactionType,
   TransactionState,
   RecurrenceFrequency,
-  TRANSACTION_TYPE_ICONS,
   RECURRENCE_FREQUENCY_LABELS,
 } from "../types/transaction";
 import { Account } from "../types/account";
@@ -24,6 +23,22 @@ import { ExportButton } from "../components/ExportButton";
 import { useFeedback } from "../context/FeedbackContext";
 import { BankLogo } from "../components/BankLogo";
 import { TimelineSkeleton } from "../components/skeletons/TimelineSkeleton";
+import {
+  Calendar,
+  List,
+  Search,
+  SlidersHorizontal,
+  ArrowDownLeft,
+  ArrowUpRight,
+  ArrowLeftRight,
+  Copy,
+  Pencil,
+  Trash2,
+  Tag,
+  AlertTriangle,
+  Repeat,
+  Plus
+} from "lucide-react";
 import "../styles/Timeline.css";
 
 type Page =
@@ -332,10 +347,10 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       handleCloseModal();
       showFeedback({
         title: isDuplicating
-          ? "Transaction dupliquée ! 📋"
+          ? "Transaction dupliquée"
           : editingTransaction
-          ? "Transaction modifiée ! ✅"
-          : "Transaction enregistrée ! ✅",
+          ? "Transaction modifiée"
+          : "Transaction enregistrée",
         message: `La transaction "${formData.description}" a été enregistrée avec succès.`,
         type: "success"
       });
@@ -366,7 +381,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       const txs = await transactionService.list();
       setAllTransactions(txs);
       showFeedback({
-        title: "Transaction supprimée 🗑️",
+        title: "Transaction supprimée",
         message: `La transaction "${transaction.description}" a été déplacée vers la corbeille.`,
         type: "delete"
       });
@@ -396,7 +411,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       const txs = await transactionService.list();
       setAllTransactions(txs);
       showFeedback({
-        title: "Suppression effectuée 🗑️",
+        title: "Suppression effectuée",
         message: "Les occurrences sélectionnées ont été supprimées avec succès.",
         type: "delete"
       });
@@ -658,7 +673,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       <div className="timeline-page">
         <div className="timeline-header">
           <div>
-            <h1>📅 Timeline</h1>
+            <h1>Timeline</h1>
             <p className="subtitle">Toutes vos transactions</p>
           </div>
           <div className="timeline-header-actions">
@@ -668,18 +683,21 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                 onClick={() => setViewMode('list')}
                 title="Vue liste"
               >
-                ☰ Liste
+                <List className="w-4 h-4 mr-1.5 inline" />
+                <span>Liste</span>
               </button>
               <button
                 className={`view-toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`}
                 onClick={() => setViewMode('calendar')}
                 title="Vue calendrier"
               >
-                📅 Calendrier
+                <Calendar className="w-4 h-4 mr-1.5 inline" />
+                <span>Calendrier</span>
               </button>
             </div>
-            <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-              + Ajouter
+            <button className="btn btn-primary flex items-center gap-1.5" onClick={() => handleOpenModal()}>
+              <Plus className="w-4 h-4" />
+              <span>Ajouter</span>
             </button>
           </div>
         </div>
@@ -690,7 +708,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
         <div className="timeline-search-filter-card">
           <div className="search-main-row">
             <div className="search-input-wrapper">
-              <span className="search-icon">🔍</span>
+              <Search className="search-icon w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 className="search-input"
@@ -715,7 +733,8 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               className={`filter-toggle-btn ${showFilters || hasActiveFilters ? 'active' : ''}`}
               onClick={() => setShowFilters(!showFilters)}
             >
-              <span>⚡ Filtres</span>
+              <SlidersHorizontal className="w-4 h-4 mr-1.5 inline" />
+              <span>Filtres</span>
               {activeFiltersCount > 0 && (
                 <span className="filter-count-badge">{activeFiltersCount}</span>
               )}
@@ -740,7 +759,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               <div className="filter-grid">
                 {/* Période / Scope */}
                 <div className="filter-group">
-                  <label className="filter-label">📅 Période</label>
+                  <label className="filter-label">Période</label>
                   <select
                     className="filter-select"
                     value={filterScope}
@@ -777,7 +796,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
                 {/* Type */}
                 <div className="filter-group">
-                  <label className="filter-label">📊 Type</label>
+                  <label className="filter-label">Type</label>
                   <select
                     className="filter-select"
                     value={filterType}
@@ -792,7 +811,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
                 {/* Compte */}
                 <div className="filter-group">
-                  <label className="filter-label">💳 Compte</label>
+                  <label className="filter-label">Compte</label>
                   <select
                     className="filter-select"
                     value={filterAccount}
@@ -807,7 +826,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
                 {/* Catégorie */}
                 <div className="filter-group">
-                  <label className="filter-label">🏷️ Catégorie</label>
+                  <label className="filter-label">Catégorie</label>
                   <select
                     className="filter-select"
                     value={filterCategory}
@@ -822,7 +841,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
                 {/* Statut */}
                 <div className="filter-group">
-                  <label className="filter-label">🔘 Statut</label>
+                  <label className="filter-label">Statut</label>
                   <select
                     className="filter-select"
                     value={filterState}
@@ -837,7 +856,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
                 {/* Montant Min / Max */}
                 <div className="filter-group">
-                  <label className="filter-label">💶 Montant Min (€)</label>
+                  <label className="filter-label">Montant Min (€)</label>
                   <input
                     type="number"
                     placeholder="Min"
@@ -847,7 +866,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                   />
                 </div>
                 <div className="filter-group">
-                  <label className="filter-label">💶 Montant Max (€)</label>
+                  <label className="filter-label">Montant Max (€)</label>
                   <input
                     type="number"
                     placeholder="Max"
@@ -865,7 +884,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <div className="filter-results-banner">
               <div className="results-left">
                 <span className="results-text">
-                  🎯 <strong>{filteredTransactions.length}</strong> transaction(s) trouvée(s)
+                  <strong>{filteredTransactions.length}</strong> transaction(s) trouvée(s)
                   {filterScope === 'all_time' ? " (sur tout l'historique)" : ''}
                 </span>
                 {filteredTransactions.length > 0 && (
@@ -874,7 +893,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                     className="bulk-select-toggle-btn"
                     onClick={selectedTransactionIds.size === filteredTransactions.length ? deselectAll : selectAllFiltered}
                   >
-                    {selectedTransactionIds.size === filteredTransactions.length ? '◻️ Tout désélectionner' : `☑️ Tout sélectionner (${filteredTransactions.length})`}
+                    {selectedTransactionIds.size === filteredTransactions.length ? 'Tout désélectionner' : `Tout sélectionner (${filteredTransactions.length})`}
                   </button>
                 )}
               </div>
@@ -897,11 +916,12 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <div className="bulk-actions-buttons">
               <button
                 type="button"
-                className="btn-danger-bulk"
+                className="btn-danger-bulk flex items-center gap-1.5"
                 onClick={handleBulkDelete}
                 disabled={isBulkDeleting}
               >
-                {isBulkDeleting ? "Suppression en cours..." : `🗑️ Supprimer la sélection (${selectedTransactionIds.size})`}
+                <Trash2 className="w-4 h-4" />
+                <span>{isBulkDeleting ? "Suppression en cours..." : `Supprimer la sélection (${selectedTransactionIds.size})`}</span>
               </button>
               <button
                 type="button"
@@ -970,19 +990,19 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
         {/* Résumé des totaux */}
         <div className="totals-summary">
           <div className="total-card income">
-            <span className="total-label">💰 Revenus</span>
+            <span className="total-label">Revenus</span>
             <span className="total-amount">{formatAmount(totals.income)}</span>
           </div>
           <div className="total-card expense">
-            <span className="total-label">💸 Dépenses</span>
+            <span className="total-label">Dépenses</span>
             <span className="total-amount">{formatAmount(Math.abs(totals.expense))}</span>
           </div>
           <div className="total-card transfer">
-            <span className="total-label">🔄 Virements</span>
+            <span className="total-label">Virements</span>
             <span className="total-amount">{formatAmount(totals.transfer)}</span>
           </div>
           <div className="total-card balance">
-            <span className="total-label">🏦 Solde fin de mois</span>
+            <span className="total-label">Solde fin de mois</span>
             <span className={`total-amount ${endOfMonthBalance >= 0 ? 'positive' : 'negative'}`}>
               {formatAmount(endOfMonthBalance)}
             </span>
@@ -1092,7 +1112,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
               <div className="calendar-day-panel">
                 <div className="calendar-day-panel-header">
                   <div className="panel-header-info">
-                    <h3>📅 {formatDate(selectedCalendarDay)}</h3>
+                    <h3>{formatDate(selectedCalendarDay)}</h3>
                     {dailyBalancesMap[selectedCalendarDay] !== undefined && (
                       <span className={`day-balance-badge badge-${getBalanceStatus(dailyBalancesMap[selectedCalendarDay])}`}>
                         {getBalanceBadgeIcon(dailyBalancesMap[selectedCalendarDay])} Solde fin de journée : {formatAmount(dailyBalancesMap[selectedCalendarDay])}
@@ -1102,8 +1122,9 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                   <button className="close-btn" onClick={() => setSelectedCalendarDay(null)}>×</button>
                 </div>
                 {dailyBalancesMap[selectedCalendarDay] !== undefined && dailyBalancesMap[selectedCalendarDay] < 0 && (
-                  <div className="negative-balance-alert">
-                    ⚠️ <strong>Solde négatif :</strong> Votre compte sera à <strong>{formatAmount(dailyBalancesMap[selectedCalendarDay])}</strong> en fin de journée.
+                  <div className="negative-balance-alert flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span><strong>Solde négatif :</strong> Votre compte sera à <strong>{formatAmount(dailyBalancesMap[selectedCalendarDay])}</strong> en fin de journée.</span>
                   </div>
                 )}
                 {selectedDayTransactions.length === 0 ? (
@@ -1143,7 +1164,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>
-                  {isDuplicating ? "📋 Dupliquer la transaction" : editingTransaction ? "Modifier la transaction" : "Nouvelle transaction"}
+                  {isDuplicating ? "Dupliquer la transaction" : editingTransaction ? "Modifier la transaction" : "Nouvelle transaction"}
                 </h2>
                 <button className="close-btn" onClick={handleCloseModal}>
                   ×
@@ -1190,28 +1211,31 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
                 {/* Tabs: Revenu / Dépense / Virement */}
                 <div className="form-group">
-                  <label>Catégorie</label>
+                  <label>Type de flux</label>
                   <div className="tabs">
                     <button
                       type="button"
-                      className={`tab ${formData.type === TransactionType.INCOME ? 'active' : ''}`}
+                      className={`tab flex items-center justify-center gap-1.5 ${formData.type === TransactionType.INCOME ? 'active' : ''}`}
                       onClick={() => setFormData({ ...formData, type: TransactionType.INCOME })}
                     >
-                      💰 Revenu
+                      <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
+                      <span>Revenu</span>
                     </button>
                     <button
                       type="button"
-                      className={`tab ${formData.type === TransactionType.EXPENSE ? 'active' : ''}`}
+                      className={`tab flex items-center justify-center gap-1.5 ${formData.type === TransactionType.EXPENSE ? 'active' : ''}`}
                       onClick={() => setFormData({ ...formData, type: TransactionType.EXPENSE })}
                     >
-                      💸 Dépense
+                      <ArrowUpRight className="w-4 h-4 text-rose-600" />
+                      <span>Dépense</span>
                     </button>
                     <button
                       type="button"
-                      className={`tab ${formData.type === TransactionType.TRANSFER ? 'active' : ''}`}
+                      className={`tab flex items-center justify-center gap-1.5 ${formData.type === TransactionType.TRANSFER ? 'active' : ''}`}
                       onClick={() => setFormData({ ...formData, type: TransactionType.TRANSFER })}
                     >
-                      🔄 Virement
+                      <ArrowLeftRight className="w-4 h-4 text-sky-600" />
+                      <span>Virement</span>
                     </button>
                   </div>
                 </div>
@@ -1293,7 +1317,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                         .filter(c => c.type === formData.type)
                         .map((category) => (
                           <option key={category.id} value={category.id}>
-                            {category.icon} {category.name}
+                            {category.name}
                           </option>
                         ))}
                     </select>
@@ -1387,7 +1411,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                     Annuler
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    {isDuplicating ? "Créer la copie 📋" : editingTransaction ? "Enregistrer" : "Créer"}
+                    {isDuplicating ? "Créer la copie" : editingTransaction ? "Enregistrer" : "Créer"}
                   </button>
                 </div>
               </form>
@@ -1546,7 +1570,13 @@ function TransactionCard({
         </label>
       )}
       <div className="transaction-icon">
-        {TRANSACTION_TYPE_ICONS[transaction.type]}
+        {isIncome ? (
+          <ArrowDownLeft className="w-5 h-5 text-emerald-500" />
+        ) : isTransfer ? (
+          <ArrowLeftRight className="w-5 h-5 text-sky-500" />
+        ) : (
+          <ArrowUpRight className="w-5 h-5 text-rose-500" />
+        )}
       </div>
       <div className="transaction-info">
         <div className="transaction-main">
@@ -1573,17 +1603,28 @@ function TransactionCard({
               </span>
             )
           )}
-          {category && <span className="detail-item">🏷️ {category.name}</span>}
+          {category && (
+            <span className="detail-item flex items-center gap-1">
+              <Tag className="w-3 h-3 text-slate-400" />
+              <span>{category.name}</span>
+            </span>
+          )}
         </div>
       </div>
       <div className="transaction-amount-actions">
         <span className={`transaction-amount ${isIncome ? 'income' : isTransfer ? 'transfer' : 'expense'}`}>
-          {isIncome ? '+' : isTransfer ? '🔄 ' : '-'}{formatAmount(Math.abs(transaction.amount))}
+          {isIncome ? '+' : isTransfer ? '' : '-'}{formatAmount(Math.abs(transaction.amount))}
         </span>
         <div className="transaction-actions">
-          <button className="btn-action" onClick={() => onDuplicate(transaction)} title="Dupliquer">📋</button>
-          <button className="btn-action" onClick={() => onEdit(transaction)} title="Modifier">✏️</button>
-          <button className="btn-action" onClick={() => onDelete(transaction)} title="Supprimer">🗑️</button>
+          <button className="btn-action" onClick={() => onDuplicate(transaction)} title="Dupliquer">
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <button className="btn-action" onClick={() => onEdit(transaction)} title="Modifier">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button className="btn-action" onClick={() => onDelete(transaction)} title="Supprimer">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

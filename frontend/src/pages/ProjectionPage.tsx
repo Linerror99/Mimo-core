@@ -5,6 +5,7 @@ import { accountService } from '../services/accountService';
 import { MonthlyProjection, formatMonth, formatProjectionAmount } from '../types/projection';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ProjectionSkeleton } from '@/components/skeletons/ProjectionSkeleton';
+import { RotateCcw, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import '../styles/Projection.css';
 
 type Page =
@@ -247,7 +248,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
       <div className="projection-page">
         <div className="header">
           <div>
-            <h1>📈 Projections Financières</h1>
+            <h1>Projections Financières</h1>
             <p className="subtitle">Visualisez et anticipez l'évolution de vos finances</p>
           </div>
           <div className="header-actions">
@@ -255,8 +256,9 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
               <span className="label">Solde actuel:</span>
               <span className="value">{formatCurrency(totalBalance)}</span>
             </div>
-            <button className="btn btn-secondary" onClick={loadData}>
-              🔄 Actualiser
+            <button className="btn btn-secondary flex items-center gap-1.5" onClick={loadData}>
+              <RotateCcw className="w-4 h-4" />
+              <span>Actualiser</span>
             </button>
           </div>
         </div>
@@ -273,7 +275,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
         {/* Sélecteur d'horizon et de dates personnalisées */}
         <div className="projection-horizon-card">
           <div className="horizon-presets">
-            <span className="horizon-label">⏱️ Horizon :</span>
+            <span className="horizon-label">Horizon :</span>
             <button
               type="button"
               className={`preset-btn ${preset === '6m' ? 'active' : ''}`}
@@ -431,13 +433,13 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
             {/* Tableau de projection groupé par Année */}
             <div className="projection-table-section">
               <div className="table-section-header">
-                <h2>📅 Rapport détaillé par Année & Mois</h2>
+                <h2>Rapport détaillé par Année & Mois</h2>
                 <div className="table-controls">
                   <button type="button" className="btn-toggle-all" onClick={expandAll}>
-                    📂 Tout déplier
+                    Tout déplier
                   </button>
                   <button type="button" className="btn-toggle-all" onClick={collapseAll}>
-                    📁 Tout replier
+                    Tout replier
                   </button>
                 </div>
               </div>
@@ -462,7 +464,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                       >
                         <div className="col-month year-title">
                           <span className="expand-icon">{isYearExpanded ? '▼' : '▶'}</span>
-                          <strong>📅 Année {group.year}</strong>
+                          <strong>Année {group.year}</strong>
                           <span className="year-badge">{group.months.length} mois</span>
                         </div>
                         <div className="col-amount income year-amount">
@@ -550,28 +552,28 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
               <h2>Résumé sur la période ({formatDuration(totalMonths)})</h2>
               <div className="summary-cards">
                 <div className="summary-card income-card">
-                  <div className="summary-label">💰 Revenus totaux</div>
+                  <div className="summary-label">Revenus totaux</div>
                   <div className="summary-value">
                     {formatCurrency(totalIncome)}
                   </div>
                 </div>
 
                 <div className="summary-card expense-card">
-                  <div className="summary-label">💸 Dépenses totales</div>
+                  <div className="summary-label">Dépenses totales</div>
                   <div className="summary-value">
                     {formatCurrency(totalExpense)}
                   </div>
                 </div>
 
                 <div className="summary-card balance-card">
-                  <div className="summary-label">📊 Flux net cumulé</div>
+                  <div className="summary-label">Flux net cumulé</div>
                   <div className={`summary-value ${getBalanceClass(netFlow)}`}>
                     {netFlow >= 0 ? '+' : ''}{formatCurrency(netFlow)}
                   </div>
                 </div>
 
                 <div className="summary-card final-balance-card">
-                  <div className="summary-label">🏦 Solde final projeté</div>
+                  <div className="summary-label">Solde final projeté</div>
                   <div className={`summary-value ${getBalanceClass(finalProjectedBalance)}`}>
                     {formatCurrency(finalProjectedBalance)}
                   </div>
@@ -579,26 +581,29 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
               </div>
 
               <div className="insights">
-                <h3>💡 Analyse de viabilité</h3>
+                <h3>Analyse de viabilité</h3>
                 {(() => {
                   const negativeMonths = projections.filter(p => p.balance < 0);
                   
                   if (negativeMonths.length === 0) {
                     return (
-                      <p className="insight positive">
-                        ✅ <strong>Excellente santé financière :</strong> Aucun découvert projeté sur la période de {formatDuration(totalMonths)} !
+                      <p className="insight positive flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span><strong>Excellente santé financière :</strong> Aucun découvert projeté sur la période de {formatDuration(totalMonths)} !</span>
                       </p>
                     );
                   } else if (negativeMonths.length <= 3) {
                     return (
-                      <p className="insight warning">
-                        ⚠️ <strong>Attention :</strong> {negativeMonths.length} mois avec solde négatif détecté(s) sur la période de {formatDuration(totalMonths)} : {negativeMonths.map(m => formatMonth(m.month, m.year)).join(', ')}.
+                      <p className="insight warning flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                        <span><strong>Attention :</strong> {negativeMonths.length} mois avec solde négatif détecté(s) sur la période de {formatDuration(totalMonths)} : {negativeMonths.map(m => formatMonth(m.month, m.year)).join(', ')}.</span>
                       </p>
                     );
                   } else {
                     return (
-                      <p className="insight negative">
-                        ❌ <strong>Alerte découvert prolongé :</strong> {negativeMonths.length} mois en négatif sur la période de {formatDuration(totalMonths)}. Vos dépenses dépassent durablement vos revenus.
+                      <p className="insight negative flex items-center gap-2">
+                        <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span><strong>Alerte découvert prolongé :</strong> {negativeMonths.length} mois en négatif sur la période de {formatDuration(totalMonths)}. Vos dépenses dépassent durablement vos revenus.</span>
                       </p>
                     );
                   }

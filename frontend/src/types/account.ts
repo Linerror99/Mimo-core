@@ -51,12 +51,3 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   [AccountType.CASH]: "Espèces",
   [AccountType.OTHER]: "Autre",
 };
-
-export const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
-  [AccountType.CHECKING]: "💳",
-  [AccountType.SAVINGS]: "🏦",
-  [AccountType.INVESTMENT]: "📈",
-  [AccountType.LOAN]: "💰",
-  [AccountType.CASH]: "💵",
-  [AccountType.OTHER]: "🔖",
-};
