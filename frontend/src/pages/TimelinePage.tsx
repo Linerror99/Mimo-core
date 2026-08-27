@@ -213,7 +213,10 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     }
   };
 
+  const [isDuplicating, setIsDuplicating] = useState(false);
+
   const handleOpenModal = (transaction?: Transaction) => {
+    setIsDuplicating(false);
     if (transaction) {
       setEditingTransaction(transaction);
       setIsRecurring(!!transaction.recurring_template_id);
@@ -241,10 +244,27 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     setShowModal(true);
   };
 
+  const handleDuplicate = (transaction: Transaction) => {
+    setEditingTransaction(null); // Mode création
+    setIsDuplicating(true);
+    setIsRecurring(false);
+    setFormData({
+      amount: Math.abs(transaction.amount),
+      description: `${transaction.description} (copie)`,
+      transaction_date: transaction.transaction_date,
+      type: transaction.type,
+      account_id: transaction.account_id,
+      category_id: transaction.category_id,
+      destination_account_id: transaction.destination_account_id,
+    });
+    setShowModal(true);
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingTransaction(null);
     setIsRecurring(false);
+    setIsDuplicating(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -311,7 +331,11 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       setAllTransactions(txs);
       handleCloseModal();
       showFeedback({
-        title: editingTransaction ? "Transaction modifiée ! ✅" : "Transaction enregistrée ! ✅",
+        title: isDuplicating
+          ? "Transaction dupliquée ! 📋"
+          : editingTransaction
+          ? "Transaction modifiée ! ✅"
+          : "Transaction enregistrée ! ✅",
         message: `La transaction "${formData.description}" a été enregistrée avec succès.`,
         type: "success"
       });
@@ -999,6 +1023,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           accounts={accounts}
                           categories={categories}
                           onEdit={handleOpenModal}
+                          onDuplicate={handleDuplicate}
                           onDelete={handleDelete}
                           formatAmount={formatAmount}
                           isSelected={selectedTransactionIds.has(transaction.id)}
@@ -1098,6 +1123,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                         accounts={accounts}
                         categories={categories}
                         onEdit={handleOpenModal}
+                        onDuplicate={handleDuplicate}
                         onDelete={handleDelete}
                         formatAmount={formatAmount}
                         isSelected={selectedTransactionIds.has(transaction.id)}
@@ -1117,7 +1143,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
             <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>
-                  {editingTransaction ? "Modifier la transaction" : "Nouvelle transaction"}
+                  {isDuplicating ? "📋 Dupliquer la transaction" : editingTransaction ? "Modifier la transaction" : "Nouvelle transaction"}
                 </h2>
                 <button className="close-btn" onClick={handleCloseModal}>
                   ×
@@ -1361,7 +1387,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                     Annuler
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    {editingTransaction ? "Enregistrer" : "Créer"}
+                    {isDuplicating ? "Créer la copie 📋" : editingTransaction ? "Enregistrer" : "Créer"}
                   </button>
                 </div>
               </form>
@@ -1424,28 +1450,28 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                       <p>Supprimer les occurrences entre deux dates</p>
                     </div>
                   </label>
-
-                  {deleteOption === 'period' && (
-                    <div className="period-inputs">
-                      <div className="form-group">
-                        <label>Date de début</label>
-                        <input
-                          type="date"
-                          value={deletePeriod.start}
-                          onChange={(e) => setDeletePeriod({ ...deletePeriod, start: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Date de fin</label>
-                        <input
-                          type="date"
-                          value={deletePeriod.end}
-                          onChange={(e) => setDeletePeriod({ ...deletePeriod, end: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
+
+                {deleteOption === 'period' && (
+                  <div className="delete-period-inputs">
+                    <div className="form-group">
+                      <label>Du</label>
+                      <input
+                        type="date"
+                        value={deletePeriod.start}
+                        onChange={(e) => setDeletePeriod({ ...deletePeriod, start: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Au</label>
+                      <input
+                        type="date"
+                        value={deletePeriod.end}
+                        onChange={(e) => setDeletePeriod({ ...deletePeriod, end: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="modal-actions">
                   <button
@@ -1478,6 +1504,7 @@ interface TransactionCardProps {
   accounts: Account[];
   categories: Category[];
   onEdit: (t: Transaction) => void;
+  onDuplicate: (t: Transaction) => void;
   onDelete: (t: Transaction) => void;
   formatAmount: (n: number) => string;
   isSelected?: boolean;
@@ -1489,6 +1516,7 @@ function TransactionCard({
   accounts,
   categories,
   onEdit,
+  onDuplicate,
   onDelete,
   formatAmount,
   isSelected,
@@ -1553,6 +1581,7 @@ function TransactionCard({
           {isIncome ? '+' : isTransfer ? '🔄 ' : '-'}{formatAmount(Math.abs(transaction.amount))}
         </span>
         <div className="transaction-actions">
+          <button className="btn-action" onClick={() => onDuplicate(transaction)} title="Dupliquer">📋</button>
           <button className="btn-action" onClick={() => onEdit(transaction)} title="Modifier">✏️</button>
           <button className="btn-action" onClick={() => onDelete(transaction)} title="Supprimer">🗑️</button>
         </div>
