@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Layout } from '@/components/Layout'
+import { SettingsHeader } from '@/components/SettingsHeader'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,9 +37,12 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'settings'
   | 'settings-profile'
   | 'settings-household'
+  | 'settings-invitations'
   | 'trash'
+  | 'notifications'
 
 interface SettingsHouseholdProps {
   navigate: (page: Page) => void
@@ -115,11 +119,13 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
 
   return (
     <Layout currentPage="settings-household" navigate={navigate} onLogout={onLogout}>
-      <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Paramètres du Foyer</h1>
-          <p className="text-muted-foreground">Gérez votre foyer et vos partenaires</p>
-        </div>
+      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+        <SettingsHeader
+          currentTab="household"
+          navigate={navigate}
+          title="Paramètres du Foyer"
+          description="Gérez votre foyer, vos membres et le mode couple"
+        />
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">

@@ -33,8 +33,10 @@ type Page =
   | 'recurring'
   | 'projections'
   | 'goals' 
+  | 'settings'
   | 'settings-profile' 
   | 'settings-household' 
+  | 'settings-invitations'
   | 'trash'
   | 'notifications'
 
@@ -186,7 +188,20 @@ function AppRoutes() {
         path="/settings/invitations" 
         element={
           <ProtectedRoute>
-            <Settings />
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Settings navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/settings-invitations" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <Settings navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 
       />

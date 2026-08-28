@@ -23,8 +23,10 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'settings'
   | 'settings-profile'
   | 'settings-household'
+  | 'settings-invitations'
   | 'trash'
   | 'notifications'
 
@@ -119,7 +121,7 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
+            <DropdownMenuLabel>Paramètres & Compte</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate('settings-profile')}>
               <User className="w-4 h-4 mr-2" />
@@ -127,9 +129,9 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('settings-household')}>
               <Settings className="w-4 h-4 mr-2" />
-              Foyer
+              Foyer & Membres
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.location.href = '/settings/invitations'}>
+            <DropdownMenuItem onClick={() => navigate('settings-invitations')}>
               <UserPlus className="w-4 h-4 mr-2" />
               Invitations
             </DropdownMenuItem>
