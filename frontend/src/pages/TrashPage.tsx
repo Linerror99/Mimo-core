@@ -52,7 +52,7 @@ export function Trash({ navigate, onLogout }: TrashPageProps) {
     try {
       setLoading(true);
       const [deletedTxs, accountsData, categoriesData] = await Promise.all([
-        transactionService.getDeleted(),
+        transactionService.listTrash(),
         accountService.getAccounts(true),
         categoryService.getCategories(),
       ]);

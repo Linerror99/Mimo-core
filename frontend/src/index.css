@@ -242,3 +242,49 @@ html {
 .landing-gradient {
   background: linear-gradient(135deg, #f8f7ff 0%, #fafbfc 40%, #f5f3ff 100%) !important;
 }
+
+/* ====== DARK MODE OVERRIDES ====== */
+.dark {
+  --background: oklch(0.16 0.01 278);
+  --foreground: oklch(0.93 0 0);
+
+  --card: oklch(0.20 0.01 278);
+  --card-foreground: oklch(0.93 0 0);
+
+  --popover: oklch(0.22 0.01 278);
+  --popover-foreground: oklch(0.93 0 0);
+
+  --primary: oklch(0.65 0.20 278);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.22 0.01 278);
+  --secondary-foreground: oklch(0.90 0 0);
+
+  --muted: oklch(0.25 0.01 278);
+  --muted-foreground: oklch(0.60 0 0);
+
+  --accent: oklch(0.65 0.20 300);
+  --accent-foreground: oklch(1 0 0);
+
+  --destructive: oklch(0.63 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.28 0.01 278);
+  --input: oklch(0.25 0.01 278);
+  --ring: oklch(0.65 0.20 278);
+
+  --card-bg: oklch(0.20 0.01 278);
+  --text-primary: oklch(0.93 0 0);
+  --text-secondary: oklch(0.60 0 0);
+  --border-color: oklch(0.28 0.01 278);
+  --hover-bg: oklch(0.25 0.02 278);
+  --input-bg: oklch(0.22 0.01 278);
+  --primary-color: oklch(0.65 0.20 278);
+  --error-color: oklch(0.63 0.22 25);
+  --error-light: oklch(0.25 0.05 25);
+}
+
+.dark body {
+  background-color: oklch(0.14 0.01 278);
+}
+
