@@ -180,6 +180,30 @@ class TransactionService:
         )
         return result.scalar_one_or_none()
 
+    async def auto_transition_due_transactions(self, household_id: str) -> int:
+        """
+        Transitionne automatiquement les transactions PROJECTED échues (date <= today) en PENDING
+        """
+        today = date.today()
+        query = select(Transaction).where(
+            and_(
+                Transaction.household_id == household_id,
+                Transaction.state == TransactionState.PROJECTED,
+                Transaction.transaction_date <= today,
+                Transaction.deleted_at.is_(None)
+            )
+        )
+        result = await self.db.execute(query)
+        due_transactions = list(result.scalars().all())
+
+        if due_transactions:
+            for tx in due_transactions:
+                tx.state = TransactionState.PENDING
+                tx.updated_at = datetime.utcnow()
+            await self.db.commit()
+            return len(due_transactions)
+        return 0
+
     async def list_transactions(
         self,
         household_id: str,
@@ -193,20 +217,10 @@ class TransactionService:
     ) -> List[Transaction]:
         """
         Lister les transactions avec filtres
-
-        Args:
-            household_id: ID du foyer
-            start_date: Date de début (inclusive)
-            end_date: Date de fin (inclusive)
-            transaction_type: Filtrer par type
-            account_id: Filtrer par compte
-            category_id: Filtrer par catégorie
-            state: Filtrer par état (REALIZED ou PROJECTED)
-            include_deleted: Inclure les transactions supprimées
-
-        Returns:
-            Liste des transactions
         """
+        # Auto-transition des transactions PROJECTED échues pour garder la timeline et le dashboard à jour
+        await self.auto_transition_due_transactions(household_id)
+
         conditions = [Transaction.household_id == household_id]
 
         # Filtre deleted
@@ -231,12 +245,9 @@ class TransactionService:
         if category_id:
             conditions.append(Transaction.category_id == category_id)
 
-        # Filtre state (REALIZED vs PROJECTED)
-        # Note: state est une propriété calculée, donc on filtre sur la date
-        if state == TransactionState.REALIZED:
-            conditions.append(Transaction.transaction_date <= date.today())
-        elif state == TransactionState.PROJECTED:
-            conditions.append(Transaction.transaction_date > date.today())
+        # Filtre state
+        if state:
+            conditions.append(Transaction.state == state)
 
         result = await self.db.execute(
             select(Transaction)
@@ -493,13 +504,9 @@ class TransactionService:
     ) -> List[Transaction]:
         """
         Lister toutes les transactions PENDING d'un foyer
-
-        Args:
-            household_id: ID du foyer
-
-        Returns:
-            Liste des transactions en attente de validation
         """
+        await self.auto_transition_due_transactions(household_id)
+
         result = await self.db.execute(
             select(Transaction)
             .where(

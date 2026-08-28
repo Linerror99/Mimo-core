@@ -37,7 +37,9 @@ import {
   Tag,
   AlertTriangle,
   Repeat,
-  Plus
+  Plus,
+  Check,
+  AlertCircle
 } from "lucide-react";
 import "../styles/Timeline.css";
 
@@ -417,6 +419,47 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la suppression");
+    }
+  };
+
+  const handleValidateTransaction = async (id: string) => {
+    try {
+      await transactionService.validate(id);
+      showFeedback({
+        title: "Transaction validée",
+        message: "La transaction a été confirmée avec succès.",
+        type: "success"
+      });
+      const txs = await transactionService.list();
+      setAllTransactions(txs);
+      await loadData();
+    } catch (err: any) {
+      showFeedback({
+        title: "Erreur",
+        message: err.response?.data?.detail || "Erreur lors de la validation",
+        type: "error"
+      });
+    }
+  };
+
+  const handleValidateAllPending = async () => {
+    try {
+      const pendingTxs = allTransactions.filter(t => t.state === TransactionState.PENDING && !t.deleted_at);
+      await Promise.all(pendingTxs.map(t => transactionService.validate(t.id)));
+      showFeedback({
+        title: "Validation groupée",
+        message: `${pendingTxs.length} transaction(s) ont été validées avec succès.`,
+        type: "success"
+      });
+      const txs = await transactionService.list();
+      setAllTransactions(txs);
+      await loadData();
+    } catch (err: any) {
+      showFeedback({
+        title: "Erreur",
+        message: err.response?.data?.detail || "Erreur lors de la validation groupée",
+        type: "error"
+      });
     }
   };
 
@@ -987,6 +1030,29 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
           />
         </div>
 
+        {/* Bannière transactions en attente de validation */}
+        {allTransactions.filter(t => t.state === TransactionState.PENDING && !t.deleted_at).length > 0 && (
+          <div className="pending-alert-banner">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <div>
+                <strong className="text-amber-900 font-semibold">
+                  {allTransactions.filter(t => t.state === TransactionState.PENDING && !t.deleted_at).length} transaction(s) à valider aujourd'hui
+                </strong>
+                <p className="text-xs text-amber-700 mt-0.5">Ces opérations sont arrivées à échéance et attendent votre confirmation.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm"
+              onClick={handleValidateAllPending}
+            >
+              <Check className="w-4 h-4" />
+              <span>Tout valider</span>
+            </button>
+          </div>
+        )}
+
         {/* Résumé des totaux */}
         <div className="totals-summary">
           <div className="total-card income">
@@ -1045,6 +1111,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                           onEdit={handleOpenModal}
                           onDuplicate={handleDuplicate}
                           onDelete={handleDelete}
+                          onValidate={handleValidateTransaction}
                           formatAmount={formatAmount}
                           isSelected={selectedTransactionIds.has(transaction.id)}
                           onToggleSelect={toggleSelectTransaction}
@@ -1146,6 +1213,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                         onEdit={handleOpenModal}
                         onDuplicate={handleDuplicate}
                         onDelete={handleDelete}
+                        onValidate={handleValidateTransaction}
                         formatAmount={formatAmount}
                         isSelected={selectedTransactionIds.has(transaction.id)}
                         onToggleSelect={toggleSelectTransaction}
@@ -1527,10 +1595,11 @@ interface TransactionCardProps {
   transaction: Transaction;
   accounts: Account[];
   categories: Category[];
-  onEdit: (t: Transaction) => void;
-  onDuplicate: (t: Transaction) => void;
-  onDelete: (t: Transaction) => void;
-  formatAmount: (n: number) => string;
+  onEdit: (transaction: Transaction) => void;
+  onDuplicate: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
+  onValidate?: (id: string) => void;
+  formatAmount: (amount: number) => string;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
 }
@@ -1542,6 +1611,7 @@ function TransactionCard({
   onEdit,
   onDuplicate,
   onDelete,
+  onValidate,
   formatAmount,
   isSelected,
   onToggleSelect
@@ -1550,11 +1620,12 @@ function TransactionCard({
   const destinationAccount = accounts.find(a => a.id === transaction.destination_account_id);
   const category = categories.find(c => c.id === transaction.category_id);
   const isProjected = transaction.state === TransactionState.PROJECTED;
+  const isPending = transaction.state === TransactionState.PENDING;
   const isIncome = transaction.type === TransactionType.INCOME;
   const isTransfer = transaction.type === TransactionType.TRANSFER;
 
   return (
-    <div className={`transaction-card ${isProjected ? 'projected' : ''} ${isSelected ? 'selected' : ''}`}>
+    <div className={`transaction-card ${isProjected ? 'projected' : ''} ${isPending ? 'pending' : ''} ${isSelected ? 'selected' : ''}`}>
       {onToggleSelect && (
         <label
           className="transaction-checkbox-wrapper"
@@ -1582,6 +1653,7 @@ function TransactionCard({
         <div className="transaction-main">
           <span className="transaction-description">{transaction.description}</span>
           {isProjected && <span className="badge badge-projected">Projeté</span>}
+          {isPending && <span className="badge badge-pending">À valider</span>}
           {transaction.recurring_template_id && (
             <span className="badge badge-recurring">Récurrent</span>
           )}
@@ -1616,6 +1688,20 @@ function TransactionCard({
           {isIncome ? '+' : isTransfer ? '' : '-'}{formatAmount(Math.abs(transaction.amount))}
         </span>
         <div className="transaction-actions">
+          {isPending && onValidate && (
+            <button
+              type="button"
+              className="btn-validate-quick"
+              onClick={(e) => {
+                e.stopPropagation();
+                onValidate(transaction.id);
+              }}
+              title="Valider cette transaction"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Valider</span>
+            </button>
+          )}
           <button className="btn-action" onClick={() => onDuplicate(transaction)} title="Dupliquer">
             <Copy className="w-3.5 h-3.5" />
           </button>
