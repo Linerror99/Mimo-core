@@ -5,7 +5,7 @@ import { accountService } from '../services/accountService';
 import { MonthlyProjection, formatMonth, formatProjectionAmount } from '../types/projection';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ProjectionSkeleton } from '@/components/skeletons/ProjectionSkeleton';
-import { RotateCcw, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { RotateCcw, AlertTriangle, CheckCircle2, XCircle, Maximize2, Minimize2, X } from 'lucide-react';
 import '../styles/Projection.css';
 
 type Page =
@@ -51,6 +51,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
 
   const [preset, setPreset] = useState<'6m' | '1y' | '2y' | '5y' | '10y' | 'custom'>('1y');
   const [viewMode, setViewMode] = useState<'both' | 'patrimoine' | 'tresorerie'>('both');
+  const [fullscreenChart, setFullscreenChart] = useState<'line' | 'bar' | null>(null);
 
   const [projections, setProjections] = useState<MonthlyProjection[]>([]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
@@ -226,8 +227,8 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
     const years = Math.floor(monthsCount / 12);
     const remMonths = monthsCount % 12;
     if (years === 0) return `${monthsCount} mois`;
-    if (remMonths === 0) return `${years} an${years > 1 ? 's' : ''} (${monthsCount} mois)`;
-    return `${years} an${years > 1 ? 's' : ''} et ${remMonths} mois (${monthsCount} mois)`;
+    if (remMonths === 0) return `${years} an${years > 1 ? 's' : ''}`;
+    return `${years} an${years > 1 ? 's' : ''} et ${remMonths} mois`;
   };
 
   const getBalanceClass = (balance: number) => {
@@ -235,6 +236,17 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
     if (balance < 0) return 'negative';
     return 'neutral';
   };
+
+  // Fermer le mode plein écran avec la touche Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFullscreenChart(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const totalIncome = projections.reduce((sum, p) => sum + p.income, 0);
   const totalExpense = projections.reduce((sum, p) => sum + p.expense, 0);
@@ -415,7 +427,17 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
             {/* Graphiques */}
             <div className="charts-section">
               <div className="chart-container">
-                <h2>Évolution du solde sur {totalMonths} mois ({yearGroups.length} an{yearGroups.length > 1 ? 's' : ''})</h2>
+                <div className="chart-container-header">
+                  <h2>Évolution du solde sur {formatDuration(totalMonths)}</h2>
+                  <button
+                    type="button"
+                    className="btn-chart-expand"
+                    onClick={() => setFullscreenChart('line')}
+                    title="Agrandir le graphique"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={projections.map(p => ({
                     month: formatMonth(p.month, p.year),
@@ -456,11 +478,21 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
               </div>
 
               <div className="chart-container">
-                <h2>
-                  {viewMode === 'patrimoine' 
-                    ? `Revenus vs Dépenses (${totalMonths} mois)`
-                    : `Revenus vs Dépenses vs Épargne (${totalMonths} mois)`}
-                </h2>
+                <div className="chart-container-header">
+                  <h2>
+                    {viewMode === 'patrimoine' 
+                      ? `Revenus vs Dépenses (${formatDuration(totalMonths)})`
+                      : `Revenus vs Dépenses vs Épargne (${formatDuration(totalMonths)})`}
+                  </h2>
+                  <button
+                    type="button"
+                    className="btn-chart-expand"
+                    onClick={() => setFullscreenChart('bar')}
+                    title="Agrandir le graphique"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={projections.map(p => ({
                     month: formatMonth(p.month, p.year),
@@ -485,6 +517,103 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Modal Graphique Agrandie (Plein Écran) */}
+            {fullscreenChart && (
+              <div className="chart-fullscreen-overlay" onClick={() => setFullscreenChart(null)}>
+                <div className="chart-fullscreen-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="chart-fullscreen-header">
+                    <div>
+                      <h2>
+                        {fullscreenChart === 'line'
+                          ? `Évolution du solde sur ${formatDuration(totalMonths)}`
+                          : (viewMode === 'patrimoine' 
+                              ? `Revenus vs Dépenses (${formatDuration(totalMonths)})`
+                              : `Revenus vs Dépenses vs Épargne (${formatDuration(totalMonths)})`)}
+                      </h2>
+                      <p className="text-sm text-slate-500 mt-1">
+                        {fullscreenChart === 'line' 
+                          ? (viewMode === 'both' ? 'Vue combinée Patrimoine & Trésorerie' : (viewMode === 'patrimoine' ? 'Vue Patrimoine Global' : 'Vue Trésorerie Courante'))
+                          : 'Comparatif mensuel des flux'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-chart-close"
+                      onClick={() => setFullscreenChart(null)}
+                    >
+                      <Minimize2 className="w-4 h-4" />
+                      <span>Réduire (Échap)</span>
+                    </button>
+                  </div>
+
+                  <div style={{ width: '100%', height: 480 }}>
+                    {fullscreenChart === 'line' ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={projections.map(p => ({
+                          month: formatMonth(p.month, p.year),
+                          patrimoine: p.balance,
+                          tresorerie: p.treasury_balance ?? p.balance
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="month" angle={-35} textAnchor="end" height={65} />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            labelStyle={{ color: '#333', fontWeight: 600 }}
+                          />
+                          <Legend verticalAlign="top" height={40} />
+                          {(viewMode === 'both' || viewMode === 'patrimoine') && (
+                            <Line 
+                              type="monotone" 
+                              dataKey="patrimoine" 
+                              stroke="#4f46e5" 
+                              strokeWidth={3}
+                              dot={{ r: totalMonths > 36 ? 1 : 4 }}
+                              name={viewMode === 'both' ? "Patrimoine Global (Avec Épargne)" : "Patrimoine Global"}
+                            />
+                          )}
+                          {(viewMode === 'both' || viewMode === 'tresorerie') && (
+                            <Line 
+                              type="monotone" 
+                              dataKey="tresorerie" 
+                              stroke="#0ea5e9" 
+                              strokeWidth={2.5}
+                              strokeDasharray={viewMode === 'both' ? "5 5" : undefined}
+                              dot={{ r: totalMonths > 36 ? 1 : 4 }}
+                              name={viewMode === 'both' ? "Trésorerie Courante (Après Épargne)" : "Trésorerie Courante"}
+                            />
+                          )}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={projections.map(p => ({
+                          month: formatMonth(p.month, p.year),
+                          revenus: p.income,
+                          dépenses: Math.abs(p.expense),
+                          épargne: p.transfers || 0
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="month" angle={-35} textAnchor="end" height={65} />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            labelStyle={{ color: '#333', fontWeight: 600 }}
+                          />
+                          <Legend verticalAlign="top" height={40} />
+                          <Bar dataKey="revenus" fill="#10b981" name="Revenus" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="dépenses" fill="#ef4444" name="Dépenses" radius={[4, 4, 0, 0]} />
+                          {viewMode !== 'patrimoine' && (
+                            <Bar dataKey="épargne" fill="#0ea5e9" name="Épargne & Projets" radius={[4, 4, 0, 0]} />
+                          )}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Tableau de projection groupé par Année */}
             <div className="projection-table-section">
