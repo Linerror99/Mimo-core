@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -37,7 +37,17 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background flex items-center justify-center p-4">
+      {/* Bouton retour vers la page d'accueil / landing */}
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="absolute top-6 left-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white/90 hover:bg-white px-4 py-2 rounded-xl shadow-xs border border-slate-200 backdrop-blur-sm transition-all hover:scale-105"
+      >
+        <ArrowLeft className="w-4 h-4 text-slate-600" />
+        <span>Retour à l'accueil</span>
+      </button>
+
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 overflow-hidden">

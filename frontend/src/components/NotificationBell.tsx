@@ -16,9 +16,10 @@ import { toast } from 'sonner'
 
 interface NotificationBellProps {
   onNotificationClick?: (notification: Notification) => void
+  onViewAll?: () => void
 }
 
-export function NotificationBell({ onNotificationClick }: NotificationBellProps) {
+export function NotificationBell({ onNotificationClick, onViewAll }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
@@ -89,17 +90,18 @@ export function NotificationBell({ onNotificationClick }: NotificationBellProps)
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notifications</span>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-              onClick={handleMarkAllAsRead}
-            >
-              Tout marquer comme lu
-            </Button>
-          )}
+          <span className="font-bold">Notifications</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto p-0 text-xs text-primary hover:text-primary/80 font-semibold"
+            onClick={() => {
+              setIsOpen(false)
+              onViewAll?.()
+            }}
+          >
+            Tout voir →
+          </Button>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="max-h-96 overflow-y-auto">

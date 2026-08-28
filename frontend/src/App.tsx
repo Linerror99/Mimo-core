@@ -14,6 +14,7 @@ import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
 import Settings from './pages/Settings'
 import { Trash } from './pages/TrashPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { Toaster } from '@/components/ui/sonner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { FeedbackProvider } from './context/FeedbackContext'
@@ -34,6 +35,7 @@ type Page =
   | 'settings-profile' 
   | 'settings-household' 
   | 'trash'
+  | 'notifications'
 
 // Helper component to handle legacy navigation
 function LegacyNavigationWrapper({ children }: { children: React.ReactElement }) {
@@ -193,6 +195,17 @@ function AppRoutes() {
           <ProtectedRoute>
             <LegacyNavigationWrapper>
               {({ navigate, onLogout }) => <Trash navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/notifications" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <NotificationsPage navigate={navigate} onLogout={onLogout} />}
             </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 

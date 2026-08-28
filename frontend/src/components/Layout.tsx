@@ -26,6 +26,7 @@ type Page =
   | 'settings-profile'
   | 'settings-household'
   | 'trash'
+  | 'notifications'
 
 interface LayoutProps {
   children: ReactNode
@@ -47,17 +48,9 @@ const menuItems = [
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
   const isMobile = useIsMobile()
   const { user } = useAuthStore()
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
-  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
 
-  const handleNotificationClick = (notification: Notification) => {
-    setSelectedNotification(notification)
-    setIsValidationModalOpen(true)
-  }
-
-  const handleValidationComplete = () => {
-    setIsValidationModalOpen(false)
-    setSelectedNotification(null)
+  const handleNotificationClick = (_notification: Notification) => {
+    navigate('dashboard')
   }
 
   const Sidebar = () => {
@@ -78,7 +71,10 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
               <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
               <span className="text-lg font-bold text-foreground">Mimo Finance</span>
             </div>
-            <NotificationBell onNotificationClick={handleNotificationClick} />
+            <NotificationBell 
+              onNotificationClick={handleNotificationClick} 
+              onViewAll={() => navigate('notifications')}
+            />
           </div>
         </div>
 
@@ -210,14 +206,6 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
       {!isMobile && <Sidebar />}
       <main className={`flex-1 min-w-0 ${isMobile ? 'pb-20' : ''}`}>{children}</main>
       {isMobile && <BottomNav />}
-      {selectedNotification && (
-        <ValidationModal
-          notification={selectedNotification}
-          isOpen={isValidationModalOpen}
-          onClose={() => setIsValidationModalOpen(false)}
-          onSuccess={handleValidationComplete}
-        />
-      )}
     </div>
   )
 }
