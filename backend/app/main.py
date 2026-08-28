@@ -57,13 +57,13 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 logger.info(f"Application starting in {environment} mode")
 
-# Static file uploads disabled - using Google Cloud Storage (GCS) in production
-# Local uploads only for development
-# if environment == "development":
-#     upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
-#     UPLOAD_DIR = Path(upload_dir_path)
-#     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-#     app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Static file uploads (Local storage in dev / docker)
+upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
+UPLOAD_DIR = Path(upload_dir_path)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "receipts").mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Include routers
 app.include_router(health.router, tags=["Health"])

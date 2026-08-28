@@ -72,15 +72,13 @@ class RecurringTemplateService:
             Nombre de transactions créées
         """
         today = date.today()
-        # Générer 12 mois complets à partir de la date de début (ou aujourd'hui si start_date est dans le passé)
-        base_date = max(today, template.start_date)
-        max_end_date = base_date + relativedelta(months=months)
-
-        # Si le template a une end_date, utiliser la plus petite
-        if template.end_date and template.end_date < max_end_date:
+        # Si le template a une end_date explicite, on génère jusqu'à cette end_date
+        # Sinon, par défaut sans date de fin, on génère sur 12 mois (months)
+        if template.end_date:
             end_date = template.end_date
         else:
-            end_date = max_end_date
+            base_date = max(today, template.start_date)
+            end_date = base_date + relativedelta(months=months)
 
         current_date = template.start_date
         transactions_created = 0
