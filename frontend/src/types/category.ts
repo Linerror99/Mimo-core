@@ -57,6 +57,6 @@ export const DEFAULT_CATEGORY_COLORS = [
 ];
 
 export const DEFAULT_CATEGORY_ICONS = [
-  "🏠", "🍔", "🚗", "🎮", "💊", "🎓", "✈️", "🛒",
-  "💰", "💳", "📱", "⚡", "🎬", "🏋️", "🎨", "📚",
+  "home", "food", "transport", "gaming", "health", "education", "travel", "shopping",
+  "salary", "card", "phone", "energy", "entertainment", "sport", "art", "books",
 ];

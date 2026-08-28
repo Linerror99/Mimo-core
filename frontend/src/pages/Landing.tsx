@@ -82,7 +82,7 @@ export function Landing() {
   const stats = [
     { value: '100%', label: 'Gratuit' },
     { value: '24/7', label: 'Disponible' },
-    { value: '🔒', label: 'Sécurisé' }
+    { value: '100%', label: 'Sécurisé' }
   ]
 
   return (

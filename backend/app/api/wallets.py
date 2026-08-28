@@ -69,30 +69,17 @@ async def get_wallets(
 
     household_id = current_user.household_id
 
+    from app.services.account_service import AccountService
+
     # CAS 1: Utilisateur SOLO (pas de household_id)
     if not household_id:
-        # Calculer le solde total des comptes personnels de l'utilisateur
-        stmt = select(Account).where(Account.original_owner_user_id == current_user.id)
+        # Calculer le solde total des comptes personnels actifs de l'utilisateur
+        stmt = select(Account).where(
+            Account.original_owner_user_id == current_user.id,
+            Account.is_active == "true"
+        )
         accounts = (await db.execute(stmt)).scalars().all()
-
-        total_balance = Decimal("0")
-        
-        # Import pour filtres de date et état
-        from datetime import date
-        from app.models.transaction import TransactionState
-        
-        today = date.today()
-        
-        for account in accounts:
-            # Balance = initial_balance + sum(transactions RÉALISÉES jusqu'à aujourd'hui)
-            tx_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-                Transaction.account_id == account.id,
-                Transaction.deleted_at.is_(None),
-                Transaction.state == TransactionState.REALIZED,
-                Transaction.transaction_date <= today
-            )
-            tx_sum = (await db.execute(tx_stmt)).scalar_one()
-            total_balance += account.initial_balance + Decimal(str(tx_sum))
+        total_balance = sum([await AccountService.calculate_balance(db, acc.id) for acc in accounts])
 
         return WalletsResponse(
             household_type="SOLO",
@@ -109,30 +96,14 @@ async def get_wallets(
     if not household:
         raise HTTPException(status_code=404, detail="Household not found")
 
-    # Si INDIVIDUAL: calcul simple
+    # Si INDIVIDUAL: calcul via les comptes actifs
     if household.type == HouseholdType.INDIVIDUAL:
-        # Récupérer tous les comptes
-        stmt = select(Account).where(Account.household_id == household_id)
-        accounts = list((await db.execute(stmt)).scalars().all())
-
-        # Solde initial
-        initial_balance = sum(Decimal(str(acc.initial_balance)) for acc in accounts)
-
-        # Transactions RÉALISÉES jusqu'à aujourd'hui uniquement
-        from datetime import date
-        from app.models.transaction import TransactionState
-        
-        today = date.today()
-        
-        stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-            Transaction.household_id == household_id,
-            Transaction.deleted_at.is_(None),
-            Transaction.state == TransactionState.REALIZED,
-            Transaction.transaction_date <= today
+        stmt = select(Account).where(
+            Account.household_id == household_id,
+            Account.is_active == "true"
         )
-        all_transactions = Decimal(str((await db.execute(stmt)).scalar()))
-
-        total_balance = initial_balance + all_transactions
+        accounts = list((await db.execute(stmt)).scalars().all())
+        total_balance = sum([await AccountService.calculate_balance(db, acc.id) for acc in accounts])
 
         return WalletsResponse(
             household_type="INDIVIDUAL",

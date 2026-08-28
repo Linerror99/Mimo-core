@@ -1,6 +1,6 @@
 """Application Configuration"""
 
-from typing import List, Union
+from typing import List, Optional, Union
 import os
 
 from pydantic import field_validator
@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     ENABLE_JSON_LOGS: bool = True
+
+    # SMTP Email
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: str = "noreply@mimofinance.com"
+    SMTP_TLS: bool = True
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

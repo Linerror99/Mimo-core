@@ -105,7 +105,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
       onGoalUpdated();
 
       showFeedback({
-        title: 'Versement enregistré ! ✅',
+        title: 'Versement enregistré',
         message: `Le versement de ${amount} € a été associé à l'épargne "${goal.name}".`,
         type: 'success',
       });
@@ -121,7 +121,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
       await loadGoalData();
       onGoalUpdated();
       showFeedback({
-        title: 'Versement supprimé 🗑️',
+        title: 'Versement supprimé',
         message: 'Le versement a été retiré de l\'épargne.',
         type: 'delete',
       });
@@ -144,7 +144,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
           <div className="flex items-start justify-between">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-                {goal.user_id ? '👤 Objectif Personnel' : '🏠 Objectif Foyer'}
+                {goal.user_id ? 'Objectif Personnel' : 'Objectif Foyer'}
               </span>
               <DialogTitle className="text-2xl font-bold mt-1">{goal.name}</DialogTitle>
               {goal.description && <p className="text-sm text-muted-foreground mt-1">{goal.description}</p>}

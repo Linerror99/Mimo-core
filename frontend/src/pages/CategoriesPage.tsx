@@ -12,8 +12,8 @@ import {
   CategoryType,
   CATEGORY_TYPE_LABELS,
   DEFAULT_CATEGORY_COLORS,
-  DEFAULT_CATEGORY_ICONS,
 } from "../types/category";
+import { CategoryIcon, AVAILABLE_CATEGORY_ICONS } from "../components/CategoryIcon";
 import "../styles/Categories.css";
 
 type Page =
@@ -43,7 +43,7 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
   const [formData, setFormData] = useState<CategoryCreate>({
     name: "",
     type: CategoryType.EXPENSE,
-    icon: "🏠",
+    icon: "home",
     color: "#27AE60",
     parent_id: undefined,
   });
@@ -74,7 +74,7 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
       setFormData({
         name: category.name,
         type: category.type,
-        icon: category.icon || "🏠",
+        icon: category.icon || "home",
         color: category.color || "#27AE60",
         parent_id: category.parent_id || undefined,
       });
@@ -83,7 +83,7 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
       setFormData({
         name: "",
         type: CategoryType.EXPENSE,
-        icon: "🏠",
+        icon: "home",
         color: "#27AE60",
         parent_id: undefined,
       });
@@ -158,7 +158,7 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
     <Layout currentPage="categories" navigate={navigate} onLogout={onLogout}>
       <div className="categories-page">
       <div className="categories-header">
-        <h1>🏷️ Mes Catégories</h1>
+        <h1>Mes Catégories</h1>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           + Ajouter une catégorie
         </button>
@@ -168,11 +168,11 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
 
       <div className="categories-summary">
         <div className="summary-card">
-          <h3>📥 Revenus</h3>
+          <h3>Revenus</h3>
           <p className="summary-count">{incomeCount}</p>
         </div>
         <div className="summary-card">
-          <h3>📤 Dépenses</h3>
+          <h3>Dépenses</h3>
           <p className="summary-count">{expenseCount}</p>
         </div>
       </div>
@@ -188,13 +188,13 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
           className={`tab ${filterType === CategoryType.INCOME ? "active" : ""}`}
           onClick={() => setFilterType(CategoryType.INCOME)}
         >
-          📥 Revenus
+          Revenus
         </button>
         <button
           className={`tab ${filterType === CategoryType.EXPENSE ? "active" : ""}`}
           onClick={() => setFilterType(CategoryType.EXPENSE)}
         >
-          📤 Dépenses
+          Dépenses
         </button>
       </div>
 
@@ -215,7 +215,9 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
                   style={{ borderLeftColor: parent.color || "#27AE60" }}
                 >
                   <div className="category-header">
-                    <span className="category-icon">{parent.icon}</span>
+                    <span className="category-icon" style={{ backgroundColor: `${parent.color || "#27AE60"}18`, padding: "8px", borderRadius: "10px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      <CategoryIcon icon={parent.icon} color={parent.color || "#27AE60"} className="w-5 h-5" />
+                    </span>
                     <div className="category-info">
                       <h3>{parent.name}</h3>
                       <span className="category-type">
@@ -249,7 +251,9 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
                       style={{ borderLeftColor: sub.color || "#95A5A6" }}
                     >
                       <div className="category-header">
-                        <span className="category-icon">{sub.icon}</span>
+                        <span className="category-icon" style={{ backgroundColor: `${sub.color || "#95A5A6"}18`, padding: "6px", borderRadius: "8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                          <CategoryIcon icon={sub.icon} color={sub.color || "#95A5A6"} className="w-4 h-4" />
+                        </span>
                         <div className="category-info">
                           <h4>{sub.name}</h4>
                         </div>
@@ -330,18 +334,21 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
               <div className="form-group">
                 <label htmlFor="icon">Icône</label>
                 <div className="icon-picker">
-                  {DEFAULT_CATEGORY_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      className={`icon-btn ${
-                        formData.icon === icon ? "selected" : ""
-                      }`}
-                      onClick={() => setFormData({ ...formData, icon })}
-                    >
-                      {icon}
-                    </button>
-                  ))}
+                  {AVAILABLE_CATEGORY_ICONS.map((item) => {
+                    const IconComp = item.icon;
+                    const isSelected = formData.icon === item.name || formData.icon === item.label;
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        className={`icon-btn ${isSelected ? "selected" : ""}`}
+                        onClick={() => setFormData({ ...formData, icon: item.name })}
+                        title={item.label}
+                      >
+                        <IconComp className="w-4 h-4" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -379,7 +386,7 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
                     .filter((cat) => cat.id !== editingCategory?.id)
                     .map((cat) => (
                       <option key={cat.id} value={cat.id}>
-                        {cat.icon} {cat.name}
+                        {cat.name}
                       </option>
                     ))}
                 </select>

@@ -67,7 +67,7 @@ export function ValidationModal({ notification, isOpen, onClose, onSuccess }: Va
       onSuccess()
       onClose()
       showFeedback({
-        title: "Transaction validée ! ✅",
+        title: "Transaction validée",
         message: `La transaction "${transaction.description}" de ${amountValue} € a été validée et enregistrée comme réalisée.`,
         type: "success"
       })
@@ -92,7 +92,7 @@ export function ValidationModal({ notification, isOpen, onClose, onSuccess }: Va
       onSuccess()
       onClose()
       showFeedback({
-        title: "Transaction reportée 🗓️",
+        title: "Transaction reportée",
         message: `La transaction "${transaction.description}" a été reportée au ${formattedDate}.`,
         type: "info"
       })
@@ -116,7 +116,7 @@ export function ValidationModal({ notification, isOpen, onClose, onSuccess }: Va
       onSuccess()
       onClose()
       showFeedback({
-        title: "Transaction supprimée 🗑️",
+        title: "Transaction supprimée",
         message: `La transaction "${transaction.description}" a été envoyée vers la corbeille.`,
         type: "delete"
       })

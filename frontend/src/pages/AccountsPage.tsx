@@ -5,14 +5,13 @@
  */
 import React, { useState, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
+import { Plus, Pencil, Lock, AlertCircle, Building2, CreditCard } from "lucide-react";
 import { accountService } from "../services/accountService";
 import {
   Account,
   AccountCreate,
-  AccountUpdate,
   AccountType,
   ACCOUNT_TYPE_LABELS,
-  ACCOUNT_TYPE_ICONS,
 } from "../types/account";
 import { BankLogo } from "@/components/BankLogo";
 import { BankLogoPicker } from "@/components/BankLogoPicker";
@@ -41,7 +40,7 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const [showInactive, setShowInactive] = useState(true); // Afficher les comptes fermés par défaut
+  const [showInactive, setShowInactive] = useState(true);
   const { showFeedback } = useFeedback();
 
   // Form state
@@ -113,14 +112,14 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
       if (editingAccount) {
         await accountService.updateAccount(editingAccount.id, formData);
         showFeedback({
-          title: "Compte mis à jour ! 🏦",
+          title: "Compte mis à jour",
           message: `Le compte "${formData.name}" a été modifié avec succès.`,
           type: "success",
         });
       } else {
         await accountService.createAccount(formData);
         showFeedback({
-          title: "Compte créé ! 💳",
+          title: "Compte créé",
           message: `Le compte "${formData.name}" a été ajouté avec succès.`,
           type: "success",
         });
@@ -140,7 +139,7 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
     try {
       await accountService.deleteAccount(id);
       showFeedback({
-        title: "Compte fermé 🔒",
+        title: "Compte fermé",
         message: "Le compte a été désactivé.",
         type: "delete",
       });
@@ -173,7 +172,7 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
       <div className="accounts-page">
         <div className="accounts-header">
           <div>
-            <h1>💳 Mes Comptes Bancaires</h1>
+            <h1>Mes Comptes Bancaires</h1>
             <p className="text-sm text-slate-500 mt-1">Gérez vos comptes, logos de banques et soldes</p>
           </div>
           <div className="header-actions">
@@ -185,8 +184,9 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
               />
               <span>Afficher les comptes fermés</span>
             </label>
-            <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-              + Ajouter un compte
+            <button className="btn btn-primary flex items-center gap-1.5" onClick={() => handleOpenModal()}>
+              <Plus className="w-4 h-4" />
+              <span>Ajouter un compte</span>
             </button>
           </div>
         </div>
@@ -226,7 +226,7 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
                   <div className="account-info">
                     <h3>{account.name}</h3>
                     <span className="account-type">
-                      {ACCOUNT_TYPE_ICONS[account.type]} {ACCOUNT_TYPE_LABELS[account.type]}
+                      {ACCOUNT_TYPE_LABELS[account.type]}
                     </span>
                   </div>
                 </div>
@@ -249,10 +249,11 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
                   {account.is_active ? (
                     <>
                       <button
-                        className="btn btn-secondary"
+                        className="btn btn-secondary flex items-center justify-center gap-1.5"
                         onClick={() => handleOpenModal(account)}
                       >
-                        ✏️ Modifier
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Modifier</span>
                       </button>
                       <button
                         className="btn btn-danger"
@@ -322,7 +323,7 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
                   >
                     {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
-                        {ACCOUNT_TYPE_ICONS[value as AccountType]} {label}
+                        {label}
                       </option>
                     ))}
                   </select>

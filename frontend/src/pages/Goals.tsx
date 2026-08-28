@@ -20,7 +20,9 @@ import {
   Calendar,
   Layers,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  ShoppingBag,
+  Target
 } from 'lucide-react'
 import { GoalDialog } from '@/components/GoalDialog'
 import { GoalDetailModal } from '@/components/GoalDetailModal'
@@ -122,14 +124,14 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
           await goalService.setContribution(editingGoal.id, { amount: currentAmount })
         }
         showFeedback({
-          title: 'Objectif modifié ! ✅',
+          title: 'Objectif modifié',
           message: `L'objectif "${goalData.name}" a été mis à jour avec succès.`,
           type: 'success'
         })
       } else {
         await goalService.create(goalData as GoalCreate)
         showFeedback({
-          title: 'Objectif créé ! 🎯',
+          title: 'Objectif créé',
           message: `L'objectif "${goalData.name}" a été créé avec succès.`,
           type: 'success'
         })
@@ -149,7 +151,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
       setSelectedGoalForDetail(null)
       await loadData()
       showFeedback({
-        title: 'Objectif supprimé 🗑️',
+        title: 'Objectif supprimé',
         message: 'L\'objectif a été supprimé.',
         type: 'delete'
       })
@@ -204,7 +206,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
 
       await loadData()
       showFeedback({
-        title: 'Simulation Validée ! 🚀',
+        title: 'Simulation validée',
         message: res.message || 'Les transactions prévisionnelles ont été créées dans votre Timeline.',
         type: 'success'
       })
@@ -253,7 +255,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                 onClick={() => setActiveTab('simulator')}
               >
                 <Zap className="w-4 h-4 text-amber-500" />
-                <span>Simulateur d'Achat ⚡</span>
+                <span>Simulateur d'Achat</span>
               </button>
             </div>
 
@@ -304,7 +306,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                       <div>
                         <div className="goal-card-header">
                           <span className={`goal-badge ${goal.user_id ? 'personal' : 'household'}`}>
-                            {goal.user_id ? '👤 Personnel' : '🏠 Foyer'}
+                            {goal.user_id ? 'Personnel' : 'Foyer'}
                           </span>
                           <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                             Détails & Versements →
@@ -360,7 +362,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
             {/* Form */}
             <div className="simulator-form-card">
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-2xl">⚡</span>
+                <Zap className="w-6 h-6 text-amber-500" />
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Simulateur d'Achat & Projet</h2>
                   <p className="text-xs text-slate-500">Évaluez la faisabilité financière avant d'engager une dépense</p>
@@ -379,7 +381,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                         setSimPaymentType('INSTALLMENTS')
                       }}
                     >
-                      <span>🛍️</span>
+                      <ShoppingBag className="w-4 h-4" />
                       <span>Achat / Dépense</span>
                     </button>
                     <button
@@ -390,7 +392,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                         setSimPaymentType('RECURRING')
                       }}
                     >
-                      <span>🎯</span>
+                      <Target className="w-4 h-4" />
                       <span>Projet d'Épargne</span>
                     </button>
                   </div>
@@ -555,7 +557,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                 )}
 
                 <Button type="submit" disabled={isSimulating} className="w-full bg-indigo-600 hover:bg-indigo-700 font-semibold mt-2">
-                  {isSimulating ? 'Calcul en cours...' : '⚡ Lancer la simulation'}
+                  {isSimulating ? 'Calcul en cours...' : 'Lancer la simulation'}
                 </Button>
               </form>
             </div>
@@ -639,7 +641,7 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
                     className="btn-commit-simulation"
                     onClick={handleCommitSimulation}
                   >
-                    <span>🚀 Valider et intégrer à ma Timeline</span>
+                    <span>Valider et intégrer à ma Timeline</span>
                     <ArrowRight className="w-5 h-5" />
                   </button>
                 </>

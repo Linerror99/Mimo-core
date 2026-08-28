@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Shield, Landmark, Calendar, Zap, ArrowRight, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { projectionService } from '../services/projectionService';
 import '../styles/SafeToSpend.css';
 
@@ -62,12 +63,24 @@ export const SafeToSpendCard: React.FC<SafeToSpendCardProps> = ({ onOpenSimulato
   const getStatusBadge = () => {
     switch (data.status) {
       case 'healthy':
-        return { label: '🟢 Trésorerie sereine', class: 'status-healthy' };
+        return {
+          label: 'Trésorerie sereine',
+          icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />,
+          class: 'status-healthy'
+        };
       case 'caution':
-        return { label: '🟠 Vigilance recommandée', class: 'status-caution' };
+        return {
+          label: 'Vigilance recommandée',
+          icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />,
+          class: 'status-caution'
+        };
       case 'danger':
       default:
-        return { label: '🔴 Tension de trésorerie', class: 'status-danger' };
+        return {
+          label: 'Tension de trésorerie',
+          icon: <AlertCircle className="w-3.5 h-3.5 text-rose-500" />,
+          class: 'status-danger'
+        };
     }
   };
 
@@ -77,13 +90,18 @@ export const SafeToSpendCard: React.FC<SafeToSpendCardProps> = ({ onOpenSimulato
     <div className={`safe-to-spend-card ${badge.class}`}>
       <div className="safe-header">
         <div className="safe-title-row">
-          <span className="safe-icon">🛡️</span>
+          <div className="safe-icon">
+            <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
           <div>
             <h3 className="safe-title">Reste à Vivre Réel</h3>
             <span className="safe-subtitle">Surplus disponible sans risque de découvert</span>
           </div>
         </div>
-        <span className={`safe-badge ${badge.class}`}>{badge.label}</span>
+        <span className={`safe-badge ${badge.class} flex items-center gap-1.5`}>
+          {badge.icon}
+          <span>{badge.label}</span>
+        </span>
       </div>
 
       <div className="safe-body">
@@ -94,20 +112,23 @@ export const SafeToSpendCard: React.FC<SafeToSpendCardProps> = ({ onOpenSimulato
 
         <div className="safe-metrics-row">
           <div className="safe-metric">
-            <span className="metric-label">🏦 Solde réel actuel</span>
+            <span className="metric-label flex items-center gap-1">
+              <Landmark className="w-3.5 h-3.5 text-slate-400" /> Solde réel actuel
+            </span>
             <span className="metric-value">{formatCurrency(data.current_balance)}</span>
           </div>
           <div className="safe-metric-divider">-</div>
           <div className="safe-metric">
-            <span className="metric-label">⏳ Charges dues avant salaire ({formatDate(data.next_income_date)})</span>
+            <span className="metric-label">Charges dues avant salaire ({formatDate(data.next_income_date)})</span>
             <span className="metric-value expense">{formatCurrency(data.committed_expenses)}</span>
           </div>
           <div className="safe-metric-divider">➔</div>
           <div className="safe-metric">
-            <span className="metric-label">
+            <span className="metric-label flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
               {data.days_until_next_income > 0
-                ? `🗓️ Prochain revenu (${data.days_until_next_income}j)`
-                : '🗓️ Fin de mois'}
+                ? `Prochain revenu (${data.days_until_next_income}j)`
+                : 'Fin de mois'}
             </span>
             <span className="metric-value highlight">{formatDate(data.next_income_date)}</span>
           </div>
@@ -116,9 +137,10 @@ export const SafeToSpendCard: React.FC<SafeToSpendCardProps> = ({ onOpenSimulato
 
       {onOpenSimulator && (
         <div className="safe-footer">
-          <button type="button" className="btn-simulator-shortcut" onClick={onOpenSimulator}>
-            <span>⚡ Simuler un achat / projet d'épargne</span>
-            <span className="shortcut-arrow">→</span>
+          <button type="button" className="btn-simulator-shortcut flex items-center gap-2" onClick={onOpenSimulator}>
+            <Zap className="w-4 h-4 text-amber-500" />
+            <span>Simuler un achat / projet d'épargne</span>
+            <ArrowRight className="w-4 h-4 ml-1" />
           </button>
         </div>
       )}

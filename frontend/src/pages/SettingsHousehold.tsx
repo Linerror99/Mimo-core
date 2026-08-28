@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Layout } from '@/components/Layout'
+import { SettingsHeader } from '@/components/SettingsHeader'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Home, UserPlus, AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import householdService from '@/services/householdService'
@@ -22,6 +23,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const getAvatarUrl = (avatarUrl?: string | null): string | undefined => {
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return `${API_BASE_URL}${avatarUrl}`;
+}
+
 type Page =
   | 'dashboard'
   | 'timeline'
@@ -29,9 +37,12 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'settings'
   | 'settings-profile'
   | 'settings-household'
+  | 'settings-invitations'
   | 'trash'
+  | 'notifications'
 
 interface SettingsHouseholdProps {
   navigate: (page: Page) => void
@@ -108,11 +119,13 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
 
   return (
     <Layout currentPage="settings-household" navigate={navigate} onLogout={onLogout}>
-      <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Paramètres du Foyer</h1>
-          <p className="text-muted-foreground">Gérez votre foyer et vos partenaires</p>
-        </div>
+      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+        <SettingsHeader
+          currentTab="household"
+          navigate={navigate}
+          title="Paramètres du Foyer"
+          description="Gérez votre foyer, vos membres et le mode couple"
+        />
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -149,6 +162,7 @@ export function SettingsHousehold({ navigate, onLogout }: SettingsHouseholdProps
                         return (
                           <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border border-border">
                             <Avatar className="w-10 h-10">
+                              {member.avatar_url && <AvatarImage src={getAvatarUrl(member.avatar_url)} alt={`${member.first_name} ${member.last_name}`} />}
                               <AvatarFallback className={isCurrentUser ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}>
                                 {initials}
                               </AvatarFallback>

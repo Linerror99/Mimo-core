@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Layout } from '@/components/Layout'
+import { SettingsHeader } from '@/components/SettingsHeader'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,9 +21,12 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'settings'
   | 'settings-profile'
   | 'settings-household'
+  | 'settings-invitations'
   | 'trash'
+  | 'notifications'
 
 interface SettingsProfileProps {
   navigate: (page: Page) => void
@@ -49,30 +53,50 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
+  // Charger les données de l'utilisateur
   useEffect(() => {
     if (user) {
-      setFirstName(user.first_name)
-      setLastName(user.last_name)
-      setEmail(user.email)
+      setFirstName(user.first_name || '')
+      setLastName(user.last_name || '')
+      setEmail(user.email || '')
     }
   }, [user])
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!firstName || !lastName) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+
     try {
       await updateProfile(firstName, lastName)
       toast.success('Profil mis à jour avec succès')
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour du profil')
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la mise à jour du profil'
+      toast.error(errorMessage)
     }
   }
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Veuillez remplir tous les champs')
+      return
+    }
+
     if (newPassword !== confirmPassword) {
       toast.error('Les mots de passe ne correspondent pas')
       return
     }
+
+    if (newPassword.length < 8) {
+      toast.error('Le mot de passe doit contenir au moins 8 caractères')
+      return
+    }
+
     try {
       await changePassword(currentPassword, newPassword)
       toast.success('Mot de passe modifié avec succès')
@@ -145,11 +169,13 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
 
   return (
     <Layout currentPage="settings-profile" navigate={navigate} onLogout={onLogout}>
-      <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Paramètres du Profil</h1>
-          <p className="text-muted-foreground">Gérez vos informations personnelles</p>
-        </div>
+      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+        <SettingsHeader
+          currentTab="profile"
+          navigate={navigate}
+          title="Paramètres du Profil"
+          description="Gérez vos informations personnelles et votre sécurité"
+        />
 
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-6">Photo de Profil</h2>
@@ -197,7 +223,7 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
 
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-6">Informations Personnelles</h2>
-          <form onSubmit={handleSaveProfile} className="space-y-4">
+          <form onSubmit={handleProfileSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">
@@ -246,7 +272,7 @@ export function SettingsProfile({ navigate, onLogout }: SettingsProfileProps) {
 
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-6">Changer le Mot de Passe</h2>
-          <form onSubmit={handleChangePassword} className="space-y-4">
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Mot de passe actuel</Label>
               <Input

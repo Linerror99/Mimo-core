@@ -101,15 +101,27 @@
 }
 
 .total-card.income {
-  border-left: 4px solid #27ae60;
+  border-left: 4px solid #10b981;
+}
+
+.total-card.income .total-amount {
+  color: #10b981;
 }
 
 .total-card.expense {
-  border-left: 4px solid #e74c3c;
+  border-left: 4px solid #ef4444;
+}
+
+.total-card.expense .total-amount {
+  color: #ef4444;
 }
 
 .total-card.transfer {
-  border-left: 4px solid #3498db;
+  border-left: 4px solid #0ea5e9;
+}
+
+.total-card.transfer .total-amount {
+  color: #0ea5e9;
 }
 
 .total-card.balance {
@@ -118,16 +130,16 @@
 }
 
 .total-card.balance .total-amount.positive {
-  color: #27ae60;
+  color: #10b981;
 }
 
 .total-card.balance .total-amount.negative {
-  color: #e74c3c;
+  color: #ef4444;
 }
 
 .total-label {
   font-size: 0.9rem;
-  color: #666;
+  color: #64748b;
   font-weight: 500;
 }
 
@@ -282,9 +294,55 @@
   color: #666;
 }
 
+.badge-pending {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-weight: 600;
+}
+
 .badge-recurring {
   background: #e3f2fd;
   color: #1976d2;
+}
+
+.transaction-card.pending {
+  background: #fffdf5;
+  border-color: #fde68a;
+}
+
+.btn-validate-quick {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.65rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-validate-quick:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.pending-alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  color: #92400e;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.08);
 }
 
 .transaction-details {

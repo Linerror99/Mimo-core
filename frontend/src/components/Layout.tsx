@@ -23,9 +23,12 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'settings'
   | 'settings-profile'
   | 'settings-household'
+  | 'settings-invitations'
   | 'trash'
+  | 'notifications'
 
 interface LayoutProps {
   children: ReactNode
@@ -39,25 +42,17 @@ const menuItems = [
   { id: 'timeline' as Page, label: 'Timeline', icon: List },
   { id: 'projection' as Page, label: 'Projection', icon: TrendingUp },
   { id: 'accounts' as Page, label: 'Comptes', icon: CreditCard },
-  { id: 'categories' as Page, label: 'Catégories', icon: Folder },
   { id: 'goals' as Page, label: 'Objectifs', icon: Target },
+  { id: 'categories' as Page, label: 'Catégories', icon: Folder },
   { id: 'trash' as Page, label: 'Corbeille', icon: Trash2 },
 ]
 
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
   const isMobile = useIsMobile()
   const { user } = useAuthStore()
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
-  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
 
-  const handleNotificationClick = (notification: Notification) => {
-    setSelectedNotification(notification)
-    setIsValidationModalOpen(true)
-  }
-
-  const handleValidationComplete = () => {
-    setIsValidationModalOpen(false)
-    setSelectedNotification(null)
+  const handleNotificationClick = (_notification: Notification) => {
+    navigate('dashboard')
   }
 
   const Sidebar = () => {
@@ -70,39 +65,44 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     }
 
     return (
-    <aside className="w-64 bg-background border-r border-border flex flex-col">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-12 h-12 rounded-xl object-cover" />
-            <span className="text-lg font-semibold">Mimo Finance</span>
+    <aside className="sticky top-0 h-screen w-64 bg-background border-r border-border flex flex-col justify-between shrink-0 z-30">
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2.5">
+              <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+              <span className="text-lg font-bold text-foreground">Mimo Finance</span>
+            </div>
+            <NotificationBell 
+              onNotificationClick={handleNotificationClick} 
+              onViewAll={() => navigate('notifications')}
+            />
           </div>
-          <NotificationBell onNotificationClick={handleNotificationClick} />
         </div>
+
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const isActive = currentPage === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-foreground hover:bg-secondary'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
       </div>
 
-      <nav className="flex-1 px-3 space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon
-          const isActive = currentPage === item.id
-          return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-foreground hover:bg-secondary'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border bg-background shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
@@ -112,16 +112,16 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
                   {user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : 'U'}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium truncate">
                   {user ? `${user.first_name} ${user.last_name}` : 'User'}
                 </p>
-                <p className="text-xs text-muted-foreground">{user?.email || 'user@mimo.fr'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email || 'user@mimo.fr'}</p>
               </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
+            <DropdownMenuLabel>Paramètres & Compte</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate('settings-profile')}>
               <User className="w-4 h-4 mr-2" />
@@ -129,9 +129,9 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('settings-household')}>
               <Settings className="w-4 h-4 mr-2" />
-              Foyer
+              Foyer & Membres
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.location.href = '/settings/invitations'}>
+            <DropdownMenuItem onClick={() => navigate('settings-invitations')}>
               <UserPlus className="w-4 h-4 mr-2" />
               Invitations
             </DropdownMenuItem>
@@ -206,16 +206,8 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
   return (
     <div className="min-h-screen bg-background flex">
       {!isMobile && <Sidebar />}
-      <main className={`flex-1 ${isMobile ? 'pb-20' : ''}`}>{children}</main>
+      <main className={`flex-1 min-w-0 ${isMobile ? 'pb-20' : ''}`}>{children}</main>
       {isMobile && <BottomNav />}
-      {selectedNotification && (
-        <ValidationModal
-          notification={selectedNotification}
-          isOpen={isValidationModalOpen}
-          onClose={() => setIsValidationModalOpen(false)}
-          onSuccess={handleValidationComplete}
-        />
-      )}
     </div>
   )
 }

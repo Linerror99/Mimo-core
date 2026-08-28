@@ -21,7 +21,9 @@ export interface MonthlyProjection {
   year: number;
   income: number;
   expense: number;
-  balance: number;
+  transfers?: number;
+  balance: number; // Patrimoine global (tous comptes)
+  treasury_balance?: number; // Trésorerie courante après épargne
   projections: Projection[];
 }
 

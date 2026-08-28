@@ -100,12 +100,6 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   [TransactionType.TRANSFER]: 'Virement'
 };
 
-export const TRANSACTION_TYPE_ICONS: Record<TransactionType, string> = {
-  [TransactionType.INCOME]: '💰',
-  [TransactionType.EXPENSE]: '💸',
-  [TransactionType.TRANSFER]: '🔄'
-};
-
 export const TRANSACTION_STATE_LABELS: Record<TransactionState, string> = {
   [TransactionState.REALIZED]: 'Réalisée',
   [TransactionState.PROJECTED]: 'Projetée',

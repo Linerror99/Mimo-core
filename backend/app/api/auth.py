@@ -8,7 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser
 from app.database import get_db
-from app.schemas.auth import TokenRefresh, UserCreate, UserLogin, UserResponse
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    TokenRefresh,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    VerifyResetCodeRequest,
+)
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -112,3 +120,63 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request_data: ForgotPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Request password reset 6-digit OTP code by email.
+    """
+    auth_service = AuthService(db)
+    result = await auth_service.forgot_password(request_data.email)
+    return result
+
+
+@router.post("/verify-reset-code")
+async def verify_reset_code(
+    request_data: VerifyResetCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Verify if the 6-digit email code is valid before prompting for new password.
+    """
+    auth_service = AuthService(db)
+    try:
+        await auth_service.verify_reset_code(
+            email=request_data.email,
+            code=request_data.code
+        )
+        return {"valid": True, "message": "Code valide !"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request_data: ResetPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Reset password using 6-digit verification code sent by email.
+    """
+    auth_service = AuthService(db)
+    try:
+        await auth_service.reset_password(
+            email=request_data.email,
+            code=request_data.code,
+            new_password=request_data.new_password
+        )
+        return {"message": "Mot de passe réinitialisé avec succès !"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
