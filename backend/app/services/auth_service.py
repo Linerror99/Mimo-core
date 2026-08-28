@@ -2,6 +2,7 @@
 Authentication service (business logic)
 """
 from datetime import datetime, timedelta, timezone
+import secrets
 from typing import Dict
 
 import redis.asyncio as redis
@@ -14,6 +15,7 @@ from app.config import settings
 from app.models.household import Household, HouseholdType
 from app.models.user import User
 from app.schemas.auth import UserCreate, UserLogin
+from app.services.email_service import EmailService
 
 # Password hashing avec rounds configurables
 pwd_context = CryptContext(
@@ -164,3 +166,85 @@ class AuthService:
             return access_token
         except Exception:
             raise ValueError("Invalid refresh token")
+
+    async def forgot_password(self, email: str) -> dict:
+        """
+        Generate a secure 6-digit OTP code, save in Redis for 15 mins, and send by email.
+        """
+        email_clean = email.strip().lower()
+        result = await self.db.execute(select(User).where(User.email == email_clean))
+        user = result.scalar_one_or_none()
+
+        if user:
+            # Generate 6-digit numeric OTP
+            code = f"{secrets.randbelow(900000) + 100000}"
+            
+            # Store in Redis for 15 minutes (900 seconds)
+            await redis_client.setex(f"pwd_reset:{email_clean}", 900, code)
+            await redis_client.delete(f"pwd_attempts:{email_clean}")
+
+            # Send Email
+            EmailService.send_password_reset_code(email_clean, code)
+
+        return {
+            "message": "Un code de validation à 6 chiffres a été envoyé par email si le compte existe.",
+            "expires_in_minutes": 15
+        }
+
+    async def verify_reset_code(self, email: str, code: str) -> bool:
+        """
+        Verify if the 6-digit OTP code in Redis is valid for this email.
+        """
+        email_clean = email.strip().lower()
+        code_clean = code.strip()
+
+        attempts_key = f"pwd_attempts:{email_clean}"
+        attempts = await redis_client.get(attempts_key)
+        if attempts and int(attempts) >= 5:
+            raise ValueError("Trop de tentatives infructueuses. Veuillez demander un nouveau code.")
+
+        stored_code = await redis_client.get(f"pwd_reset:{email_clean}")
+        if not stored_code or stored_code != code_clean:
+            await redis_client.incr(attempts_key)
+            await redis_client.expire(attempts_key, 900)
+            raise ValueError("Code de validation invalide ou expiré.")
+
+        return True
+
+    async def reset_password(self, email: str, code: str, new_password: str) -> bool:
+        """
+        Verify the 6-digit OTP code and update user password.
+        """
+        email_clean = email.strip().lower()
+        code_clean = code.strip()
+
+        # Brute-force protection: max 5 attempts per code
+        attempts_key = f"pwd_attempts:{email_clean}"
+        attempts = await redis_client.get(attempts_key)
+        if attempts and int(attempts) >= 5:
+            raise ValueError("Trop de tentatives infructueuses. Veuillez demander un nouveau code.")
+
+        stored_code = await redis_client.get(f"pwd_reset:{email_clean}")
+        if not stored_code or stored_code != code_clean:
+            await redis_client.incr(attempts_key)
+            await redis_client.expire(attempts_key, 900)
+            raise ValueError("Code de validation invalide ou expiré.")
+
+        result = await self.db.execute(select(User).where(User.email == email_clean))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise ValueError("Utilisateur introuvable.")
+
+        # Update password (use naive UTC datetime for PostgreSQL compatibility)
+        user.password_hash = self.hash_password(new_password)
+        user.updated_at = datetime.utcnow()
+
+        # Clear reset code and attempts
+        await redis_client.delete(f"pwd_reset:{email_clean}")
+        await redis_client.delete(attempts_key)
+
+        await self.db.commit()
+        return True
+
+
+

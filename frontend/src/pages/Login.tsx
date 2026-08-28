@@ -111,7 +111,11 @@ export function Login() {
                   Se souvenir de moi
                 </label>
               </div>
-              <button type="button" className="text-sm text-primary hover:underline">
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-sm font-medium text-primary hover:underline cursor-pointer"
+              >
                 Mot de passe oublié ?
               </button>
             </div>
