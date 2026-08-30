@@ -44,12 +44,15 @@ class Goal(Base):
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     created_by = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
 
-    # Détails objectif
+    # Détails objectif / épargne
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    target_amount = Column(Numeric(10, 2), nullable=False)  # Montant cible
-    current_amount = Column(Numeric(10, 2), nullable=False, default=0)  # Montant actuel (calculé)
+    target_amount = Column(Numeric(10, 2), nullable=True)  # Montant cible (optionnel pour épargne libre)
+    current_amount = Column(Numeric(10, 2), nullable=False, default=0)  # Montant actuel
+    monthly_contribution = Column(Numeric(10, 2), nullable=True)  # Prélèvement mensuel (optionnel)
     target_date = Column(Date, nullable=True)  # Date cible (optionnel)
+    account_id = Column(String, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True, index=True)
+    destination_account_id = Column(String, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Métadonnées
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -59,6 +62,9 @@ class Goal(Base):
     household = relationship("Household", back_populates="goals")
     user = relationship("User", foreign_keys=[user_id], back_populates="goals")
     creator = relationship("User", foreign_keys=[created_by])
+    account = relationship("Account", foreign_keys=[account_id])
+    destination_account = relationship("Account", foreign_keys=[destination_account_id])
+    transactions = relationship("Transaction", back_populates="goal", cascade="all, delete-orphan")
 
     def __repr__(self):
         owner = f"household:{self.household_id}" if self.household_id else f"user:{self.user_id}"
@@ -77,7 +83,7 @@ class Goal(Base):
     @property
     def progress_percentage(self) -> float:
         """Calcule le pourcentage de progression"""
-        if self.target_amount <= 0:
+        if not self.target_amount or self.target_amount <= 0:
             return 0.0
         percentage = (float(self.current_amount) / float(self.target_amount)) * 100
         return min(percentage, 100.0)  # Cap à 100%
@@ -85,10 +91,14 @@ class Goal(Base):
     @property
     def is_completed(self) -> bool:
         """Vérifie si l'objectif est atteint"""
+        if not self.target_amount or self.target_amount <= 0:
+            return False
         return self.current_amount >= self.target_amount
 
     @property
     def remaining_amount(self) -> float:
         """Calcule le montant restant à atteindre"""
+        if not self.target_amount or self.target_amount <= 0:
+            return 0.0
         remaining = float(self.target_amount) - float(self.current_amount)
         return max(remaining, 0.0)

@@ -52,6 +52,7 @@ export interface Account {
   bank?: string
   balance: number
   userId: string
+  logo_url?: string | null
 }
 
 export interface Category {

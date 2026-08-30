@@ -1,26 +1,29 @@
 /**
  * Trash Page
  * 
- * Display deleted transactions with restore and permanent delete options
+ * View and manage deleted transactions (soft-deleted)
+ * - Restore deleted transactions
+ * - Permanently delete transactions
+ * - Empty trash
  */
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { Trash2, RotateCcw, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Calendar, CreditCard, Tag } from "lucide-react";
 import { transactionService } from "../services/transactionService";
 import { accountService } from "../services/accountService";
 import { categoryService } from "../services/categoryService";
 import {
   Transaction,
   TransactionType,
-  TRANSACTION_TYPE_ICONS,
 } from "../types/transaction";
 import { Account } from "../types/account";
 import { Category } from "../types/category";
+import { useFeedback } from "@/context/FeedbackContext";
 import "../styles/Trash.css";
 
 type Page =
   | 'dashboard'
   | 'timeline'
-  | 'projection'
   | 'accounts'
   | 'categories'
   | 'goals'
@@ -28,17 +31,18 @@ type Page =
   | 'settings-household'
   | 'trash'
 
-interface TrashProps {
+interface TrashPageProps {
   navigate: (page: Page) => void
   onLogout: () => void
 }
 
-export function Trash({ navigate, onLogout }: TrashProps) {
+export function Trash({ navigate, onLogout }: TrashPageProps) {
   const [deletedTransactions, setDeletedTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showFeedback } = useFeedback();
 
   useEffect(() => {
     loadData();
@@ -47,20 +51,18 @@ export function Trash({ navigate, onLogout }: TrashProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      
-      // Charger les données en parallèle
-      const [deletedData, accountsData, categoriesData] = await Promise.all([
+      const [deletedTxs, accountsData, categoriesData] = await Promise.all([
         transactionService.listTrash(),
-        accountService.getAccounts(),
+        accountService.getAccounts(true),
         categoryService.getCategories(),
       ]);
-      
-      setDeletedTransactions(deletedData);
+
+      setDeletedTransactions(deletedTxs);
       setAccounts(accountsData);
       setCategories(categoriesData);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors du chargement");
+      setError(err.response?.data?.detail || "Erreur lors du chargement des données");
     } finally {
       setLoading(false);
     }
@@ -70,67 +72,88 @@ export function Trash({ navigate, onLogout }: TrashProps) {
     try {
       await transactionService.restore(id);
       await loadData();
-      // Optionnel: afficher un message de succès
+      showFeedback({
+        title: "Transaction restaurée",
+        message: "La transaction a été replacée dans votre timeline.",
+        type: "success"
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la restauration");
     }
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!window.confirm("Supprimer définitivement cette transaction ? Cette action est irréversible.")) {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer définitivement cette transaction ?\n\nCette action est irréversible.")) {
       return;
     }
 
     try {
       await transactionService.permanentDelete(id);
       await loadData();
+      showFeedback({
+        title: "Suppression définitive",
+        message: "La transaction a été définitivement supprimée.",
+        type: "delete"
+      });
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression");
+      setError(err.response?.data?.detail || "Erreur lors de la suppression définitive");
     }
   };
 
   const handleEmptyTrash = async () => {
-    if (!window.confirm(`Vider la corbeille (${deletedTransactions.length} transaction(s)) ? Cette action est irréversible.`)) {
+    if (deletedTransactions.length === 0) return;
+
+    if (!window.confirm(`Êtes-vous sûr de vouloir vider la corbeille ?\n\n${deletedTransactions.length} transaction(s) seront supprimée(s) définitivement.\n\nCette action est irréversible.`)) {
       return;
     }
 
     try {
-      // Supprimer toutes les transactions en parallèle
-      await Promise.all(
-        deletedTransactions.map(t => transactionService.permanentDelete(t.id))
-      );
+      await transactionService.emptyTrash();
       await loadData();
+      showFeedback({
+        title: "Corbeille vidée",
+        message: "Toutes les transactions de la corbeille ont été définitivement supprimées.",
+        type: "delete"
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors du vidage de la corbeille");
     }
   };
 
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
     }).format(amount);
   };
 
-  const formatDate = (dateStr: string | undefined) => {
-    if (!dateStr) return "Date inconnue";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const renderTypeIcon = (type: TransactionType) => {
+    switch (type) {
+      case TransactionType.INCOME:
+        return <ArrowDownLeft className="w-5 h-5 text-emerald-500" />;
+      case TransactionType.EXPENSE:
+        return <ArrowUpRight className="w-5 h-5 text-rose-500" />;
+      case TransactionType.TRANSFER:
+      default:
+        return <ArrowLeftRight className="w-5 h-5 text-sky-500" />;
+    }
   };
 
   if (loading) {
     return (
       <Layout currentPage="trash" navigate={navigate} onLogout={onLogout}>
         <div className="trash-page">
-          <div className="loading">Chargement...</div>
+          <div className="loading">Chargement de la corbeille...</div>
         </div>
       </Layout>
     );
@@ -141,7 +164,7 @@ export function Trash({ navigate, onLogout }: TrashProps) {
       <div className="trash-page">
         <div className="trash-header">
           <div>
-            <h1>🗑️ Corbeille</h1>
+            <h1>Corbeille</h1>
             <p className="subtitle">
               {deletedTransactions.length > 0 
                 ? `${deletedTransactions.length} transaction(s) supprimée(s)`
@@ -150,10 +173,11 @@ export function Trash({ navigate, onLogout }: TrashProps) {
           </div>
           {deletedTransactions.length > 0 && (
             <button 
-              className="btn btn-danger" 
+              className="btn btn-danger flex items-center gap-1.5" 
               onClick={handleEmptyTrash}
             >
-              Vider la corbeille
+              <Trash2 className="w-4 h-4" />
+              <span>Vider la corbeille</span>
             </button>
           )}
         </div>
@@ -162,7 +186,9 @@ export function Trash({ navigate, onLogout }: TrashProps) {
 
         {deletedTransactions.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">🗑️</div>
+            <div className="empty-icon flex justify-center mb-2">
+              <Trash2 className="w-12 h-12 text-slate-400" />
+            </div>
             <h2>Corbeille vide</h2>
             <p>Les transactions supprimées apparaissent ici</p>
             <button 
@@ -182,7 +208,7 @@ export function Trash({ navigate, onLogout }: TrashProps) {
                 <div key={transaction.id} className="trash-card">
                   <div className="trash-card-main">
                     <div className="transaction-icon">
-                      {TRANSACTION_TYPE_ICONS[transaction.type]}
+                      {renderTypeIcon(transaction.type)}
                     </div>
                     <div className="transaction-info">
                       <div className="transaction-main">
@@ -192,14 +218,21 @@ export function Trash({ navigate, onLogout }: TrashProps) {
                         <span className="badge badge-deleted">Supprimé</span>
                       </div>
                       <div className="transaction-details">
-                        <span className="detail-item">
-                          📅 {formatDate(transaction.deleted_at)}
+                        <span className="detail-item flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{formatDate(transaction.deleted_at)}</span>
                         </span>
                         {account && (
-                          <span className="detail-item">💳 {account.name}</span>
+                          <span className="detail-item flex items-center gap-1">
+                            <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{account.name}</span>
+                          </span>
                         )}
                         {category && (
-                          <span className="detail-item">🏷️ {category.name}</span>
+                          <span className="detail-item flex items-center gap-1">
+                            <Tag className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{category.name}</span>
+                          </span>
                         )}
                       </div>
                     </div>
@@ -214,16 +247,18 @@ export function Trash({ navigate, onLogout }: TrashProps) {
                   </div>
                   <div className="trash-card-actions">
                     <button
-                      className="btn btn-secondary"
+                      className="btn btn-secondary flex items-center gap-1.5"
                       onClick={() => handleRestore(transaction.id)}
                     >
-                      ♻️ Restaurer
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restaurer</span>
                     </button>
                     <button
-                      className="btn btn-danger-outline"
+                      className="btn btn-danger flex items-center gap-1.5"
                       onClick={() => handlePermanentDelete(transaction.id)}
                     >
-                      ❌ Supprimer définitivement
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Supprimer définitivement</span>
                     </button>
                   </div>
                 </div>
@@ -235,3 +270,5 @@ export function Trash({ navigate, onLogout }: TrashProps) {
     </Layout>
   );
 }
+
+export default Trash;

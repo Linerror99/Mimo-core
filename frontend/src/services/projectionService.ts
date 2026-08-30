@@ -109,6 +109,92 @@ class ProjectionService {
     
     return { projections };
   }
+
+  /**
+   * Récupérer le Reste à Vivre Réel (Safe-to-Spend)
+   */
+  async getSafeToSpend(): Promise<{
+    current_balance: number;
+    committed_expenses: number;
+    safe_to_spend: number;
+    next_income_date: string;
+    next_income_amount: number;
+    days_until_next_income: number;
+    status: 'healthy' | 'caution' | 'danger';
+    horizon_date: string;
+  }> {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${API_URL}/api/v1/projections/safe-to-spend`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch safe-to-spend');
+    }
+    return response.json();
+  }
+
+  /**
+   * Simuler un achat / projet d'épargne (aide à la décision)
+   */
+  async simulatePurchase(data: {
+    name: string;
+    is_saving: boolean;
+    total_amount?: number;
+    monthly_amount?: number;
+    payment_type: string;
+    installments_count?: number;
+    start_date: string;
+    account_id?: string;
+    destination_account_id?: string;
+    category_id?: string;
+  }) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${API_URL}/api/v1/projections/simulate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      throw new Error('Failed to simulate purchase');
+    }
+    return response.json();
+  }
+
+  /**
+   * Valider une simulation et créer les transactions prévisionnelles
+   */
+  async commitSimulation(data: {
+    name: string;
+    is_saving: boolean;
+    total_amount?: number;
+    monthly_amount?: number;
+    payment_type: string;
+    installments_count?: number;
+    start_date: string;
+    account_id?: string;
+    destination_account_id?: string;
+    category_id?: string;
+    create_goal?: boolean;
+  }) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${API_URL}/api/v1/projections/commit-simulation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      throw new Error('Failed to commit simulation');
+    }
+    return response.json();
+  }
 }
 
 export const projectionService = new ProjectionService();

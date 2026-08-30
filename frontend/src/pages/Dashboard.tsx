@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ValidationModal } from '@/components/ValidationModal'
 import { WalletCards } from '@/components/WalletCards'
+import { SafeToSpendCard } from '@/components/SafeToSpendCard'
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
 import { TrendingUp, Clock, Check, AlertCircle } from 'lucide-react'
 import toast from '@/utils/toast'
 import logger from '@/utils/logger'
@@ -48,22 +50,15 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
       setLoading(true)
       // Auto-check du job quotidien pour passer automatiquement les transactions PROJECTED échues en PENDING
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        await fetch(`${apiUrl}/api/v1/jobs/daily-maintenance`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (e) {
-        // En cas d'erreur réseau, continuer le chargement normal
-        console.warn('Auto daily-maintenance trigger notice:', e);
+        await transactionService.triggerDailyJob()
+      } catch (err) {
+        logger.error('Failed to trigger daily job', err)
       }
 
       await Promise.all([
-        fetchPendingTransactions(),
         fetchRecentTransactions(),
-        fetchProjections()
+        fetchProjections(),
+        fetchPendingTransactions(),
       ])
     } catch (error) {
       logger.error('Failed to fetch dashboard data', error)
@@ -74,10 +69,11 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
 
   const fetchRecentTransactions = async () => {
     try {
-      // Récupérer les 5 dernières transactions réalisées
+      // Récupérer les 5 dernières transactions réalisées jusqu'à aujourd'hui
+      const todayStr = new Date().toISOString().split('T')[0]
       const allTransactions = await transactionService.list()
       const realized = allTransactions
-        .filter(t => t.state === 'REALIZED')
+        .filter(t => t.state === 'REALIZED' && t.transaction_date <= todayStr)
         .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
         .slice(0, 5)
       setRecentTransactions(realized)
@@ -144,11 +140,19 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
     switch (status) {
       case 'realized':
         return <Check className="w-4 h-4 text-success" />
-      case 'pending':
+      case 'projected':
         return <Clock className="w-4 h-4 text-warning" />
       default:
         return <Clock className="w-4 h-4 text-muted-foreground" />
     }
+  }
+
+  if (loading) {
+    return (
+      <Layout currentPage="dashboard" navigate={navigate} onLogout={onLogout}>
+        <DashboardSkeleton />
+      </Layout>
+    )
   }
 
   return (
@@ -164,62 +168,76 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
         {/* Portefeuilles - Utilise WalletCards (Sprint 6) */}
         <WalletCards />
 
+        {/* Reste à Vivre Réel (Sprint V2) */}
+        <SafeToSpendCard onOpenSimulator={() => navigate('goals')} />
+
         {pendingTransactions.length > 0 && (
-          <Card className="p-6 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
+          <div className="p-6 rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <AlertCircle className="w-5 h-5 text-amber-600" />
-                <h2 className="text-xl font-semibold">Transactions à valider</h2>
-                <Badge variant="secondary" className="bg-amber-100 text-amber-900 border-amber-300">
+                <h2 className="text-xl font-bold text-amber-950">Transactions à valider</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
                   {pendingTransactions.length}
-                </Badge>
+                </span>
               </div>
               {pendingTransactions.length > 1 && (
-                <Button size="sm" onClick={handleValidateAll} className="bg-amber-600 hover:bg-amber-700">
-                  Tout valider
+                <Button size="sm" onClick={handleValidateAll} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs">
+                  Tout valider ({pendingTransactions.length})
                 </Button>
               )}
             </div>
             <div className="space-y-3">
               {pendingTransactions.map((transaction) => {
-                const isExpense = transaction.amount < 0
+                const isTransfer = transaction.type === 'TRANSFER'
+                const isIncome = transaction.type === 'INCOME' || (!isTransfer && transaction.amount > 0)
+                const isExpense = transaction.type === 'EXPENSE' || (!isTransfer && transaction.amount < 0)
                 const displayAmount = Math.abs(transaction.amount)
                 
                 return (
                   <div
                     key={transaction.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-900"
+                    className="flex items-center justify-between p-4 rounded-xl bg-white border border-amber-200/70 shadow-xs hover:border-amber-300 transition-all"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950 flex items-center justify-center">
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isTransfer ? 'bg-sky-100 text-sky-600' : isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+                      }`}>
+                        <AlertCircle className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-medium">{transaction.description}</p>
+                        <p className="font-semibold text-slate-900 text-base">{transaction.description}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                             {new Date(transaction.transaction_date).toLocaleDateString('fr-FR')}
-                          </Badge>
-                          <Badge 
-                            variant={isExpense ? 'destructive' : 'default'}
-                            className="text-xs"
-                          >
-                            {isExpense ? 'Dépense' : 'Revenu'}
-                          </Badge>
+                          </span>
+                          {isTransfer ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-sky-100 text-sky-700">
+                              Virement
+                            </span>
+                          ) : isIncome ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700">
+                              Revenu
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-700">
+                              Dépense
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <p className={`font-mono-amounts text-lg font-semibold ${
-                        isExpense ? 'text-destructive' : 'text-success'
+                      <p className={`text-lg font-bold ${
+                        isTransfer ? 'text-sky-600' : isIncome ? 'text-emerald-600' : 'text-rose-600'
                       }`}>
-                        {isExpense ? '-' : '+'}
+                        {isTransfer ? '' : isIncome ? '+' : '-'}
                         {formatAmount(displayAmount)}
                       </p>
                       <Button 
                         size="sm" 
                         onClick={() => handleValidateClick(transaction)}
-                        className="bg-amber-600 hover:bg-amber-700"
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs"
                       >
                         Valider
                       </Button>
@@ -228,7 +246,7 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
                 )
               })}
             </div>
-          </Card>
+          </div>
         )}
 
         <Card className="p-6">
@@ -246,7 +264,9 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
               </div>
             ) : (
               recentTransactions.map((transaction) => {
-                const isExpense = transaction.amount < 0
+                const isTransfer = transaction.type === 'TRANSFER'
+                const isIncome = transaction.type === 'INCOME' || (!isTransfer && transaction.amount > 0)
+                const isExpense = transaction.type === 'EXPENSE' || (!isTransfer && transaction.amount < 0)
                 const displayAmount = Math.abs(transaction.amount)
                 
                 return (
@@ -265,10 +285,10 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
                     </div>
                     <p
                       className={`font-mono-amounts font-semibold ${
-                        isExpense ? 'text-destructive' : 'text-success'
+                        isTransfer ? 'text-sky-600' : isIncome ? 'text-emerald-600' : 'text-rose-600'
                       }`}
                     >
-                      {isExpense ? '-' : '+'}
+                      {isTransfer ? '' : isIncome ? '+' : '-'}
                       {formatAmount(displayAmount)}
                     </p>
                   </div>

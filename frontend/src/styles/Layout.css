@@ -1,0 +1,267 @@
+/* ============================================
+   MIMO LAYOUT — Header + Collapsible Sidebar
+   ============================================ */
+
+/* ====== LAYOUT STRUCTURE ====== */
+.mimo-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+}
+
+/* ====== TOP HEADER BAR ====== */
+.mimo-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 1.25rem;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.mimo-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mimo-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Hamburger Button */
+.mimo-hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mimo-hamburger:hover {
+  background: var(--secondary);
+}
+
+/* Header Logo */
+.mimo-header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mimo-header-logo-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.mimo-header-logo-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.01em;
+}
+
+/* Header Icon Buttons (dark mode toggle, etc.) */
+.mimo-header-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.75;
+}
+
+.mimo-header-icon-btn:hover {
+  background: var(--secondary);
+  opacity: 1;
+}
+
+/* User Trigger (Avatar + Name + Chevron) */
+.mimo-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--foreground);
+}
+
+.mimo-user-trigger:hover {
+  background: var(--muted);
+  border-color: var(--ring);
+}
+
+.mimo-user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ====== SIDEBAR OVERLAY (Mobile / Tablet) ====== */
+.mimo-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  animation: mimo-fade-in 0.2s ease-out;
+}
+
+@keyframes mimo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ====== SIDEBAR ====== */
+.mimo-sidebar {
+  position: fixed;
+  top: 56px; /* below header */
+  left: 0;
+  bottom: 0;
+  width: 250px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+}
+
+.mimo-sidebar.open {
+  transform: translateX(0);
+}
+
+/* Sidebar Navigation */
+.mimo-sidebar-nav {
+  flex: 1;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mimo-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.mimo-nav-item:hover {
+  background: var(--secondary);
+}
+
+.mimo-nav-item.active {
+  background: oklch(0.59 0.19 278 / 0.1);
+  color: oklch(0.59 0.19 278);
+  font-weight: 600;
+}
+
+.dark .mimo-nav-item.active {
+  background: oklch(0.65 0.2 278 / 0.18);
+  color: oklch(0.78 0.16 278);
+}
+
+/* Sidebar Footer */
+.mimo-sidebar-footer {
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.mimo-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: oklch(0.63 0.22 25);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mimo-logout-btn:hover {
+  background: oklch(0.95 0.05 25);
+}
+
+.dark .mimo-logout-btn:hover {
+  background: oklch(0.25 0.05 25);
+}
+
+/* ====== MAIN CONTENT ====== */
+.mimo-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ====== RESPONSIVE DESKTOP ====== */
+@media (min-width: 1024px) {
+  .mimo-sidebar-overlay {
+    display: none !important;
+  }
+
+  .mimo-layout.sidebar-open .mimo-main {
+    margin-left: 250px;
+  }
+}
+
+/* Small mobile: hide username in header */
+@media (max-width: 480px) {
+  .mimo-user-name {
+    display: none;
+  }
+
+  .mimo-header-logo-text {
+    font-size: 0.95rem;
+  }
+}

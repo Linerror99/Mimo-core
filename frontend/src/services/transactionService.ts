@@ -119,6 +119,14 @@ export const transactionService = {
     const response = await api.patch<Transaction>(`/transactions/${id}/postpone?new_date=${newDate}`);
     return response.data;
   },
+
+  /**
+   * Déclencher le job quotidien de maintenance (transition PROJECTED -> PENDING)
+   */
+  async triggerDailyJob(): Promise<any> {
+    const response = await api.post('/jobs/daily-maintenance');
+    return response.data;
+  },
 };
 
 /**

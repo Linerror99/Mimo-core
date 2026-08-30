@@ -1,6 +1,6 @@
-import { ReactNode, useState } from 'react'
-import { Home, List, TrendingUp, CreditCard, Folder, Target, Settings, Trash2, LogOut, User, UserPlus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ReactNode, useState, useEffect, useRef } from 'react'
+import '../styles/Layout.css'
+import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -10,10 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useIsMobile } from '@/hooks/use-mobile'
 import { useAuthStore } from '@/stores/authStore'
 import { NotificationBell } from '@/components/NotificationBell'
-import { ValidationModal } from '@/components/ValidationModal'
 import { Notification } from '@/types/notification'
 
 type Page =
@@ -23,9 +21,12 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'settings'
   | 'settings-profile'
   | 'settings-household'
+  | 'settings-invitations'
   | 'trash'
+  | 'notifications'
 
 interface LayoutProps {
   children: ReactNode
@@ -39,183 +40,208 @@ const menuItems = [
   { id: 'timeline' as Page, label: 'Timeline', icon: List },
   { id: 'projection' as Page, label: 'Projection', icon: TrendingUp },
   { id: 'accounts' as Page, label: 'Comptes', icon: CreditCard },
-  { id: 'categories' as Page, label: 'Catégories', icon: Folder },
   { id: 'goals' as Page, label: 'Objectifs', icon: Target },
+  { id: 'categories' as Page, label: 'Catégories', icon: Folder },
   { id: 'trash' as Page, label: 'Corbeille', icon: Trash2 },
 ]
 
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
-  const isMobile = useIsMobile()
   const { user } = useAuthStore()
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
-  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
-
-  const handleNotificationClick = (notification: Notification) => {
-    setSelectedNotification(notification)
-    setIsValidationModalOpen(true)
-  }
-
-  const handleValidationComplete = () => {
-    setIsValidationModalOpen(false)
-    setSelectedNotification(null)
-  }
-
-  const Sidebar = () => {
-    const { user } = useAuthStore()
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-    const getAvatarUrl = (avatarUrl: string | null) => {
-      if (!avatarUrl) return undefined
-      if (avatarUrl.startsWith('http')) return avatarUrl
-      return `${API_BASE_URL}${avatarUrl}`
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mimo-sidebar-open')
+      if (saved !== null) return saved === 'true'
+      return window.innerWidth >= 1024
     }
+    return true
+  })
 
-    return (
-    <aside className="w-64 bg-background border-r border-border flex flex-col">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-12 h-12 rounded-xl object-cover" />
-            <span className="text-lg font-semibold">Mimo Finance</span>
-          </div>
-          <NotificationBell onNotificationClick={handleNotificationClick} />
-        </div>
-      </div>
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark')
+    }
+    return false
+  })
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
-      <nav className="flex-1 px-3 space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon
-          const isActive = currentPage === item.id
-          return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-foreground hover:bg-secondary'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-border">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
-              <Avatar className="w-9 h-9">
-                {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} alt="Avatar" />}
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">
-                  {user ? `${user.first_name} ${user.last_name}` : 'User'}
-                </p>
-                <p className="text-xs text-muted-foreground">{user?.email || 'user@mimo.fr'}</p>
-              </div>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('settings-profile')}>
-              <User className="w-4 h-4 mr-2" />
-              Profil
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('settings-household')}>
-              <Settings className="w-4 h-4 mr-2" />
-              Foyer
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.location.href = '/settings/invitations'}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Invitations
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Déconnexion
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </aside>
-  )
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const getAvatarUrl = (avatarUrl: string | null) => {
+    if (!avatarUrl) return undefined
+    if (avatarUrl.startsWith('http')) return avatarUrl
+    return `${API_BASE_URL}${avatarUrl}`
   }
 
-  const BottomNav = () => (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
-      <div className="flex items-center justify-around py-2">
-        {menuItems.slice(0, 4).map((item) => {
-          const Icon = item.icon
-          const isActive = currentPage === item.id
-          return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.id)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[44px] ${
-                isActive ? 'text-primary' : 'text-muted-foreground'
-              }`}
-            >
-              <Icon className="w-6 h-6" />
-              <span className="text-xs">{item.label}</span>
-            </button>
-          )
-        })}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex flex-col items-center gap-1 px-4 py-2 min-w-[44px] text-muted-foreground">
-              <Settings className="w-6 h-6" />
-              <span className="text-xs">Plus</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            {menuItems.slice(4).map((item) => {
-              const Icon = item.icon
-              return (
-                <DropdownMenuItem key={item.id} onClick={() => navigate(item.id)}>
-                  <Icon className="w-4 h-4 mr-2" />
-                  {item.label}
-                </DropdownMenuItem>
-              )
-            })}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('settings-profile')}>
-              <User className="w-4 h-4 mr-2" />
-              Profil
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('settings-household')}>
-              <Settings className="w-4 h-4 mr-2" />
-              Foyer
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Déconnexion
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </nav>
-  )
+  // Toggle sidebar and persist preference
+  const toggleSidebar = () => {
+    setSidebarOpen(prev => {
+      const next = !prev
+      localStorage.setItem('mimo-sidebar-open', String(next))
+      return next
+    })
+  }
+
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    const newMode = !darkMode
+    setDarkMode(newMode)
+    if (newMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('mimo-theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('mimo-theme', 'light')
+    }
+  }
+
+  // Load saved theme on mount (default to light)
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('mimo-theme')
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark')
+      setDarkMode(true)
+    } else {
+      document.documentElement.classList.remove('dark')
+      setDarkMode(false)
+    }
+  }, [])
+
+  // Close sidebar on mobile outside click only
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (window.innerWidth < 1024 && sidebarOpen && sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setSidebarOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [sidebarOpen])
+
+  const handleNotificationClick = (_notification: Notification) => {
+    navigate('dashboard')
+  }
+
+  const handleNavClick = (page: Page) => {
+    navigate(page)
+    // On mobile (< 1024px) auto-close only if desired, otherwise keep open on desktop
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {!isMobile && <Sidebar />}
-      <main className={`flex-1 ${isMobile ? 'pb-20' : ''}`}>{children}</main>
-      {isMobile && <BottomNav />}
-      {selectedNotification && (
-        <ValidationModal
-          notification={selectedNotification}
-          isOpen={isValidationModalOpen}
-          onClose={() => setIsValidationModalOpen(false)}
-          onSuccess={handleValidationComplete}
-        />
-      )}
+    <div className={`mimo-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      {/* ====== TOP HEADER BAR ====== */}
+      <header className="mimo-header">
+        <div className="mimo-header-left">
+          <button
+            className="mimo-hamburger"
+            onClick={toggleSidebar}
+            aria-label="Toggle menu"
+            title="Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="mimo-header-logo" onClick={() => navigate('dashboard')}>
+            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="mimo-header-logo-img" />
+            <span className="mimo-header-logo-text">Mimo Finance</span>
+          </div>
+        </div>
+
+        <div className="mimo-header-right">
+          {/* Dark / Light Mode Toggle */}
+          <button
+            className="mimo-header-icon-btn"
+            onClick={toggleDarkMode}
+            aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            title={darkMode ? 'Mode clair' : 'Mode sombre'}
+          >
+            {darkMode ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+          </button>
+
+          {/* Notifications */}
+          <NotificationBell
+            onNotificationClick={handleNotificationClick}
+            onViewAll={() => navigate('notifications')}
+          />
+
+          {/* User Settings Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="mimo-user-trigger">
+                <Avatar className="w-8 h-8">
+                  {user?.avatar_url && <AvatarImage src={getAvatarUrl(user.avatar_url)} alt="Avatar" />}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                    {user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="mimo-user-name">
+                  {user ? `${user.first_name}` : 'User'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Paramètres & Compte</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleNavClick('settings-profile')}>
+                <User className="w-4 h-4 mr-2" />
+                Profil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavClick('settings-household')}>
+                <Settings className="w-4 h-4 mr-2" />
+                Foyer & Membres
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavClick('settings-invitations')}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invitations
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onLogout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Déconnexion
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      {/* ====== SIDEBAR OVERLAY (Mobile only) ====== */}
+      {sidebarOpen && <div className="mimo-sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      {/* ====== SIDEBAR ====== */}
+      <aside
+        ref={sidebarRef}
+        className={`mimo-sidebar ${sidebarOpen ? 'open' : ''}`}
+      >
+        <nav className="mimo-sidebar-nav">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const isActive = currentPage === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`mimo-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="mimo-sidebar-footer">
+          <button className="mimo-logout-btn" onClick={onLogout}>
+            <LogOut className="w-4 h-4" />
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ====== MAIN CONTENT ====== */}
+      <main className="mimo-main">
+        {children}
+      </main>
     </div>
   )
 }

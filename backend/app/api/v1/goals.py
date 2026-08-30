@@ -79,12 +79,68 @@ async def create_goal(
         goal = await service.create_goal(
             created_by=current_user.id,
             name=goal_data.name,
-            target_amount=float(goal_data.target_amount),
+            target_amount=float(goal_data.target_amount) if goal_data.target_amount is not None else None,
+            current_amount=float(goal_data.current_amount) if goal_data.current_amount is not None else 0,
+            monthly_contribution=float(goal_data.monthly_contribution) if goal_data.monthly_contribution is not None else None,
             user_id=goal_data.user_id,
             household_id=goal_data.household_id,
             description=goal_data.description,
-            target_date=goal_data.target_date
+            target_date=goal_data.target_date,
+            account_id=goal_data.account_id,
+            destination_account_id=goal_data.destination_account_id
         )
+
+        # Si un prélèvement mensuel est défini, générer automatiquement les échéances prévisionnelles
+        if goal_data.monthly_contribution and float(goal_data.monthly_contribution) > 0:
+            from datetime import date as dt_date
+            from decimal import Decimal
+            from dateutil.relativedelta import relativedelta
+            from app.models.account import Account
+            from app.models.transaction import Transaction, TransactionState, TransactionType
+
+            start_date = goal_data.start_date or dt_date.today()
+            monthly = float(goal_data.monthly_contribution)
+
+            if goal_data.target_date:
+                months_diff = (goal_data.target_date.year - start_date.year) * 12 + (goal_data.target_date.month - start_date.month) + 1
+                count = max(1, min(60, months_diff))
+            elif goal_data.target_amount:
+                count = max(1, min(60, int(float(goal_data.target_amount) / monthly)))
+            else:
+                count = 12
+
+            account_id = goal_data.account_id
+            if not account_id:
+                acc_res = await db.execute(
+                    select(Account).where(
+                        Account.household_id == current_user.household_id,
+                        Account.is_active == "true"
+                    ).order_by(Account.created_at.asc())
+                )
+                first_acc = acc_res.scalars().first()
+                if first_acc:
+                    account_id = first_acc.id
+
+            if account_id:
+                tx_type = TransactionType.TRANSFER if goal_data.destination_account_id else TransactionType.EXPENSE
+                for i in range(count):
+                    due_date = start_date + relativedelta(months=i)
+                    state = TransactionState.PROJECTED if due_date > dt_date.today() else (TransactionState.PENDING if due_date == dt_date.today() else TransactionState.REALIZED)
+                    tx = Transaction(
+                        household_id=current_user.household_id,
+                        account_id=account_id,
+                        destination_account_id=goal_data.destination_account_id if tx_type == TransactionType.TRANSFER else None,
+                        goal_id=goal.id,
+                        amount=Decimal(str(monthly if tx_type == TransactionType.TRANSFER else -abs(monthly))),
+                        transaction_date=due_date,
+                        type=tx_type,
+                        state=state,
+                        description=f"Épargne {goal.name} ({i+1}/{count})",
+                        notes="Généré automatiquement par l'objectif d'épargne"
+                    )
+                    db.add(tx)
+                await db.commit()
+
         return goal
     except ValueError as e:
         raise HTTPException(
@@ -176,6 +232,37 @@ async def get_goal(
     return goal
 
 
+@router.get("/{goal_id}/transactions")
+async def get_goal_transactions(
+    goal_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Récupérer toutes les transactions liées à un objectif"""
+    service = GoalService(db)
+    goal = await service.get_goal(goal_id)
+
+    if not goal:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Objectif introuvable"
+        )
+
+    has_access = (
+        (goal.user_id and goal.user_id == current_user.id) or
+        (goal.household_id and goal.household_id == current_user.household_id)
+    )
+
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'avez pas accès à cet objectif"
+        )
+
+    transactions = await service.get_goal_transactions(goal_id)
+    return transactions
+
+
 @router.patch("/{goal_id}", response_model=GoalResponse)
 async def update_goal(
     goal_id: str,
@@ -207,12 +294,10 @@ async def update_goal(
         )
 
     try:
+        update_dict = goal_data.model_dump(exclude_unset=True)
         updated_goal = await service.update_goal(
             goal_id=goal_id,
-            name=goal_data.name,
-            target_amount=float(goal_data.target_amount) if goal_data.target_amount else None,
-            description=goal_data.description,
-            target_date=goal_data.target_date
+            update_dict=update_dict
         )
 
         if not updated_goal:

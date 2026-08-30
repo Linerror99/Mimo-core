@@ -5,6 +5,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Layout } from '@/components/Layout';
+import { SettingsHeader } from '@/components/SettingsHeader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +25,26 @@ import logger from '@/utils/logger';
 import { InvitationList } from '@/components/InvitationList';
 import invitationService, { Invitation } from '@/services/invitationService';
 
-export default function Settings() {
+type Page =
+  | 'dashboard'
+  | 'timeline'
+  | 'projection'
+  | 'accounts'
+  | 'categories'
+  | 'goals'
+  | 'settings'
+  | 'settings-profile'
+  | 'settings-household'
+  | 'settings-invitations'
+  | 'trash'
+  | 'notifications';
+
+interface SettingsProps {
+  navigate: (page: Page) => void;
+  onLogout: () => void;
+}
+
+export default function Settings({ navigate, onLogout }: SettingsProps) {
   const [inviteeEmail, setInviteeEmail] = useState('');
   const [sentInvitations, setSentInvitations] = useState<Invitation[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<Invitation[]>([]);
@@ -168,13 +189,14 @@ export default function Settings() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Paramètres</h1>
-        <p className="text-muted-foreground">
-          Gérez votre compte et vos invitations
-        </p>
-      </div>
+    <Layout currentPage="settings-invitations" navigate={navigate} onLogout={onLogout}>
+      <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+        <SettingsHeader
+          currentTab="invitations"
+          navigate={navigate}
+          title="Invitations & Partenaires"
+          description="Invitez votre conjoint(e) ou gérez vos invitations de foyer"
+        />
 
       {/* Messages de succès/erreur globaux */}
       {success && (
@@ -292,6 +314,7 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </Card>
-    </div>
+      </div>
+    </Layout>
   );
 }

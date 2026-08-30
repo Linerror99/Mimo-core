@@ -42,3 +42,7 @@ Thumbs.db
 *.db
 *.sqlite
 frontend/playwright-report/index.html
+backups/
+backend/logs/
+
+backend/uploads/avatars/8012a78c-3aee-43f2-95e9-a49d83cd53e7_bc7fd1a1-79a8-4eb5-864f-c435f097ae7f.jpg

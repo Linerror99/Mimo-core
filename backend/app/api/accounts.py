@@ -46,6 +46,7 @@ async def create_account(
         "initial_balance": account.initial_balance,
         "currency": account.currency,
         "is_active": account.is_active == "true",
+        "logo_url": account.logo_url,
         "current_balance": current_balance,
         "closed_at": account.closed_at,
         "created_at": account.created_at,
@@ -86,6 +87,7 @@ async def list_accounts(
             "initial_balance": account.initial_balance,
             "currency": account.currency,
             "is_active": account.is_active == "true",
+            "logo_url": account.logo_url,
             "current_balance": current_balance,
             "closed_at": account.closed_at,
             "created_at": account.created_at,
@@ -131,6 +133,7 @@ async def get_account(
         "initial_balance": account.initial_balance,
         "currency": account.currency,
         "is_active": account.is_active == "true",
+        "logo_url": account.logo_url,
         "current_balance": current_balance,
         "closed_at": account.closed_at,
         "created_at": account.created_at,
@@ -182,7 +185,9 @@ async def update_account(
         "initial_balance": updated_account.initial_balance,
         "currency": updated_account.currency,
         "is_active": updated_account.is_active == "true",
+        "logo_url": updated_account.logo_url,
         "current_balance": current_balance,
+        "closed_at": updated_account.closed_at,
         "created_at": updated_account.created_at,
         "updated_at": updated_account.updated_at
     }

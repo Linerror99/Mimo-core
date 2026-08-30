@@ -36,6 +36,7 @@ class Account(Base):
     currency = Column(String(3), nullable=False, default="EUR")
     is_active = Column(SQLEnum("true", "false", name="boolean_enum"), nullable=False, default="true")
     closed_at = Column(DateTime, nullable=True)  # Soft delete: NULL = actif, DATE = fermé
+    logo_url = Column(String(500), nullable=True)  # Bank logo (URL or preset identifier or base64)
 
     # Track du propriétaire d'origine pour :
     # 1. Calcul correct des wallets après fusion (inclure initial_balance)

@@ -38,29 +38,34 @@ class GoalService:
         self,
         created_by: str,
         name: str,
-        target_amount: float,
+        target_amount: Optional[float] = None,
+        current_amount: Optional[float] = 0,
+        monthly_contribution: Optional[float] = None,
         user_id: Optional[str] = None,
         household_id: Optional[str] = None,
         description: Optional[str] = None,
-        target_date: Optional[date] = None
+        target_date: Optional[date] = None,
+        account_id: Optional[str] = None,
+        destination_account_id: Optional[str] = None
     ) -> Goal:
         """
-        Crée un nouvel objectif d'épargne
+        Crée un nouvel objectif d'épargne ou projet
 
         Args:
             created_by: ID de l'utilisateur créateur
             name: Nom de l'objectif
-            target_amount: Montant cible
+            target_amount: Montant cible optionnel (None pour épargne continue)
+            current_amount: Montant actuel
+            monthly_contribution: Prélèvement mensuel optionnel
             user_id: ID du user (objectif personnel) - exclusif avec household_id
             household_id: ID du foyer (objectif de foyer) - exclusif avec user_id
             description: Description optionnelle
             target_date: Date cible optionnelle
+            account_id: Compte source
+            destination_account_id: Compte épargne destination
 
         Returns:
             Goal créé
-
-        Raises:
-            ValueError: Si montant cible <= 0 ou si user_id et household_id invalides
         """
         # Validation: SOIT user_id SOIT household_id (exclusif)
         if user_id is None and household_id is None:
@@ -69,8 +74,8 @@ class GoalService:
         if user_id is not None and household_id is not None:
             raise ValueError("Vous devez fournir user_id ou household_id exclusivement, pas les deux")
 
-        # Validation montant
-        if target_amount <= 0:
+        # Validation montant cible si fourni
+        if target_amount is not None and target_amount <= 0:
             raise ValueError("Le montant cible doit être positif")
 
         # Créer objectif
@@ -79,10 +84,13 @@ class GoalService:
             household_id=household_id,
             created_by=created_by,
             name=name,
-            target_amount=Decimal(str(target_amount)),
+            target_amount=Decimal(str(target_amount)) if target_amount is not None else None,
+            monthly_contribution=Decimal(str(monthly_contribution)) if monthly_contribution is not None else None,
             description=description,
             target_date=target_date,
-            current_amount=Decimal("0")
+            account_id=account_id,
+            destination_account_id=destination_account_id,
+            current_amount=Decimal(str(current_amount or 0))
         )
 
         self.db.add(goal)
@@ -105,70 +113,88 @@ class GoalService:
     ) -> List[Goal]:
         """
         Liste les objectifs d'un user OU d'un household
-
-        Args:
-            user_id: ID du user (objectifs personnels)
-            household_id: ID du foyer (objectifs de foyer)
-
-        Returns:
-            Liste des objectifs
         """
-        if user_id:
-            result = await self.db.execute(
-                select(Goal)
-                .where(Goal.user_id == user_id)
-                .order_by(Goal.created_at.desc())
-            )
-        elif household_id:
-            result = await self.db.execute(
-                select(Goal)
-                .where(Goal.household_id == household_id)
-                .order_by(Goal.created_at.desc())
-            )
-        else:
-            return []
+        query = select(Goal)
 
-        return list(result.scalars().all())
+        if user_id:
+            query = query.where(Goal.user_id == user_id)
+        elif household_id:
+            query = query.where(Goal.household_id == household_id)
+
+        result = await self.db.execute(query.order_by(Goal.created_at.desc()))
+        goals = list(result.scalars().all())
+
+        # Recalculer la progression de chaque objectif basé sur ses transactions liées
+        for goal in goals:
+            tx_res = await self.db.execute(
+                select(func.sum(func.abs(Transaction.amount)))
+                .where(
+                    and_(
+                        Transaction.goal_id == goal.id,
+                        Transaction.state == TransactionState.REALIZED,
+                        Transaction.deleted_at.is_(None)
+                    )
+                )
+            )
+            linked_sum = tx_res.scalar()
+            if linked_sum is not None and linked_sum > 0:
+                goal.current_amount = linked_sum
+
+        return goals
 
     async def update_goal(
         self,
         goal_id: str,
         name: Optional[str] = None,
         target_amount: Optional[float] = None,
+        monthly_contribution: Optional[float] = None,
         description: Optional[str] = None,
-        target_date: Optional[date] = None
+        target_date: Optional[date] = None,
+        account_id: Optional[str] = None,
+        destination_account_id: Optional[str] = None,
+        update_dict: Optional[dict] = None
     ) -> Goal:
         """
         Met à jour un objectif
-
-        Args:
-            goal_id: ID de l'objectif
-            name: Nouveau nom (optionnel)
-            target_amount: Nouveau montant cible (optionnel)
-            description: Nouvelle description (optionnel)
-            target_date: Nouvelle date cible (optionnel)
-
-        Returns:
-            Goal mis à jour
-
-        Raises:
-            ValueError: Si objectif introuvable ou montant invalide
         """
         goal = await self.get_goal(goal_id)
         if not goal:
             raise ValueError(f"Objectif {goal_id} introuvable")
 
-        # Mettre à jour champs fournis
-        if name is not None:
-            goal.name = name
-        if target_amount is not None:
-            if target_amount <= 0:
-                raise ValueError("Le montant cible doit être positif")
-            goal.target_amount = Decimal(str(target_amount))
-        if description is not None:
-            goal.description = description
-        if target_date is not None:
-            goal.target_date = target_date
+        if update_dict is not None:
+            if "name" in update_dict and update_dict["name"] is not None:
+                goal.name = update_dict["name"]
+            if "target_amount" in update_dict:
+                val = update_dict["target_amount"]
+                goal.target_amount = Decimal(str(val)) if val is not None else None
+            if "monthly_contribution" in update_dict:
+                val = update_dict["monthly_contribution"]
+                goal.monthly_contribution = Decimal(str(val)) if (val is not None and float(val) > 0) else None
+            if "description" in update_dict:
+                goal.description = update_dict["description"]
+            if "target_date" in update_dict:
+                goal.target_date = update_dict["target_date"]
+            if "account_id" in update_dict:
+                goal.account_id = update_dict["account_id"]
+            if "destination_account_id" in update_dict:
+                goal.destination_account_id = update_dict["destination_account_id"]
+        else:
+            if name is not None:
+                goal.name = name
+            if target_amount is not None:
+                if target_amount <= 0:
+                    raise ValueError("Le montant cible doit être positif")
+                goal.target_amount = Decimal(str(target_amount))
+            if monthly_contribution is not None:
+                goal.monthly_contribution = Decimal(str(monthly_contribution)) if monthly_contribution > 0 else None
+            if description is not None:
+                goal.description = description
+            if target_date is not None:
+                goal.target_date = target_date
+            if account_id is not None:
+                goal.account_id = account_id
+            if destination_account_id is not None:
+                goal.destination_account_id = destination_account_id
 
         await self.db.commit()
         await self.db.refresh(goal)
@@ -458,3 +484,19 @@ class GoalService:
             return False, f"Solde insuffisant. Disponible: {remaining_balance}€, Demandé: {new_amount}€"
 
         return True, ""
+
+    async def get_goal_transactions(self, goal_id: str) -> List[Transaction]:
+        """
+        Récupère toutes les transactions (passées et futures) liées à un objectif
+        """
+        result = await self.db.execute(
+            select(Transaction)
+            .where(
+                and_(
+                    Transaction.goal_id == goal_id,
+                    Transaction.deleted_at.is_(None)
+                )
+            )
+            .order_by(Transaction.transaction_date.desc())
+        )
+        return list(result.scalars().all())

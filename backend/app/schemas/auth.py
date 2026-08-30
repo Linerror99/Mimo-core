@@ -93,3 +93,50 @@ class PasswordChange(BaseModel):
         if not re.search(r'\d', v):
             raise ValueError('Password must contain at least one number')
         return v
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Schema for forgot password request."""
+    email: EmailStr = Field(..., description="User email address")
+
+
+class VerifyResetCodeRequest(BaseModel):
+    """Schema for verifying 6-digit email reset code."""
+    email: EmailStr = Field(..., description="User email address")
+    code: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+
+    @field_validator('code')
+    @classmethod
+    def validate_code(cls, v: str) -> str:
+        if not re.match(r'^\d{6}$', v.strip()):
+            raise ValueError('Le code doit être composé de 6 chiffres')
+        return v.strip()
+
+
+class ResetPasswordRequest(BaseModel):
+    """Schema for resetting password with 6-digit email code."""
+    email: EmailStr = Field(..., description="User email address")
+    code: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
+
+    @field_validator('code')
+    @classmethod
+    def validate_code(cls, v: str) -> str:
+        if not re.match(r'^\d{6}$', v.strip()):
+            raise ValueError('Le code doit être composé de 6 chiffres')
+        return v.strip()
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError('Le mot de passe doit contenir au moins 8 caractères')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Le mot de passe doit contenir au moins une lettre majuscule')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Le mot de passe doit contenir au moins une lettre minuscule')
+        if not re.search(r'\d', v):
+            raise ValueError('Le mot de passe doit contenir au moins un chiffre')
+        return v
+
+

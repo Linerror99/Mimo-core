@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { CheckCircle2, Trash2, AlertTriangle, Info } from 'lucide-react';
 import '../styles/FeedbackModal.css';
 
 export interface FeedbackOptions {
@@ -33,17 +34,17 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, options, o
     onClose();
   };
 
-  const getIcon = () => {
+  const renderIcon = () => {
     switch (options.type) {
       case 'delete':
-        return '🗑️';
+        return <Trash2 className="w-8 h-8 text-rose-500" />;
       case 'warning':
-        return '⚠️';
+        return <AlertTriangle className="w-8 h-8 text-amber-500" />;
       case 'info':
-        return '💡';
+        return <Info className="w-8 h-8 text-blue-500" />;
       case 'success':
       default:
-        return '✅';
+        return <CheckCircle2 className="w-8 h-8 text-emerald-500" />;
     }
   };
 
@@ -51,7 +52,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, options, o
     <div className="feedback-overlay" onClick={handleOk}>
       <div className={`feedback-card feedback-${options.type || 'success'}`} onClick={(e) => e.stopPropagation()}>
         <div className={`feedback-icon-wrapper ${options.type || 'success'}`}>
-          <span className="feedback-icon">{getIcon()}</span>
+          {renderIcon()}
         </div>
         <h3 className="feedback-title">{options.title}</h3>
         <p className="feedback-message">{options.message}</p>
@@ -61,7 +62,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, options, o
           onClick={handleOk}
           autoFocus
         >
-          {options.confirmText || 'OK, compris ! 👍'}
+          {options.confirmText || 'Compris'}
         </button>
       </div>
     </div>

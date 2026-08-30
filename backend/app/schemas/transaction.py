@@ -37,6 +37,7 @@ class TransactionCreate(TransactionBase):
     account_id: str = Field(..., description="ID du compte source")
     category_id: Optional[str] = Field(None, description="ID de la catégorie")
     destination_account_id: Optional[str] = Field(None, description="ID du compte destination (pour TRANSFER)")
+    goal_id: Optional[str] = Field(None, description="ID de l'objectif/épargne lié")
 
     @field_validator('destination_account_id')
     @classmethod
@@ -104,6 +105,7 @@ class TransactionUpdate(BaseModel):
     account_id: Optional[str] = Field(None)
     destination_account_id: Optional[str] = Field(None)
     category_id: Optional[str] = Field(None)
+    goal_id: Optional[str] = Field(None)
     notes: Optional[str] = Field(None)
     is_active: Optional[bool] = Field(None)
 
@@ -125,6 +127,8 @@ class TransactionResponse(TransactionBase):
     account_id: str
     category_id: Optional[str]
     destination_account_id: Optional[str]
+    goal_id: Optional[str] = None
+    recurring_template_id: Optional[str] = None
     state: TransactionState = Field(..., description="État calculé (REALIZED ou PROJECTED)")
     recurrence_frequency: RecurrenceFrequency
     recurrence_end_date: Optional[date]
@@ -138,6 +142,7 @@ class TransactionResponse(TransactionBase):
     account_name: Optional[str] = Field(None, description="Nom du compte")
     category_name: Optional[str] = Field(None, description="Nom de la catégorie")
     destination_account_name: Optional[str] = Field(None, description="Nom du compte destination")
+    goal_name: Optional[str] = Field(None, description="Nom de l'objectif d'épargne lié")
 
     model_config = {"from_attributes": True}
 
@@ -151,6 +156,7 @@ class TransactionFilters(BaseModel):
     type: Optional[TransactionType] = Field(None, description="Filtrer par type")
     account_id: Optional[str] = Field(None, description="Filtrer par compte")
     category_id: Optional[str] = Field(None, description="Filtrer par catégorie")
+    goal_id: Optional[str] = Field(None, description="Filtrer par objectif lié")
     state: Optional[TransactionState] = Field(None, description="Filtrer par état (REALIZED ou PROJECTED)")
     include_deleted: bool = Field(False, description="Inclure les transactions supprimées (corbeille)")
 
