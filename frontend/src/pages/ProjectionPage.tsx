@@ -3,7 +3,7 @@ import { Layout } from '@/components/Layout';
 import { projectionService } from '../services/projectionService';
 import { accountService } from '../services/accountService';
 import { MonthlyProjection, formatMonth, formatProjectionAmount } from '../types/projection';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ProjectionSkeleton } from '@/components/skeletons/ProjectionSkeleton';
 import { RotateCcw, AlertTriangle, CheckCircle2, XCircle, Maximize2, Minimize2, X } from 'lucide-react';
 import '../styles/Projection.css';
@@ -426,9 +426,12 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
           <>
             {/* Graphiques */}
             <div className="charts-section">
-              <div className="chart-container">
+              <div className="chart-container modern-dark-chart">
                 <div className="chart-container-header">
-                  <h2>Évolution du solde sur {formatDuration(totalMonths)}</h2>
+                  <div>
+                    <h2>Évolution du solde sur {formatDuration(totalMonths)}</h2>
+                    <p className="chart-subtitle">Projection continue du patrimoine et de la trésorerie</p>
+                  </div>
                   <button
                     type="button"
                     className="btn-chart-expand"
@@ -438,52 +441,103 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                     <Maximize2 className="w-4 h-4" />
                   </button>
                 </div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={projections.map(p => ({
-                    month: formatMonth(p.month, p.year),
-                    patrimoine: p.balance,
-                    tresorerie: p.treasury_balance ?? p.balance
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} interval={Math.ceil(totalMonths / 12) - 1} />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      labelStyle={{ color: '#333' }}
+                <ResponsiveContainer width="100%" height={320}>
+                  <AreaChart
+                    data={projections.map(p => ({
+                      month: formatMonth(p.month, p.year),
+                      patrimoine: p.balance,
+                      tresorerie: p.treasury_balance ?? p.balance
+                    }))}
+                    margin={{ top: 20, right: 20, left: 0, bottom: 25 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorPatrimoine" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" stopOpacity={0.45} />
+                        <stop offset="50%" stopColor="#8b5cf6" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="colorTresorerie" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.35} />
+                        <stop offset="50%" stopColor="#0ea5e9" stopOpacity={0.12} />
+                        <stop offset="100%" stopColor="#0284c7" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      angle={-35}
+                      textAnchor="end"
+                      height={50}
+                      interval={Math.ceil(totalMonths / 12) - 1}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#94a3b8', fontSize: 11 }}
                     />
-                    <Legend />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      tickFormatter={(val) => `${(val / 1000).toFixed(0)}k€`}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="modern-chart-tooltip">
+                              <p className="tooltip-label">{label}</p>
+                              {payload.map((item: any, idx: number) => (
+                                <div key={idx} className="tooltip-item">
+                                  <span className="tooltip-dot" style={{ backgroundColor: item.color }} />
+                                  <span className="tooltip-name">{item.name}:</span>
+                                  <span className="tooltip-value">{formatCurrency(item.value)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '10px' }} />
                     {(viewMode === 'both' || viewMode === 'patrimoine') && (
-                      <Line 
-                        type="monotone" 
-                        dataKey="patrimoine" 
-                        stroke="#4f46e5" 
-                        strokeWidth={2.5}
-                        dot={{ r: totalMonths > 36 ? 0 : 3 }}
-                        name={viewMode === 'both' ? "Patrimoine Global (Avec Épargne)" : "Patrimoine Global"}
+                      <Area
+                        type="monotone"
+                        dataKey="patrimoine"
+                        stroke="#a855f7"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorPatrimoine)"
+                        activeDot={{ r: 6, fill: '#c084fc', stroke: '#fff', strokeWidth: 2 }}
+                        name={viewMode === 'both' ? "Patrimoine Global" : "Patrimoine"}
                       />
                     )}
                     {(viewMode === 'both' || viewMode === 'tresorerie') && (
-                      <Line 
-                        type="monotone" 
-                        dataKey="tresorerie" 
-                        stroke="#0ea5e9" 
+                      <Area
+                        type="monotone"
+                        dataKey="tresorerie"
+                        stroke="#38bdf8"
                         strokeWidth={2.5}
-                        strokeDasharray={viewMode === 'both' ? "4 4" : undefined}
-                        dot={{ r: totalMonths > 36 ? 0 : 3 }}
-                        name={viewMode === 'both' ? "Trésorerie Courante (Après Épargne)" : "Trésorerie Courante"}
+                        strokeDasharray={viewMode === 'both' ? "5 5" : undefined}
+                        fillOpacity={1}
+                        fill="url(#colorTresorerie)"
+                        activeDot={{ r: 6, fill: '#38bdf8', stroke: '#fff', strokeWidth: 2 }}
+                        name={viewMode === 'both' ? "Trésorerie Courante" : "Trésorerie"}
                       />
                     )}
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
 
-              <div className="chart-container">
+              <div className="chart-container modern-dark-chart">
                 <div className="chart-container-header">
-                  <h2>
-                    {viewMode === 'patrimoine' 
-                      ? `Revenus vs Dépenses (${formatDuration(totalMonths)})`
-                      : `Revenus vs Dépenses vs Épargne (${formatDuration(totalMonths)})`}
-                  </h2>
+                  <div>
+                    <h2>
+                      {viewMode === 'patrimoine'
+                        ? `Flux Financiers (${formatDuration(totalMonths)})`
+                        : `Revenus vs Dépenses vs Épargne (${formatDuration(totalMonths)})`}
+                    </h2>
+                    <p className="chart-subtitle">Comparatif mensuel des entrées et sorties</p>
+                  </div>
                   <button
                     type="button"
                     className="btn-chart-expand"
@@ -493,25 +547,57 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                     <Maximize2 className="w-4 h-4" />
                   </button>
                 </div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={projections.map(p => ({
-                    month: formatMonth(p.month, p.year),
-                    revenus: p.income,
-                    dépenses: Math.abs(p.expense),
-                    épargne: p.transfers || 0
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} interval={Math.ceil(totalMonths / 12) - 1} />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      labelStyle={{ color: '#333' }}
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart
+                    data={projections.map(p => ({
+                      month: formatMonth(p.month, p.year),
+                      revenus: p.income,
+                      dépenses: Math.abs(p.expense),
+                      épargne: p.transfers || 0
+                    }))}
+                    margin={{ top: 20, right: 20, left: 0, bottom: 25 }}
+                  >
+                    <CartesianGrid strokeDasharray="4 4" stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      angle={-35}
+                      textAnchor="end"
+                      height={50}
+                      interval={Math.ceil(totalMonths / 12) - 1}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#94a3b8', fontSize: 11 }}
                     />
-                    <Legend />
-                    <Bar dataKey="revenus" fill="#10b981" name="Revenus" />
-                    <Bar dataKey="dépenses" fill="#ef4444" name="Dépenses" />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      tickFormatter={(val) => `${(val / 1000).toFixed(0)}k€`}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="modern-chart-tooltip">
+                              <p className="tooltip-label">{label}</p>
+                              {payload.map((item: any, idx: number) => (
+                                <div key={idx} className="tooltip-item">
+                                  <span className="tooltip-dot" style={{ backgroundColor: item.color }} />
+                                  <span className="tooltip-name">{item.name}:</span>
+                                  <span className="tooltip-value">{formatCurrency(item.value)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                    <Bar dataKey="revenus" fill="#10b981" name="Revenus" radius={[5, 5, 0, 0]} />
+                    <Bar dataKey="dépenses" fill="#f43f5e" name="Dépenses" radius={[5, 5, 0, 0]} />
                     {viewMode !== 'patrimoine' && (
-                      <Bar dataKey="épargne" fill="#0ea5e9" name="Épargne & Projets" />
+                      <Bar dataKey="épargne" fill="#06b6d4" name="Épargne & Projets" radius={[5, 5, 0, 0]} />
                     )}
                   </BarChart>
                 </ResponsiveContainer>
@@ -521,7 +607,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
             {/* Modal Graphique Agrandie (Plein Écran) */}
             {fullscreenChart && (
               <div className="chart-fullscreen-overlay" onClick={() => setFullscreenChart(null)}>
-                <div className="chart-fullscreen-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="chart-fullscreen-modal modern-dark-modal" onClick={(e) => e.stopPropagation()}>
                   <div className="chart-fullscreen-header">
                     <div>
                       <h2>
@@ -531,7 +617,7 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                               ? `Revenus vs Dépenses (${formatDuration(totalMonths)})`
                               : `Revenus vs Dépenses vs Épargne (${formatDuration(totalMonths)})`)}
                       </h2>
-                      <p className="text-sm text-slate-500 mt-1">
+                      <p className="text-sm text-slate-400 mt-1">
                         {fullscreenChart === 'line' 
                           ? (viewMode === 'both' ? 'Vue combinée Patrimoine & Trésorerie' : (viewMode === 'patrimoine' ? 'Vue Patrimoine Global' : 'Vue Trésorerie Courante'))
                           : 'Comparatif mensuel des flux'}
@@ -550,62 +636,114 @@ export function ProjectionPage({ navigate, onLogout }: ProjectionPageProps) {
                   <div style={{ width: '100%', height: 480 }}>
                     {fullscreenChart === 'line' ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={projections.map(p => ({
-                          month: formatMonth(p.month, p.year),
-                          patrimoine: p.balance,
-                          tresorerie: p.treasury_balance ?? p.balance
-                        }))}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                          <XAxis dataKey="month" angle={-35} textAnchor="end" height={65} />
-                          <YAxis />
-                          <Tooltip 
-                            formatter={(value: number) => formatCurrency(value)}
-                            labelStyle={{ color: '#333', fontWeight: 600 }}
+                        <AreaChart
+                          data={projections.map(p => ({
+                            month: formatMonth(p.month, p.year),
+                            patrimoine: p.balance,
+                            tresorerie: p.treasury_balance ?? p.balance
+                          }))}
+                          margin={{ top: 20, right: 30, left: 10, bottom: 30 }}
+                        >
+                          <defs>
+                            <linearGradient id="colorPatrimoineModal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#a855f7" stopOpacity={0.45} />
+                              <stop offset="50%" stopColor="#8b5cf6" stopOpacity={0.18} />
+                              <stop offset="100%" stopColor="#6366f1" stopOpacity={0.0} />
+                            </linearGradient>
+                            <linearGradient id="colorTresorerieModal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.35} />
+                              <stop offset="50%" stopColor="#0ea5e9" stopOpacity={0.12} />
+                              <stop offset="100%" stopColor="#0284c7" stopOpacity={0.0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="4 4" stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
+                          <XAxis dataKey="month" angle={-35} textAnchor="end" height={60} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `${(val / 1000).toFixed(0)}k€`} />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div className="modern-chart-tooltip">
+                                    <p className="tooltip-label">{label}</p>
+                                    {payload.map((item: any, idx: number) => (
+                                      <div key={idx} className="tooltip-item">
+                                        <span className="tooltip-dot" style={{ backgroundColor: item.color }} />
+                                        <span className="tooltip-name">{item.name}:</span>
+                                        <span className="tooltip-value">{formatCurrency(item.value)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
                           />
                           <Legend verticalAlign="top" height={40} />
                           {(viewMode === 'both' || viewMode === 'patrimoine') && (
-                            <Line 
+                            <Area 
                               type="monotone" 
                               dataKey="patrimoine" 
-                              stroke="#4f46e5" 
-                              strokeWidth={3}
-                              dot={{ r: totalMonths > 36 ? 1 : 4 }}
-                              name={viewMode === 'both' ? "Patrimoine Global (Avec Épargne)" : "Patrimoine Global"}
+                              stroke="#a855f7" 
+                              strokeWidth={3.5}
+                              fillOpacity={1}
+                              fill="url(#colorPatrimoineModal)"
+                              activeDot={{ r: 7, fill: '#c084fc', stroke: '#fff', strokeWidth: 2 }}
+                              name={viewMode === 'both' ? "Patrimoine Global" : "Patrimoine"}
                             />
                           )}
                           {(viewMode === 'both' || viewMode === 'tresorerie') && (
-                            <Line 
+                            <Area 
                               type="monotone" 
                               dataKey="tresorerie" 
-                              stroke="#0ea5e9" 
+                              stroke="#38bdf8" 
                               strokeWidth={2.5}
                               strokeDasharray={viewMode === 'both' ? "5 5" : undefined}
-                              dot={{ r: totalMonths > 36 ? 1 : 4 }}
-                              name={viewMode === 'both' ? "Trésorerie Courante (Après Épargne)" : "Trésorerie Courante"}
+                              fillOpacity={1}
+                              fill="url(#colorTresorerieModal)"
+                              activeDot={{ r: 7, fill: '#38bdf8', stroke: '#fff', strokeWidth: 2 }}
+                              name={viewMode === 'both' ? "Trésorerie Courante" : "Trésorerie"}
                             />
                           )}
-                        </LineChart>
+                        </AreaChart>
                       </ResponsiveContainer>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={projections.map(p => ({
-                          month: formatMonth(p.month, p.year),
-                          revenus: p.income,
-                          dépenses: Math.abs(p.expense),
-                          épargne: p.transfers || 0
-                        }))}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                          <XAxis dataKey="month" angle={-35} textAnchor="end" height={65} />
-                          <YAxis />
-                          <Tooltip 
-                            formatter={(value: number) => formatCurrency(value)}
-                            labelStyle={{ color: '#333', fontWeight: 600 }}
+                        <BarChart
+                          data={projections.map(p => ({
+                            month: formatMonth(p.month, p.year),
+                            revenus: p.income,
+                            dépenses: Math.abs(p.expense),
+                            épargne: p.transfers || 0
+                          }))}
+                          margin={{ top: 20, right: 30, left: 10, bottom: 30 }}
+                        >
+                          <CartesianGrid strokeDasharray="4 4" stroke="rgba(255, 255, 255, 0.08)" vertical={false} />
+                          <XAxis dataKey="month" angle={-35} textAnchor="end" height={60} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `${(val / 1000).toFixed(0)}k€`} />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div className="modern-chart-tooltip">
+                                    <p className="tooltip-label">{label}</p>
+                                    {payload.map((item: any, idx: number) => (
+                                      <div key={idx} className="tooltip-item">
+                                        <span className="tooltip-dot" style={{ backgroundColor: item.color }} />
+                                        <span className="tooltip-name">{item.name}:</span>
+                                        <span className="tooltip-value">{formatCurrency(item.value)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
                           />
                           <Legend verticalAlign="top" height={40} />
-                          <Bar dataKey="revenus" fill="#10b981" name="Revenus" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="dépenses" fill="#ef4444" name="Dépenses" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="revenus" fill="#10b981" name="Revenus" radius={[5, 5, 0, 0]} />
+                          <Bar dataKey="dépenses" fill="#f43f5e" name="Dépenses" radius={[5, 5, 0, 0]} />
                           {viewMode !== 'patrimoine' && (
-                            <Bar dataKey="épargne" fill="#0ea5e9" name="Épargne & Projets" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="épargne" fill="#06b6d4" name="Épargne & Projets" radius={[5, 5, 0, 0]} />
                           )}
                         </BarChart>
                       </ResponsiveContainer>
