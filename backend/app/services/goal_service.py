@@ -122,25 +122,7 @@ class GoalService:
             query = query.where(Goal.household_id == household_id)
 
         result = await self.db.execute(query.order_by(Goal.created_at.desc()))
-        goals = list(result.scalars().all())
-
-        # Recalculer la progression de chaque objectif basé sur ses transactions liées
-        for goal in goals:
-            tx_res = await self.db.execute(
-                select(func.sum(func.abs(Transaction.amount)))
-                .where(
-                    and_(
-                        Transaction.goal_id == goal.id,
-                        Transaction.state == TransactionState.REALIZED,
-                        Transaction.deleted_at.is_(None)
-                    )
-                )
-            )
-            linked_sum = tx_res.scalar()
-            if linked_sum is not None and linked_sum > 0:
-                goal.current_amount = linked_sum
-
-        return goals
+        return list(result.scalars().all())
 
     async def update_goal(
         self,

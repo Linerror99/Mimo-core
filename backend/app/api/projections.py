@@ -199,12 +199,16 @@ async def commit_simulation(
         elif req.payment_type == "RECURRING" and req.installments_count:
             target_date = req.start_date + relativedelta(months=req.installments_count - 1)
 
+        monthly_contrib = req.monthly_amount
+        if req.payment_type == "INSTALLMENTS" and req.total_amount and req.installments_count:
+            monthly_contrib = round(float(req.total_amount) / int(req.installments_count), 2)
+
         goal_service = GoalService(db)
         goal = await goal_service.create_goal(
             created_by=current_user.id,
             name=req.name,
             target_amount=req.total_amount,
-            monthly_contribution=req.monthly_amount,
+            monthly_contribution=monthly_contrib,
             user_id=current_user.id,
             household_id=None,
             target_date=target_date,
