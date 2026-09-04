@@ -12,13 +12,15 @@ Règles:
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
+from dateutil.relativedelta import relativedelta
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
 from app.models.goal import Goal
-from app.models.transaction import Transaction, TransactionState
+from app.models.transaction import Transaction, TransactionState, TransactionType
+from app.models.user import User
 
 
 class GoalService:
@@ -46,7 +48,8 @@ class GoalService:
         description: Optional[str] = None,
         target_date: Optional[date] = None,
         account_id: Optional[str] = None,
-        destination_account_id: Optional[str] = None
+        destination_account_id: Optional[str] = None,
+        start_date: Optional[date] = None
     ) -> Goal:
         """
         Crée un nouvel objectif d'épargne ou projet
@@ -56,13 +59,14 @@ class GoalService:
             name: Nom de l'objectif
             target_amount: Montant cible optionnel (None pour épargne continue)
             current_amount: Montant actuel
-            monthly_contribution: Prélèvement mensuel optionnel
-            user_id: ID du user (objectif personnel) - exclusif avec household_id
-            household_id: ID du foyer (objectif de foyer) - exclusif avec user_id
+            monthly_contribution: Montant mensuel prélevé (optionnel)
+            user_id: ID utilisateur (si objectif personnel)
+            household_id: ID foyer (si objectif partagé)
             description: Description optionnelle
             target_date: Date cible optionnelle
             account_id: Compte source
             destination_account_id: Compte épargne destination
+            start_date: Date de première échéance / début
 
         Returns:
             Goal créé
@@ -96,6 +100,10 @@ class GoalService:
         self.db.add(goal)
         await self.db.commit()
         await self.db.refresh(goal)
+
+        # Synchroniser les virements prévisionnels si une contribution mensuelle est définie
+        if goal.monthly_contribution and float(goal.monthly_contribution) > 0:
+            await self.sync_goal_transactions(goal, start_date=start_date)
 
         return goal
 
@@ -181,11 +189,14 @@ class GoalService:
         await self.db.commit()
         await self.db.refresh(goal)
 
+        # Synchroniser automatiquement les virements / transactions prévisionnelles
+        await self.sync_goal_transactions(goal)
+
         return goal
 
     async def delete_goal(self, goal_id: str) -> None:
         """
-        Supprime un objectif
+        Supprime un objectif et nettoie ses transactions prévisionnelles associées.
 
         Args:
             goal_id: ID de l'objectif
@@ -197,7 +208,147 @@ class GoalService:
         if not goal:
             raise ValueError(f"Objectif {goal_id} introuvable")
 
+        # Supprimer les transactions prévisionnelles non réalisées liées à cet objectif
+        stmt = select(Transaction).where(
+            Transaction.goal_id == goal_id,
+            Transaction.state == TransactionState.PROJECTED
+        )
+        tx_res = await self.db.execute(stmt)
+        for tx in tx_res.scalars().all():
+            await self.db.delete(tx)
+
         await self.db.delete(goal)
+        await self.db.commit()
+
+    async def sync_goal_transactions(self, goal: Goal, start_date: Optional[date] = None) -> None:
+        """
+        Synchronise automatiquement les transactions prévisionnelles (virements/échéances)
+        liées à un objectif d'épargne.
+
+        - Respecte scrupuleusement les transactions REALIZED existantes (historique passé).
+        - Si monthly_contribution > 0 :
+            - Met à jour les transactions PROJECTED existantes (montant, comptes, libellé).
+            - Supprime les transactions PROJECTED au-delà de la target_date (si l'horizon est raccourci).
+            - Crée les échéances manquantes mois par mois jusqu'à la target_date (ou jusqu'à atteindre target_amount).
+        - Si monthly_contribution <= 0 ou None :
+            - Supprime les transactions PROJECTED associées.
+        """
+        # Récupérer household_id
+        household_id = goal.household_id
+        if not household_id:
+            user_stmt = select(User).where(User.id == (goal.user_id or goal.created_by))
+            user_res = await self.db.execute(user_stmt)
+            user_obj = user_res.scalar_one_or_none()
+            if user_obj:
+                household_id = user_obj.household_id
+
+        # Récupérer toutes les transactions existantes liées à cet objectif
+        stmt = select(Transaction).where(
+            Transaction.goal_id == goal.id,
+            Transaction.deleted_at.is_(None)
+        ).order_by(Transaction.transaction_date.asc())
+        tx_res = await self.db.execute(stmt)
+        existing_txs = list(tx_res.scalars().all())
+
+        projected_txs = [t for t in existing_txs if t.state == TransactionState.PROJECTED]
+        realized_txs = [t for t in existing_txs if t.state == TransactionState.REALIZED]
+
+        monthly = float(goal.monthly_contribution) if goal.monthly_contribution else 0
+        if monthly <= 0:
+            # Pas de prélèvement mensuel : nettoyer les prévisions futures
+            for t in projected_txs:
+                await self.db.delete(t)
+            await self.db.commit()
+            return
+
+        # Déterminer les comptes source et destination
+        account_id = goal.account_id
+        if not account_id and household_id:
+            acc_res = await self.db.execute(
+                select(Account).where(
+                    Account.household_id == household_id,
+                    Account.is_active == "true"
+                ).order_by(Account.created_at.asc())
+            )
+            first_acc = acc_res.scalars().first()
+            if first_acc:
+                account_id = first_acc.id
+
+        destination_account_id = goal.destination_account_id
+        tx_type = TransactionType.TRANSFER if destination_account_id else TransactionType.EXPENSE
+        tx_amount = Decimal(str(monthly if tx_type == TransactionType.TRANSFER else -abs(monthly)))
+
+        today = date.today()
+
+        # Déterminer la date de fin (horizon)
+        if goal.target_date:
+            end_date = goal.target_date
+        elif goal.target_amount and float(goal.target_amount) > 0:
+            rem = max(0.0, float(goal.target_amount) - float(goal.current_amount or 0))
+            needed_months = max(1, min(120, int(rem / monthly) + 1))
+            end_date = today + relativedelta(months=needed_months)
+        else:
+            end_date = today + relativedelta(months=12)
+
+        # Déterminer le mois de départ
+        if start_date:
+            start_cursor = start_date
+        elif realized_txs:
+            last_realized = max(t.transaction_date for t in realized_txs)
+            start_cursor = max(today, last_realized + relativedelta(months=1))
+        elif projected_txs:
+            min_proj = min(t.transaction_date for t in projected_txs)
+            start_cursor = min_proj
+        else:
+            start_cursor = today
+
+        # Jour du mois par défaut (ex: jour de target_date ou jour de start_cursor, capé à 28)
+        day = min(goal.target_date.day if goal.target_date else (start_cursor.day or 1), 28)
+        curr = date(start_cursor.year, start_cursor.month, day)
+        end_limit = date(end_date.year, end_date.month, day)
+
+        desired_dates = []
+        iteration = 0
+        while curr <= end_limit and iteration < 240:
+            if curr >= today:  # Planifier aujourd'hui et les échéances futures
+                desired_dates.append(curr)
+            curr = curr + relativedelta(months=1)
+            iteration += 1
+
+        desired_keys = {(d.year, d.month): d for d in desired_dates}
+        existing_projected_map = {(t.transaction_date.year, t.transaction_date.month): t for t in projected_txs}
+
+        # 1. Mettre à jour les transactions existantes ou supprimer celles hors horizon
+        for (y, m), tx in existing_projected_map.items():
+            if (y, m) in desired_keys:
+                tx.amount = tx_amount
+                tx.account_id = account_id
+                tx.destination_account_id = destination_account_id if tx_type == TransactionType.TRANSFER else None
+                tx.type = tx_type
+                tx.description = f"Épargne {goal.name} ({m:02d}/{y})"
+                tx.notes = "Généré automatiquement par l'objectif d'épargne"
+            else:
+                # La date de cette transaction projetée est au-delà du nouvel horizon (ou dans le passé)
+                await self.db.delete(tx)
+
+        # 2. Créer les transactions manquantes pour les mois souhaités
+        for (y, m), due_date in desired_keys.items():
+            if (y, m) not in existing_projected_map:
+                state = TransactionState.PROJECTED if due_date > today else TransactionState.PENDING
+                new_tx = Transaction(
+                    household_id=household_id,
+                    account_id=account_id,
+                    destination_account_id=destination_account_id if tx_type == TransactionType.TRANSFER else None,
+                    goal_id=goal.id,
+                    amount=tx_amount,
+                    transaction_date=due_date,
+                    type=tx_type,
+                    state=state,
+                    description=f"Épargne {goal.name} ({m:02d}/{y})",
+                    notes="Généré automatiquement par l'objectif d'épargne"
+                )
+                self.db.add(new_tx)
+
         await self.db.commit()
 
     async def calculate_progress(self, goal_id: str) -> Goal:

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Reduced for production security
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS - Development defaults (override in production)
