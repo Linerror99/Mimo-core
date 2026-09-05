@@ -60,6 +60,13 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
 
   useEffect(() => {
     fetchDashboardData()
+    const handleTxCreated = () => {
+      fetchDashboardData()
+    }
+    window.addEventListener('mimo-transaction-created', handleTxCreated)
+    return () => {
+      window.removeEventListener('mimo-transaction-created', handleTxCreated)
+    }
   }, [])
 
   const fetchDashboardData = async () => {
