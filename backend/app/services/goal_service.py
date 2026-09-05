@@ -49,7 +49,8 @@ class GoalService:
         target_date: Optional[date] = None,
         account_id: Optional[str] = None,
         destination_account_id: Optional[str] = None,
-        start_date: Optional[date] = None
+        start_date: Optional[date] = None,
+        auto_sync_transactions: bool = True
     ) -> Goal:
         """
         Crée un nouvel objectif d'épargne ou projet
@@ -67,6 +68,7 @@ class GoalService:
             account_id: Compte source
             destination_account_id: Compte épargne destination
             start_date: Date de première échéance / début
+            auto_sync_transactions: Si True, génère automatiquement les échéances prévisionnelles
 
         Returns:
             Goal créé
@@ -102,7 +104,7 @@ class GoalService:
         await self.db.refresh(goal)
 
         # Synchroniser les virements prévisionnels si une contribution mensuelle est définie
-        if goal.monthly_contribution and float(goal.monthly_contribution) > 0:
+        if auto_sync_transactions and goal.monthly_contribution and float(goal.monthly_contribution) > 0:
             await self.sync_goal_transactions(goal, start_date=start_date)
 
         return goal
@@ -318,6 +320,9 @@ class GoalService:
         desired_keys = {(d.year, d.month): d for d in desired_dates}
         existing_projected_map = {(t.transaction_date.year, t.transaction_date.month): t for t in projected_txs}
 
+        prefix = "Épargne " if tx_type == TransactionType.TRANSFER else ""
+        default_notes = "Généré automatiquement par l'objectif d'épargne" if tx_type == TransactionType.TRANSFER else "Généré par le projet d'achat"
+
         # 1. Mettre à jour les transactions existantes ou supprimer celles hors horizon
         for (y, m), tx in existing_projected_map.items():
             if (y, m) in desired_keys:
@@ -325,8 +330,10 @@ class GoalService:
                 tx.account_id = account_id
                 tx.destination_account_id = destination_account_id if tx_type == TransactionType.TRANSFER else None
                 tx.type = tx_type
-                tx.description = f"Épargne {goal.name} ({m:02d}/{y})"
-                tx.notes = "Généré automatiquement par l'objectif d'épargne"
+                # Conserver les libellés de type (1/3) ou personnalisés existants s'ils ne contiennent pas le préfixe erroné
+                if not tx.description or tx.description.startswith("Épargne ") or (tx_type != TransactionType.TRANSFER and "Épargne " in tx.description):
+                    tx.description = f"{prefix}{goal.name} ({m:02d}/{y})"
+                tx.notes = default_notes
             else:
                 # La date de cette transaction projetée est au-delà du nouvel horizon (ou dans le passé)
                 await self.db.delete(tx)
@@ -344,8 +351,8 @@ class GoalService:
                     transaction_date=due_date,
                     type=tx_type,
                     state=state,
-                    description=f"Épargne {goal.name} ({m:02d}/{y})",
-                    notes="Généré automatiquement par l'objectif d'épargne"
+                    description=f"{prefix}{goal.name} ({m:02d}/{y})",
+                    notes=default_notes
                 )
                 self.db.add(new_tx)
 

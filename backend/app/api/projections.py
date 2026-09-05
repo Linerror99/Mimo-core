@@ -213,7 +213,8 @@ async def commit_simulation(
             household_id=None,
             target_date=target_date,
             account_id=req.account_id,
-            destination_account_id=req.destination_account_id
+            destination_account_id=req.destination_account_id,
+            auto_sync_transactions=False
         )
 
     # 2. Déterminer les comptes par défaut si non spécifiés
