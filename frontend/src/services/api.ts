@@ -109,6 +109,12 @@ apiClient.interceptors.response.use(
           const { access_token } = response.data;
           localStorage.setItem('access_token', access_token);
 
+          // Synchroniser également Zustand authStore
+          try {
+            const { useAuthStore } = await import('@/stores/authStore');
+            useAuthStore.setState({ accessToken: access_token });
+          } catch (_) {}
+
           // Retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return apiClient(originalRequest);

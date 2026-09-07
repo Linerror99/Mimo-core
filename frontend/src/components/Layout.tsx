@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect, useRef } from 'react'
 import '../styles/Layout.css'
-import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown } from 'lucide-react'
+import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown, Plus, Compass } from 'lucide-react'
+import { QuickTransactionModal } from './QuickTransactionModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -21,6 +22,7 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'projects'
   | 'settings'
   | 'settings-profile'
   | 'settings-household'
@@ -39,6 +41,7 @@ const menuItems = [
   { id: 'dashboard' as Page, label: 'Dashboard', icon: Home },
   { id: 'timeline' as Page, label: 'Timeline', icon: List },
   { id: 'projection' as Page, label: 'Projection', icon: TrendingUp },
+  { id: 'projects' as Page, label: 'Projets', icon: Compass },
   { id: 'accounts' as Page, label: 'Comptes', icon: CreditCard },
   { id: 'goals' as Page, label: 'Objectifs', icon: Target },
   { id: 'categories' as Page, label: 'Catégories', icon: Folder },
@@ -62,6 +65,7 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     }
     return false
   })
+  const [quickTxModalOpen, setQuickTxModalOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -242,6 +246,26 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
       <main className="mimo-main">
         {children}
       </main>
+
+      {/* ====== FLOATING ACTION BUTTON (NOUVELLE TRANSACTION) ====== */}
+      <button
+        type="button"
+        className="mimo-fab"
+        onClick={() => setQuickTxModalOpen(true)}
+        aria-label="Ajouter une transaction"
+        title="Ajouter une transaction"
+      >
+        <div className="mimo-fab-icon">
+          <Plus className="w-5 h-5" />
+        </div>
+        <span className="mimo-fab-text">Transaction</span>
+      </button>
+
+      {/* ====== QUICK TRANSACTION MODAL ====== */}
+      <QuickTransactionModal
+        isOpen={quickTxModalOpen}
+        onClose={() => setQuickTxModalOpen(false)}
+      />
     </div>
   )
 }

@@ -167,12 +167,16 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
 
     try {
       setIsSimulating(true)
+      const calculatedMonthly = (!simIsSaving && simPaymentType === 'INSTALLMENTS' && simTotalAmount && simInstallmentsCount)
+        ? (parseFloat(simTotalAmount) / (parseInt(simInstallmentsCount, 10) || 1))
+        : (simMonthlyAmount ? parseFloat(simMonthlyAmount) : undefined)
+
       const res = await projectionService.simulatePurchase({
         name: simName,
         is_saving: simIsSaving,
         payment_type: simPaymentType,
         total_amount: simTotalAmount ? parseFloat(simTotalAmount) : undefined,
-        monthly_amount: simMonthlyAmount ? parseFloat(simMonthlyAmount) : undefined,
+        monthly_amount: calculatedMonthly,
         installments_count: parseInt(simInstallmentsCount, 10) || 1,
         start_date: simStartDate,
         account_id: simAccountId || undefined,
@@ -191,12 +195,16 @@ export function Goals({ navigate, onLogout }: GoalsProps) {
     if (!simulationResult) return
     try {
       setIsCommitting(true)
+      const calculatedMonthly = (!simIsSaving && simPaymentType === 'INSTALLMENTS' && simTotalAmount && simInstallmentsCount)
+        ? (parseFloat(simTotalAmount) / (parseInt(simInstallmentsCount, 10) || 1))
+        : (simMonthlyAmount ? parseFloat(simMonthlyAmount) : undefined)
+
       const res = await projectionService.commitSimulation({
         name: simName,
         is_saving: simIsSaving,
         payment_type: simPaymentType,
         total_amount: simTotalAmount ? parseFloat(simTotalAmount) : undefined,
-        monthly_amount: simMonthlyAmount ? parseFloat(simMonthlyAmount) : undefined,
+        monthly_amount: calculatedMonthly,
         installments_count: parseInt(simInstallmentsCount, 10) || 1,
         start_date: simStartDate,
         account_id: simAccountId || undefined,

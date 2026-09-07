@@ -128,18 +128,26 @@ class AuthService:
         Logout user by blacklisting the access token.
         Token is stored in Redis until expiry.
         """
-        # Decode token to get expiry
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        exp = payload.get("exp")
+        try:
+            # Decode token to get expiry without failing if already expired
+            payload = jwt.decode(
+                token,
+                settings.JWT_SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                options={"verify_exp": False}
+            )
+            exp = payload.get("exp")
 
-        if exp:
-            # Calculate TTL (time until expiry)
-            now = datetime.now(timezone.utc).timestamp()
-            ttl = int(exp - now)
+            if exp:
+                # Calculate TTL (time until expiry)
+                now = datetime.now(timezone.utc).timestamp()
+                ttl = int(exp - now)
 
-            if ttl > 0:
-                # Store token in Redis blacklist
-                await redis_client.setex(f"blacklist:{token}", ttl, "1")
+                if ttl > 0:
+                    # Store token in Redis blacklist
+                    await redis_client.setex(f"blacklist:{token}", ttl, "1")
+        except Exception:
+            pass
 
     async def is_token_blacklisted(self, token: str) -> bool:
         """Check if token is blacklisted."""

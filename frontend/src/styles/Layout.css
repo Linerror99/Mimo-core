@@ -265,3 +265,66 @@
     font-size: 0.95rem;
   }
 }
+
+/* ====== FLOATING ACTION BUTTON (FAB) ====== */
+.mimo-fab {
+  position: fixed;
+  bottom: 1.75rem;
+  right: 1.75rem;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.15rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, oklch(0.59 0.19 278) 0%, oklch(0.50 0.22 290) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 10px 25px -3px rgba(99, 102, 241, 0.45), 0 4px 10px -2px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+  user-select: none;
+}
+
+.mimo-fab:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 14px 32px -3px rgba(99, 102, 241, 0.6), 0 6px 14px -2px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, oklch(0.62 0.20 278) 0%, oklch(0.54 0.23 290) 100%);
+}
+
+.mimo-fab:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.mimo-fab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+
+.mimo-fab:hover .mimo-fab-icon {
+  transform: rotate(90deg);
+}
+
+.mimo-fab-text {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .mimo-fab {
+    bottom: 1.25rem;
+    right: 1.25rem;
+    padding: 0.85rem;
+    border-radius: 50%;
+  }
+
+  .mimo-fab-text {
+    display: none;
+  }
+}
