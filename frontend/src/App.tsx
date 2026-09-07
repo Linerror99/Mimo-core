@@ -11,6 +11,7 @@ import { CategoriesPage } from './pages/CategoriesPage'
 import RecurringPage from './pages/RecurringPage'
 import { ProjectionPage } from './pages/ProjectionPage'
 import { Goals } from './pages/Goals'
+import { ProjectsPage } from './pages/ProjectsPage'
 import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
 import Settings from './pages/Settings'
@@ -33,6 +34,7 @@ type Page =
   | 'recurring'
   | 'projections'
   | 'goals' 
+  | 'projects'
   | 'settings'
   | 'settings-profile' 
   | 'settings-household' 
@@ -146,6 +148,17 @@ function AppRoutes() {
           <ProtectedRoute>
             <LegacyNavigationWrapper>
               {({ navigate, onLogout }) => <Goals navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/projects" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <ProjectsPage navigate={navigate} onLogout={onLogout} />}
             </LegacyNavigationWrapper>
           </ProtectedRoute>
         } 

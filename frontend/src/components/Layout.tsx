@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useRef } from 'react'
 import '../styles/Layout.css'
-import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown, Plus } from 'lucide-react'
+import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown, Plus, Compass } from 'lucide-react'
 import { QuickTransactionModal } from './QuickTransactionModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -22,6 +22,7 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'projects'
   | 'settings'
   | 'settings-profile'
   | 'settings-household'
@@ -40,6 +41,7 @@ const menuItems = [
   { id: 'dashboard' as Page, label: 'Dashboard', icon: Home },
   { id: 'timeline' as Page, label: 'Timeline', icon: List },
   { id: 'projection' as Page, label: 'Projection', icon: TrendingUp },
+  { id: 'projects' as Page, label: 'Projets', icon: Compass },
   { id: 'accounts' as Page, label: 'Comptes', icon: CreditCard },
   { id: 'goals' as Page, label: 'Objectifs', icon: Target },
   { id: 'categories' as Page, label: 'Catégories', icon: Folder },
