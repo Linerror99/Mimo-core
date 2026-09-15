@@ -77,7 +77,6 @@ async def login(
 @router.post("/logout")
 async def logout(
     request: Request,
-    current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """
@@ -90,7 +89,10 @@ async def logout(
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         auth_service = AuthService(db)
-        await auth_service.logout(token)
+        try:
+            await auth_service.logout(token)
+        except Exception:
+            pass
 
     return {"message": "Successfully logged out"}
 

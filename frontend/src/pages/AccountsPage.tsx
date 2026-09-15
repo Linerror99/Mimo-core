@@ -54,6 +54,13 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
 
   useEffect(() => {
     loadAccounts();
+    const handleTxCreated = () => {
+      loadAccounts();
+    };
+    window.addEventListener('mimo-transaction-created', handleTxCreated);
+    return () => {
+      window.removeEventListener('mimo-transaction-created', handleTxCreated);
+    };
   }, [showInactive]);
 
   const loadAccounts = async () => {

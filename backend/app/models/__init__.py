@@ -1,6 +1,7 @@
 from .account import Account, AccountType
 from .category import Category, CategoryType
 from .goal import Goal
+from .project import Project, ProjectItem, ProjectStatus
 from .household import Household, HouseholdStatus, HouseholdType
 from .invitation import Invitation, InvitationStatus, InvitationType
 from .notification import Notification, NotificationType
@@ -29,5 +30,8 @@ __all__ = [
     "Invitation",
     "InvitationType",
     "InvitationStatus",
-    "Goal"
+    "Goal",
+    "Project",
+    "ProjectItem",
+    "ProjectStatus",
 ]

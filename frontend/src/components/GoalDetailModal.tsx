@@ -149,7 +149,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
               <DialogTitle className="text-2xl font-bold mt-1">{goal.name}</DialogTitle>
               {goal.description && <p className="text-sm text-muted-foreground mt-1">{goal.description}</p>}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mr-8">
               <Button size="sm" variant="outline" onClick={() => onEditGoal(goal)}>
                 <Edit className="w-4 h-4 mr-1" /> Modifier
               </Button>
@@ -188,7 +188,14 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
             <div>
               <span className="text-slate-400 block">Contribution mensuelle :</span>
               <span className="font-semibold text-slate-800 text-sm">
-                {goal.monthly_contribution ? `${formatCurrency(goal.monthly_contribution)} / mois` : 'Libre'}
+                {(() => {
+                  // Calculer la contribution réelle à partir des transactions liées
+                  if (transactions.length > 0) {
+                    const avgContribution = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / transactions.length;
+                    return `${formatCurrency(avgContribution)} / mois`;
+                  }
+                  return goal.monthly_contribution ? `${formatCurrency(goal.monthly_contribution)} / mois` : 'Libre';
+                })()}
               </span>
             </div>
             <div>

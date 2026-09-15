@@ -86,6 +86,7 @@ class Transaction(Base):
     parent_transaction_id = Column(String, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True)
     recurring_template_id = Column(String, ForeignKey("recurring_templates.id", ondelete="CASCADE"), nullable=True, index=True)  # Lien vers le template récurrent
     goal_id = Column(String, ForeignKey("goals.id", ondelete="SET NULL"), nullable=True, index=True)  # Lien vers l'objectif d'épargne / projet
+    project_id = Column(String, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)  # Lien vers le projet financier
 
     # Propriété (pour mode couple)
     owner_type = Column(Enum(TransactionOwnerType), nullable=True)  # NULL si INDIVIDUAL, PERSONAL/SHARED si COUPLE
@@ -104,6 +105,7 @@ class Transaction(Base):
     destination_account = relationship("Account", foreign_keys=[destination_account_id])
     owner_user = relationship("User", foreign_keys=[owner_user_id])  # User propriétaire (si PERSONAL)
     goal = relationship("Goal", foreign_keys=[goal_id], back_populates="transactions")
+    project = relationship("Project", foreign_keys=[project_id], back_populates="transactions")
 
     # Récurrence : transaction parente et enfants
     parent_transaction = relationship("Transaction", remote_side=[id], foreign_keys=[parent_transaction_id])

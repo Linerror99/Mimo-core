@@ -125,6 +125,14 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
   useEffect(() => {
     loadData();
+    const handleTxCreated = () => {
+      loadData();
+      transactionService.list().then(txs => setAllTransactions(txs)).catch(console.error);
+    };
+    window.addEventListener('mimo-transaction-created', handleTxCreated);
+    return () => {
+      window.removeEventListener('mimo-transaction-created', handleTxCreated);
+    };
   }, [currentMonth]);
 
   // Charger tout l'historique pour la recherche globale instantanée
