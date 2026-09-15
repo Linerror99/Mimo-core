@@ -24,7 +24,7 @@ services:
     image: redis:7-alpine
     container_name: duoflow-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-16379}:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data

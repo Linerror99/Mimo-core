@@ -288,3 +288,31 @@ html {
   background-color: oklch(0.14 0.01 278);
 }
 
+/* ==========================================================================
+   Mode Discret (Privacy Mode) - Floutage des soldes et montants financiers
+   ========================================================================== */
+body.privacy-mode .privacy-mask,
+body.privacy-mode [data-privacy="amount"],
+body.privacy-mode .font-mono-amounts,
+body.privacy-mode .wallet-amount,
+body.privacy-mode .account-card-balance,
+body.privacy-mode .transaction-amount,
+body.privacy-mode .balance-value,
+body.privacy-mode .kpi-value,
+body.privacy-mode .safe-amount,
+body.privacy-mode .recharts-cartesian-axis-tick-value {
+  filter: blur(8px);
+  user-select: none;
+  transition: filter 0.2s ease-in-out;
+}
+
+body.privacy-mode .privacy-mask:hover,
+body.privacy-mode [data-privacy="amount"]:hover,
+body.privacy-mode .font-mono-amounts:hover,
+body.privacy-mode .wallet-amount:hover,
+body.privacy-mode .balance-value:hover,
+body.privacy-mode .safe-amount:hover {
+  filter: blur(0px); /* Unblur instantané au survol de la souris */
+}
+
+

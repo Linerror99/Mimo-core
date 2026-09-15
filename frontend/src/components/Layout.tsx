@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useRef } from 'react'
 import '../styles/Layout.css'
-import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown, Plus, Compass } from 'lucide-react'
+import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown, Plus, Compass, Eye, EyeOff } from 'lucide-react'
 import { QuickTransactionModal } from './QuickTransactionModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/stores/authStore'
+import { usePrivacyStore } from '@/stores/privacyStore'
 import { NotificationBell } from '@/components/NotificationBell'
 import { Notification } from '@/types/notification'
 
@@ -50,6 +51,7 @@ const menuItems = [
 
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
   const { user } = useAuthStore()
+  const { isPrivate, togglePrivacy } = usePrivacyStore()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mimo-sidebar-open')
@@ -109,6 +111,25 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     }
   }, [])
 
+  // Sync privacy mode with document body and add keyboard shortcut 'H'
+  useEffect(() => {
+    document.body.classList.toggle('privacy-mode', isPrivate)
+  }, [isPrivate])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        togglePrivacy()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [togglePrivacy])
+
   // Close sidebar on mobile outside click only
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -152,6 +173,16 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
         </div>
 
         <div className="mimo-header-right">
+          {/* Privacy Toggle (Mode Discret) */}
+          <button
+            className={`mimo-header-icon-btn ${isPrivate ? 'text-primary bg-primary/10' : ''}`}
+            onClick={togglePrivacy}
+            aria-label={isPrivate ? 'Désactiver le mode discret (Touche H)' : 'Activer le mode discret (Touche H)'}
+            title={isPrivate ? 'Mode discret activé (cliquez ou tapez H pour afficher les montants)' : 'Mode discret (cliquez ou tapez H pour masquer les montants)'}
+          >
+            {isPrivate ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+          </button>
+
           {/* Dark / Light Mode Toggle */}
           <button
             className="mimo-header-icon-btn"

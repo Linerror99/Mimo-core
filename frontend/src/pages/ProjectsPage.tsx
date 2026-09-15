@@ -23,6 +23,7 @@ import {
   Car,
   ShoppingBag,
   PartyPopper,
+  Zap,
 } from 'lucide-react';
 import { projectService } from '@/services/projectService';
 import { accountService } from '@/services/accountService';
@@ -75,6 +76,62 @@ const PROJECT_COLORS = [
   '#8b5cf6', // Violet
 ];
 
+const PROJECT_TEMPLATES = [
+  {
+    title: '🏖️ Vacances / Voyage',
+    name: 'Voyage en Grèce 2026',
+    description: 'Vol, hébergement, réservations et extras sur place',
+    budget: '2500',
+    color: '#3b82f6',
+    icon: 'Plane',
+    items: [
+      { name: "Billets d'avion A/R", amount: 550, daysOffset: 15 },
+      { name: 'Réservation Hébergement', amount: 950, daysOffset: 45 },
+      { name: 'Activités & Excursions', amount: 300, daysOffset: 60 },
+      { name: 'Restauration & Extras', amount: 400, daysOffset: 70 },
+    ],
+  },
+  {
+    title: '🏡 Travaux & Déco',
+    name: 'Rénovation Salon & Cuisine',
+    description: 'Matériaux, artisanat et aménagement intérieur',
+    budget: '3200',
+    color: '#10b981',
+    icon: 'Home',
+    items: [
+      { name: 'Peinture & Matériaux', amount: 650, daysOffset: 10 },
+      { name: 'Main d’œuvre / Artisan', amount: 1600, daysOffset: 25 },
+      { name: 'Mobilier & Décoration', amount: 950, daysOffset: 40 },
+    ],
+  },
+  {
+    title: '📦 Déménagement',
+    name: 'Déménagement Appartement',
+    description: 'Caution, logistique et aménagement',
+    budget: '1700',
+    color: '#f59e0b',
+    icon: 'Car',
+    items: [
+      { name: 'Caution nouveau logement', amount: 1100, daysOffset: 10 },
+      { name: 'Location utilitaire', amount: 350, daysOffset: 20 },
+      { name: 'Cartons & Fournitures', amount: 150, daysOffset: 5 },
+    ],
+  },
+  {
+    title: '🎉 Événement / Fête',
+    name: 'Organisation Soirée / Fête',
+    description: 'Lieu, traiteur et animations',
+    budget: '1500',
+    color: '#ec4899',
+    icon: 'PartyPopper',
+    items: [
+      { name: 'Acompte Salle / Espace', amount: 600, daysOffset: 15 },
+      { name: 'Traiteur & Boissons', amount: 700, daysOffset: 45 },
+      { name: 'Décoration & Musique', amount: 200, daysOffset: 40 },
+    ],
+  },
+];
+
 export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -88,6 +145,7 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
   const [projectBudget, setProjectBudget] = useState('');
   const [projectColor, setProjectColor] = useState('#6366f1');
   const [projectIcon, setProjectIcon] = useState('Compass');
+  const [templateItems, setTemplateItems] = useState<any[]>([]);
 
   // Modal / Vue Détail Projet
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -149,6 +207,28 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     }
   };
 
+  const applyTemplate = (tpl: typeof PROJECT_TEMPLATES[0]) => {
+    setProjectName(tpl.name);
+    setProjectDesc(tpl.description);
+    setProjectBudget(tpl.budget);
+    setProjectColor(tpl.color);
+    setProjectIcon(tpl.icon);
+
+    const defaultAccId = accounts[0]?.id || '';
+    const now = new Date();
+    const items = tpl.items.map((it) => {
+      const d = new Date();
+      d.setDate(now.getDate() + it.daysOffset);
+      return {
+        name: it.name,
+        amount: it.amount,
+        planned_date: d.toISOString().split('T')[0],
+        account_id: defaultAccId,
+      };
+    });
+    setTemplateItems(items);
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectName.trim()) return;
@@ -160,6 +240,7 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
         total_budget: projectBudget ? parseFloat(projectBudget) : undefined,
         color: projectColor,
         icon: projectIcon,
+        items: templateItems.length > 0 ? templateItems : undefined,
       });
       setShowCreateModal(false);
       resetProjectForm();
@@ -178,6 +259,7 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     setProjectBudget('');
     setProjectColor('#6366f1');
     setProjectIcon('Compass');
+    setTemplateItems([]);
   };
 
   const handleDeleteProject = async (id: string, name: string) => {
@@ -582,6 +664,53 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
               </div>
             </div>
 
+            {/* Jauge Prévu vs Réalisé pour les projets validés */}
+            {projectDetail.status === 'COMMITTED' && (() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const realizedItems = projectDetail.items.filter((it) => it.planned_date <= todayStr);
+              const realizedTotal = realizedItems.reduce((sum, it) => sum + Number(it.amount), 0);
+              const remainingTotal = Math.max(0, (projectDetail.total_planned_amount || 0) - realizedTotal);
+              const progressPercent = projectDetail.total_planned_amount > 0
+                ? Math.min(100, Math.round((realizedTotal / projectDetail.total_planned_amount) * 100))
+                : 0;
+
+              return (
+                <div className="p-4 rounded-xl border bg-card/70 backdrop-blur-sm space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Suivi d'exécution : Prévu vs Réalisé
+                    </span>
+                    <span className="font-bold text-foreground font-mono-amounts">
+                      {formatEuro(realizedTotal)} réglés sur {formatEuro(projectDetail.total_planned_amount)} ({progressPercent}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
+                    <div
+                      className="h-full bg-emerald-500 transition-all"
+                      style={{ width: `${progressPercent}%` }}
+                      title={`Déjà payé : ${formatEuro(realizedTotal)}`}
+                    />
+                    <div
+                      className="h-full bg-primary/30 transition-all"
+                      style={{ width: `${100 - progressPercent}%` }}
+                      title={`Reste à régler : ${formatEuro(remainingTotal)}`}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                      Déjà décaissé : {formatEuro(realizedTotal)} ({realizedItems.length} paiement{realizedItems.length > 1 ? 's' : ''})
+                    </span>
+                    <span className="text-slate-500 font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-primary/40 inline-block" />
+                      Reste à décaisser : {formatEuro(remainingTotal)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Onglets Dépenses / Simulation */}
             <div className="flex items-center gap-2 border-b">
               <button
@@ -759,15 +888,33 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                         : 'L’un de vos comptes risque de passer en négatif à une ou plusieurs dates lors du décaissement des dépenses de ce projet.'}
                     </p>
 
-                    {/* Liste des warnings */}
+                    {/* Liste des warnings et suggestion d'ajustement */}
                     {simulation.warnings && simulation.warnings.length > 0 && (
-                      <ul className="mt-2 space-y-1 border-t border-rose-200/50 dark:border-rose-800/50 pt-2 text-xs">
-                        {simulation.warnings.map((w, idx) => (
-                          <li key={idx} className="flex items-center gap-1.5 font-medium">
-                            <span>•</span> {w.message}
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/50 space-y-2">
+                        <ul className="space-y-1 text-xs">
+                          {simulation.warnings.map((w, idx) => (
+                            <li key={idx} className="flex items-center gap-1.5 font-medium">
+                              <span>•</span> {w.message}
+                            </li>
+                          ))}
+                        </ul>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setItemName(`Virement de secours vers ${simulation.critical_account_name || 'compte'}`);
+                            setItemDate(simulation.critical_date || new Date().toISOString().split('T')[0]);
+                            const savingsAcc = accounts.find((a) => a.type === 'SAVINGS') || accounts[0];
+                            if (savingsAcc) setItemAccountId(savingsAcc.id);
+                            setItemAmount('300');
+                            setItemNotes(`Alimentation pour combler le découvert prévu le ${simulation.critical_date}`);
+                            setShowItemModal(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-200 text-xs font-semibold hover:bg-rose-200 dark:hover:bg-rose-900/60 transition-colors"
+                        >
+                          <Zap className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Planifier un ajustement de trésorerie pour ce découvert</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -825,6 +972,26 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
               </div>
 
               <form onSubmit={handleCreateProject} className="space-y-4">
+                {/* Modèles rapides */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Modèles prédéfinis (clic rapide)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PROJECT_TEMPLATES.map((tpl) => (
+                      <button
+                        type="button"
+                        key={tpl.name}
+                        onClick={() => applyTemplate(tpl)}
+                        className="p-2 rounded-xl border bg-muted/30 hover:bg-muted/60 text-left transition-all hover:scale-[1.02] text-xs space-y-0.5"
+                      >
+                        <span className="font-semibold text-foreground block">{tpl.title}</span>
+                        <span className="text-[11px] text-muted-foreground block truncate">
+                          {tpl.items.length} dépenses • {tpl.budget} €
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="proj-name">Nom du projet *</Label>
                   <Input

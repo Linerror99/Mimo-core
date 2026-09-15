@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Landmark, Calendar, Zap, ArrowRight, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Shield, Landmark, Calendar, Zap, ArrowRight, CheckCircle2, AlertTriangle, AlertCircle, Sparkles } from 'lucide-react';
 import { projectionService } from '../services/projectionService';
 import '../styles/SafeToSpend.css';
 
@@ -108,6 +108,12 @@ export const SafeToSpendCard: React.FC<SafeToSpendCardProps> = ({ onOpenSimulato
         <div className="safe-amount-display">
           <span className="safe-amount">{formatCurrency(data.safe_to_spend)}</span>
           <span className="safe-unit">disponibles immédiatement</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-medium text-xs mt-2 border border-indigo-200/60 dark:border-indigo-800/40 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+            <span>
+              Soit <strong className="font-bold text-sm font-mono-amounts">{formatCurrency(data.safe_to_spend > 0 ? data.safe_to_spend / Math.max(1, data.days_until_next_income || 1) : 0)}</strong> / jour pendant {Math.max(1, data.days_until_next_income || 1)}j
+            </span>
+          </div>
         </div>
 
         <div className="safe-metrics-row">
