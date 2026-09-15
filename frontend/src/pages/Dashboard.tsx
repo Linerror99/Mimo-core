@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ValidationModal } from '@/components/ValidationModal'
 import { SafeToSpendCard } from '@/components/SafeToSpendCard'
+import { CashFlowSankey } from '@/components/CashFlowSankey'
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
 import { BankLogo } from '@/components/BankLogo'
 import {
@@ -632,6 +633,9 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
             </div>
           </Card>
         </div>
+
+        {/* ─── CASH FLOW SANKEY ─────────────────────────────────── */}
+        <CashFlowSankey transactions={allMonthTransactions} categories={categories} />
 
         {/* ─── BOTTOM ROW: Transactions + Projection 6 mois ──── */}
         {/* ─── BOTTOM ROW: Dernières Transactions (full width) ── */}
