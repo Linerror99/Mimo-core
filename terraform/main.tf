@@ -346,7 +346,7 @@ resource "google_redis_instance" "main" {
 
 # Bucket pour uploads utilisateurs
 resource "google_storage_bucket" "uploads" {
-  name          = "mimo-uploads-prod"
+  name          = "${var.project_id}-uploads"
   location      = var.region
   project       = var.project_id
   storage_class = "STANDARD"
@@ -372,7 +372,7 @@ resource "google_storage_bucket" "uploads" {
 
 # Bucket pour backups DB
 resource "google_storage_bucket" "backups" {
-  name          = "mimo-backups-prod"
+  name          = "${var.project_id}-backups"
   location      = var.region
   project       = var.project_id
   storage_class = "STANDARD"
@@ -509,7 +509,7 @@ resource "google_cloud_run_v2_service" "backend" {
 
       env {
         name  = "CORS_ORIGINS"
-        value = "https://mimo-frontend-xpaldfrvjq-ew.a.run.app,https://mimo-frontend-301595415100.europe-west1.run.app"
+        value = "https://mimo-frontend-qjhc3e7jla-ew.a.run.app,https://mimo-frontend-473630919270.europe-west1.run.app,http://localhost:5000,http://localhost:5173"
       }
 
       env {
