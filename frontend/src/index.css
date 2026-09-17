@@ -289,30 +289,68 @@ html {
 }
 
 /* ==========================================================================
-   Mode Discret (Privacy Mode) - Floutage des soldes et montants financiers
+   Mode Discret (Privacy Mode) - Masquage complet de tous les chiffres et montants
    ========================================================================== */
 body.privacy-mode .privacy-mask,
 body.privacy-mode [data-privacy="amount"],
 body.privacy-mode .font-mono-amounts,
 body.privacy-mode .wallet-amount,
 body.privacy-mode .account-card-balance,
+body.privacy-mode .account-balance,
+body.privacy-mode .balance-amount,
 body.privacy-mode .transaction-amount,
 body.privacy-mode .balance-value,
 body.privacy-mode .kpi-value,
 body.privacy-mode .safe-amount,
-body.privacy-mode .recharts-cartesian-axis-tick-value {
-  filter: blur(8px);
-  user-select: none;
+body.privacy-mode .total-amount,
+body.privacy-mode .month-balance,
+body.privacy-mode .month-end-balance-text,
+body.privacy-mode .day-balance-badge,
+body.privacy-mode .summary-value,
+body.privacy-mode .metric-value,
+body.privacy-mode .goal-saved-amount,
+body.privacy-mode .goal-target-amount,
+body.privacy-mode .goal-meta-val,
+body.privacy-mode .col-amount,
+body.privacy-mode .detail-amount,
+body.privacy-mode .modern-chart-tooltip,
+body.privacy-mode .tooltip-value,
+body.privacy-mode .recharts-cartesian-axis-tick-value,
+body.privacy-mode .recharts-text,
+body.privacy-mode .recharts-tooltip-wrapper,
+body.privacy-mode .font-mono,
+body.privacy-mode .font-bold.font-mono,
+body.privacy-mode [class*="text-2xl font-bold font-mono"] {
+  filter: blur(8px) !important;
+  user-select: none !important;
   transition: filter 0.2s ease-in-out;
 }
 
+/* Révélation instantanée au survol de la souris */
 body.privacy-mode .privacy-mask:hover,
 body.privacy-mode [data-privacy="amount"]:hover,
 body.privacy-mode .font-mono-amounts:hover,
 body.privacy-mode .wallet-amount:hover,
+body.privacy-mode .account-card-balance:hover,
+body.privacy-mode .account-balance:hover,
+body.privacy-mode .balance-amount:hover,
+body.privacy-mode .transaction-amount:hover,
 body.privacy-mode .balance-value:hover,
-body.privacy-mode .safe-amount:hover {
-  filter: blur(0px); /* Unblur instantané au survol de la souris */
+body.privacy-mode .kpi-value:hover,
+body.privacy-mode .safe-amount:hover,
+body.privacy-mode .total-amount:hover,
+body.privacy-mode .month-balance:hover,
+body.privacy-mode .month-end-balance-text:hover,
+body.privacy-mode .day-balance-badge:hover,
+body.privacy-mode .summary-value:hover,
+body.privacy-mode .metric-value:hover,
+body.privacy-mode .goal-saved-amount:hover,
+body.privacy-mode .goal-target-amount:hover,
+body.privacy-mode .goal-meta-val:hover,
+body.privacy-mode .col-amount:hover,
+body.privacy-mode .detail-amount:hover,
+body.privacy-mode .font-mono:hover {
+  filter: blur(0px) !important;
 }
 
 
