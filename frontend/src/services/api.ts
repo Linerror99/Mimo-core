@@ -4,8 +4,7 @@
 
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import logger from '@/utils/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/config/api';
 
 /**
  * Retry configuration

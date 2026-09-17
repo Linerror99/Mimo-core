@@ -7,8 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import toast from '@/utils/toast';
 import logger from '@/utils/logger';
-
-export interface User {
+import { API_BASE_URL } from '@/config/api';
   id: string;
   email: string;
   first_name: string;
@@ -39,8 +38,6 @@ export interface AuthState {
   clearError: () => void;
   checkAuth: () => Promise<void>;
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const useAuthStore = create<AuthState>()(
   persist(
