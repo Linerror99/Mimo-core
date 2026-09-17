@@ -35,16 +35,20 @@ from app.core.logger import logger
 # Import security and error handling
 from app.core.security import setup_cors, setup_security_middleware
 
+# Setup environment
+environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
+is_production = environment.lower() == "production"
+
 app = FastAPI(
     title="DuoFlow Finance API",
     description="API for personal and couple finance management",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json",
 )
 
 # Setup CORS (secure configuration based on environment)
-environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
 setup_cors(app, environment=environment, allowed_origins=settings.CORS_ORIGINS)
 
 # Setup security middleware (headers, rate limiting, logging)

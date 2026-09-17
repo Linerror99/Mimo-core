@@ -6,6 +6,7 @@ En DEV : endpoints manuels pour tester les jobs
 En PROD : déclenchés par GCP Cloud Scheduler
 """
 import os
+import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -19,24 +20,15 @@ router = APIRouter(prefix="/api/v1/jobs", tags=["jobs"])
 
 def verify_job_token(x_job_token: Optional[str] = Header(None)) -> bool:
     """
-    Vérifie le token d'authentification pour les jobs
-    En DEV : pas de vérification (ou token simple)
-    En PROD : vérifier le token GCP
-
-    Args:
-        x_job_token: Token d'authentification dans les headers
-
-    Returns:
-        True si le token est valide
-
-    Raises:
-        403: Si le token est invalide en production
+    Vérifie le token d'authentification pour les jobs.
+    En DEV : pas de vérification (ou token simple).
+    En PROD : vérification en temps constant.
     """
-    env = os.getenv("ENV", "development")
+    env = os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
 
     if env == "production":
         expected_token = os.getenv("JOB_TOKEN")
-        if not expected_token or x_job_token != expected_token:
+        if not expected_token or not x_job_token or not secrets.compare_digest(x_job_token, expected_token):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid job token"

@@ -41,11 +41,16 @@ class Settings(BaseSettings):
     GCS_BUCKET_UPLOADS: str = "mimo-uploads-prod"
     GCS_BUCKET_BACKUPS: str = "mimo-backups-prod"
 
-    # Admin
+    # Admin & Scheduler
     ADMIN_TOKEN: str = ""
+    JOB_TOKEN: str = ""
+    SCHEDULER_SERVICE_ACCOUNT: Optional[str] = None  # e.g. scheduler-sa@project-id.iam.gserviceaccount.com
 
     # Security
-    BCRYPT_ROUNDS: int = 4  # Réduit pour les load tests (12 en prod)
+    BCRYPT_ROUNDS: int = 12  # Standard sécurisé OWASP (12 rounds)
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = "none"  # "none" for cross-origin frontend/backend on Cloud Run
+    COOKIE_DOMAIN: Optional[str] = None
 
     # Logging
     LOG_LEVEL: str = "INFO"

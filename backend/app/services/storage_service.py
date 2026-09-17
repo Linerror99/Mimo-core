@@ -74,7 +74,7 @@ class StorageService:
         Raises:
             HTTPException: Si validation échoue
         """
-        # Validation type
+        # Validation type MIME annoncé
         if file.content_type not in self.ALLOWED_IMAGE_TYPES:
             raise HTTPException(
                 status_code=400,
@@ -92,9 +92,40 @@ class StorageService:
                 detail=f"Fichier trop volumineux. Taille max: {self.MAX_FILE_SIZE / 1024 / 1024} MB"
             )
 
-        # Générer nom de fichier unique
-        file_extension = Path(file.filename).suffix if file.filename else ".jpg"
-        unique_filename = f"{user_id}_{uuid.uuid4()}{file_extension}"
+        # Validation Magic Bytes / Contenu réel avec Pillow
+        try:
+            from PIL import Image
+            image = Image.open(file.file)
+            image.verify()
+            detected_format = image.format.upper() if image.format else ""
+
+            format_map = {
+                "JPEG": ".jpg",
+                "PNG": ".png",
+                "WEBP": ".webp"
+            }
+
+            if detected_format not in format_map:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Format d'image réel non reconnu ou invalide (seuls JPEG, PNG, WEBP sont autorisés)."
+                )
+
+            # Forcer l'extension d'après le format d'image réel vérifié
+            file_extension = format_map[detected_format]
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Le fichier fourni n'est pas une image valide ou est corrompu: {str(e)}"
+            )
+        finally:
+            # Replacer le curseur au début pour la lecture/sauvegarde
+            file.file.seek(0)
+
+        # Générer nom de fichier unique et sécurisé (sans utiliser le nom fourni par le client)
+        unique_filename = f"{user_id}_{uuid.uuid4().hex}{file_extension}"
 
         if self.use_gcs:
             # Production: upload vers GCS
@@ -102,9 +133,9 @@ class StorageService:
                 blob = self.bucket.blob(f"avatars/{unique_filename}")
                 # Upload avec content type
                 blob.upload_from_file(file.file, content_type=file.content_type)
-                # Rendre public pour accès direct
-                blob.make_public()
-                return blob.public_url
+                # Note: Le bucket a uniform_bucket_level_access activé avec roles/storage.objectViewer pour allUsers
+                # Ne pas appeler blob.make_public() car les ACLs individuelles sont interdites sur bucket uniforme
+                return f"https://storage.googleapis.com/{self.bucket_name}/avatars/{unique_filename}"
             except gcp_exceptions.GoogleAPIError as e:
                 raise HTTPException(status_code=500, detail=f"Erreur upload GCS: {str(e)}")
             finally:

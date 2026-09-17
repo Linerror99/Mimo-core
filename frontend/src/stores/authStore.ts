@@ -60,6 +60,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
             method: 'POST',
+            credentials: 'include', // Receive and send HttpOnly cookies
             headers: {
               'Content-Type': 'application/json',
             },
@@ -73,18 +74,20 @@ export const useAuthStore = create<AuthState>()(
           
           const data = await response.json();
           
-          // Save tokens to localStorage for axios interceptor
+          // Save access token to localStorage for axios interceptor
           localStorage.setItem('access_token', data.access_token);
-          localStorage.setItem('refresh_token', data.refresh_token);
+          // Clean legacy refresh_token from localStorage for security (handled via HttpOnly cookie)
+          localStorage.removeItem('refresh_token');
           
-          // Save tokens to state
+          // Save access token to state
           set({
             accessToken: data.access_token,
-            refreshToken: data.refresh_token,
+            refreshToken: null,
           });
           
           // Fetch user profile with the new token
           const userResponse = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+            credentials: 'include',
             headers: {
               'Authorization': `Bearer ${data.access_token}`,
             },
@@ -154,14 +157,13 @@ export const useAuthStore = create<AuthState>()(
         const { accessToken } = get();
         
         try {
-          if (accessToken) {
-            await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-              },
-            });
-          }
+          await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+            },
+          });
         } catch (error) {
           logger.error('Logout error', error);
         } finally {
@@ -192,6 +194,7 @@ export const useAuthStore = create<AuthState>()(
           
           const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
             method: 'PATCH',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${accessToken}`,
@@ -235,6 +238,7 @@ export const useAuthStore = create<AuthState>()(
           
           const response = await fetch(`${API_BASE_URL}/api/v1/users/me/password`, {
             method: 'PATCH',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${accessToken}`,
@@ -265,32 +269,27 @@ export const useAuthStore = create<AuthState>()(
       
       // Refresh access token
       refreshAccessToken: async () => {
-        const { refreshToken } = get();
         const localRefreshToken = localStorage.getItem('refresh_token');
-        const refreshToUse = localRefreshToken || refreshToken;
         
         try {
-          if (!refreshToUse) {
-            throw new Error('No refresh token available');
-          }
-          
           const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
             method: 'POST',
+            credentials: 'include', // Automatically sends HttpOnly refresh cookie
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ refresh_token: refreshToUse }),
+            body: JSON.stringify(localRefreshToken ? { refresh_token: localRefreshToken } : {}),
           });
           
           if (!response.ok) {
-            // Refresh token is invalid, logout user
+            // Refresh token is invalid or expired, logout user
             get().logout();
             throw new Error('Session expired');
           }
           
           const data = await response.json();
           
-          // Update both state and localStorage
+          // Update access token
           localStorage.setItem('access_token', data.access_token);
           
           set({
@@ -317,19 +316,27 @@ export const useAuthStore = create<AuthState>()(
         const refreshToUse = localRefreshToken || refreshToken;
         
         if (!tokenToUse) {
-          set({ isAuthenticated: false, user: null });
-          return;
+          // If no access token, attempt silent refresh using HttpOnly cookie before giving up
+          try {
+            await get().refreshAccessToken();
+            const refreshedToken = get().accessToken;
+            if (!refreshedToken) {
+              set({ isAuthenticated: false, user: null });
+              return;
+            }
+          } catch (_) {
+            set({ isAuthenticated: false, user: null });
+            return;
+          }
         }
         
-        // Sync localStorage tokens to state if they differ
-        if (localAccessToken && localAccessToken !== accessToken) {
-          set({ accessToken: localAccessToken, refreshToken: localRefreshToken });
-        }
+        const activeToken = get().accessToken || tokenToUse;
         
         try {
           const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+            credentials: 'include',
             headers: {
-              'Authorization': `Bearer ${tokenToUse}`,
+              'Authorization': `Bearer ${activeToken}`,
             },
           });
           
@@ -359,7 +366,6 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         user: state.user,
       }),
     }

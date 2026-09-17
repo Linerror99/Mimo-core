@@ -93,7 +93,10 @@ async def create_invitation(
     invitee_user = result.scalar_one_or_none()
 
     if not invitee_user:
-        raise HTTPException(status_code=400, detail=f"User not found with email: {request.invitee_email}")
+        raise HTTPException(
+            status_code=400,
+            detail="Impossible d'envoyer l'invitation à cette adresse. Vérifiez l'adresse ou invitez un utilisateur actif."
+        )
 
     service = InvitationService(db)
 
