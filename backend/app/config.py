@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
     # Application
-    APP_NAME: str = "DuoFlow Finance"
+    APP_NAME: str = "Mimo Finance"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
     ENVIRONMENT: str = "development"  # development, staging, production

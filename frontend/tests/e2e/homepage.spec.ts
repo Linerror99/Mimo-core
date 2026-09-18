@@ -5,7 +5,7 @@ test.describe('Sprint 0 - Homepage', () => {
     await page.goto('/');
     
     // Vérifier que la page charge (status 200 déjà vérifié par goto)
-    await expect(page).toHaveTitle(/DuoFlow Finance/);
+    await expect(page).toHaveTitle(/Mimo Finance/);
   });
 
   test('should display login page by default', async ({ page }) => {

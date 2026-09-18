@@ -253,7 +253,7 @@ export default function Settings({ navigate, onLogout }: SettingsProps) {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-sm">
-              Votre partenaire doit avoir un compte Duoflow. Une fois l'invitation acceptée, 
+              Votre partenaire doit avoir un compte Mimo. Une fois l'invitation acceptée, 
               vos foyers seront fusionnés automatiquement.
             </AlertDescription>
           </Alert>
