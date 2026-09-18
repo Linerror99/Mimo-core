@@ -323,28 +323,28 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
         </div>
 
         {/* ─── KPI CARDS (4 colonnes) ───────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Solde Total */}
-          <Card className="p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between mb-3">
+          <Card className="p-4 sm:p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Solde Total</span>
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Wallet className="w-4 h-4 text-primary" />
               </div>
             </div>
-            <p className="text-2xl font-bold font-mono tracking-tight">{formatAmountFull(totalBalance)}</p>
+            <p className="text-xl sm:text-2xl font-bold font-mono tracking-tight">{formatAmountFull(totalBalance)}</p>
             <p className="text-xs text-muted-foreground mt-1">{accountsCount} compte{accountsCount > 1 ? 's' : ''} actif{accountsCount > 1 ? 's' : ''}</p>
           </Card>
 
           {/* Revenus du mois */}
-          <Card className="p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between mb-3">
+          <Card className="p-4 sm:p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Revenus</span>
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                 <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
               </div>
             </div>
-            <p className="text-2xl font-bold font-mono tracking-tight text-emerald-600">{formatAmount(monthIncome)}</p>
+            <p className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-emerald-600">{formatAmount(monthIncome)}</p>
             <div className="flex items-center gap-1.5 mt-1">
               {incomeChange >= 0 ? (
                 <span className="inline-flex items-center text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded">
@@ -360,14 +360,14 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
           </Card>
 
           {/* Dépenses du mois */}
-          <Card className="p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between mb-3">
+          <Card className="p-4 sm:p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dépenses</span>
               <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center">
                 <ArrowUpRight className="w-4 h-4 text-rose-500" />
               </div>
             </div>
-            <p className="text-2xl font-bold font-mono tracking-tight text-rose-600">{formatAmount(monthExpenses)}</p>
+            <p className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-rose-600">{formatAmount(monthExpenses)}</p>
             <div className="flex items-center gap-1.5 mt-1">
               {expenseChange <= 0 ? (
                 <span className="inline-flex items-center text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded">
@@ -383,14 +383,14 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
           </Card>
 
           {/* Virements */}
-          <Card className="p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between mb-3">
+          <Card className="p-4 sm:p-5 relative overflow-hidden group hover:shadow-md transition-all duration-200">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Virements</span>
               <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
                 <ArrowLeftRight className="w-4 h-4 text-sky-500" />
               </div>
             </div>
-            <p className="text-2xl font-bold font-mono tracking-tight text-sky-600">{formatAmount(monthTransfers)}</p>
+            <p className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-sky-600">{formatAmount(monthTransfers)}</p>
             <p className="text-xs text-muted-foreground mt-1">{allMonthTransactions.filter(t => t.type === 'TRANSFER').length} opération{allMonthTransactions.filter(t => t.type === 'TRANSFER').length > 1 ? 's' : ''}</p>
           </Card>
         </div>
@@ -400,17 +400,17 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
 
         {/* ─── PENDING TRANSACTIONS ─────────────────────────────── */}
         {pendingTransactions.length > 0 && (
-          <div className="p-6 rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="p-4 sm:p-6 rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2.5">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-                <h2 className="text-xl font-bold text-amber-950">Transactions à valider</h2>
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                <h2 className="text-lg sm:text-xl font-bold text-amber-950">Transactions à valider</h2>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200/90 text-amber-900 border border-amber-300">
                   {pendingTransactions.length}
                 </span>
               </div>
               {pendingTransactions.length > 1 && (
-                <Button size="sm" onClick={handleValidateAll} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs">
+                <Button size="sm" onClick={handleValidateAll} className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs">
                   Tout valider ({pendingTransactions.length})
                 </Button>
               )}
@@ -425,17 +425,17 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
                 return (
                   <div
                     key={transaction.id}
-                    className="flex items-center justify-between p-4 rounded-xl bg-white border border-amber-200/70 shadow-xs hover:border-amber-300 transition-all"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-xl bg-white border border-amber-200/70 shadow-xs hover:border-amber-300 transition-all gap-3"
                   >
-                    <div className="flex items-center gap-3.5">
+                    <div className="flex items-center gap-3.5 min-w-0">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                         isTransfer ? 'bg-sky-100 text-sky-600' : isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
                       }`}>
                         <AlertCircle className="w-5 h-5" />
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 text-base">{transaction.description}</p>
-                        <div className="flex items-center gap-2 mt-1">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 text-sm sm:text-base truncate">{transaction.description}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                             {new Date(transaction.transaction_date).toLocaleDateString('fr-FR')}
                           </span>
@@ -455,8 +455,8 @@ export function Dashboard({ navigate, onLogout }: DashboardProps) {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <p className={`text-lg font-bold ${
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      <p className={`text-base sm:text-lg font-bold font-mono ${
                         isTransfer ? 'text-sky-600' : isIncome ? 'text-emerald-600' : 'text-rose-600'
                       }`}>
                         {isTransfer ? '' : isIncome ? '+' : '-'}

@@ -8,6 +8,9 @@
   display: flex;
   flex-direction: column;
   background: var(--background);
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* ====== TOP HEADER BAR ====== */
@@ -240,6 +243,9 @@
 .mimo-main {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   overflow-y: auto;
   transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -252,17 +258,66 @@
 
   .mimo-layout.sidebar-open .mimo-main {
     margin-left: 250px;
+    width: calc(100% - 250px);
+    max-width: calc(100vw - 250px);
   }
 }
 
-/* Small mobile: hide username in header */
+/* ====== RESPONSIVE MOBILE HEADER ====== */
+@media (max-width: 640px) {
+  .mimo-header {
+    padding: 0 0.75rem;
+    height: 52px;
+  }
+
+  .mimo-header-left {
+    gap: 0.5rem;
+  }
+
+  .mimo-header-right {
+    gap: 0.35rem;
+  }
+
+  .mimo-header-icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mimo-hamburger {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mimo-user-trigger {
+    padding: 0.2rem 0.4rem 0.2rem 0.2rem;
+  }
+}
+
 @media (max-width: 480px) {
+  .mimo-header {
+    padding: 0 0.5rem;
+  }
+
   .mimo-user-name {
+    display: none;
+  }
+
+  .mimo-user-trigger svg:last-child {
     display: none;
   }
 
   .mimo-header-logo-text {
     font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .mimo-header-logo-text {
+    display: none;
+  }
+
+  .mimo-header-right {
+    gap: 0.2rem;
   }
 }
 
