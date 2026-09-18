@@ -108,15 +108,19 @@ export function Trash({ navigate, onLogout }: TrashPageProps) {
     }
 
     try {
-      await transactionService.emptyTrash();
+      setLoading(true);
+      setError(null);
+      const res = await transactionService.emptyTrash();
       await loadData();
       showFeedback({
         title: "Corbeille vidée",
-        message: "Toutes les transactions de la corbeille ont été définitivement supprimées.",
+        message: res.message || "Toutes les transactions de la corbeille ont été définitivement supprimées.",
         type: "delete"
       });
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors du vidage de la corbeille");
+    } finally {
+      setLoading(false);
     }
   };
 

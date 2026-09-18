@@ -8,6 +8,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import toast from '@/utils/toast';
 import logger from '@/utils/logger';
 import { API_BASE_URL } from '@/config/api';
+
+export interface User {
   id: string;
   email: string;
   first_name: string;

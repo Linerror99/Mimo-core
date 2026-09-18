@@ -155,7 +155,7 @@ class StorageService:
                 file.file.close()
             return f"/uploads/avatars/{unique_filename}"
 
-    def delete_avatar(self, avatar_url: str) -> None:
+    async def delete_avatar(self, avatar_url: str) -> None:
         """
         Supprime un avatar
 
