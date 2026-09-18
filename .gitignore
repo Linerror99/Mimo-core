@@ -38,10 +38,12 @@ Thumbs.db
 # Docker
 .dockerignore
 
-# Database
+# Database & Backups
 *.db
 *.sqlite
-frontend/playwright-report/index.html
+*.sql~
+*.sql.gz
+backups/*.sql
 backups/
 backend/logs/
 

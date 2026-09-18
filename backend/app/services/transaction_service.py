@@ -6,7 +6,7 @@ Business logic for transaction operations
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -421,6 +421,44 @@ class TransactionService:
         )
 
         return list(result.scalars().all())
+
+    async def empty_trash(
+        self,
+        household_id: str
+    ) -> int:
+        """
+        Supprimer définitivement toutes les transactions de la corbeille pour un foyer
+
+        Args:
+            household_id: ID du foyer
+
+        Returns:
+            Nombre de transactions supprimées
+        """
+        # Réinitialiser parent_transaction_id pour éviter tout conflit de clé étrangère réflexive
+        await self.db.execute(
+            update(Transaction)
+            .where(
+                and_(
+                    Transaction.household_id == household_id,
+                    Transaction.deleted_at.is_not(None)
+                )
+            )
+            .values(parent_transaction_id=None)
+        )
+
+        result = await self.db.execute(
+            delete(Transaction)
+            .where(
+                and_(
+                    Transaction.household_id == household_id,
+                    Transaction.deleted_at.is_not(None)
+                )
+            )
+        )
+        await self.db.commit()
+
+        return result.rowcount or 0
 
     async def validate_transaction(
         self,

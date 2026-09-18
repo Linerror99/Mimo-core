@@ -33,21 +33,53 @@ class BackupResponse(BaseModel):
 
 def verify_cloud_scheduler(authorization: str = Header(None)) -> None:
     """
-    Verify request comes from Cloud Scheduler
-    In production, this validates the OIDC token
+    Verify request comes from Cloud Scheduler using Google OIDC ID token validation.
     """
-    # For development, allow if ENVIRONMENT is not production
-    if os.getenv("ENVIRONMENT") != "production":
+    env = os.getenv("ENVIRONMENT", "development")
+    if env != "production":
         return
-    
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authorization header"
         )
-    
-    # In production, Google Cloud Run automatically validates OIDC tokens
-    # from Cloud Scheduler, so if the request reaches here, it's authenticated
+
+    token = authorization.split("Bearer ")[1].strip()
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        # Verify Google signed token
+        request_adapter = google_requests.Request()
+        # Verify token without audience restriction or match backend url if configured
+        claim = id_token.verify_oauth2_token(token, request_adapter)
+
+        # Check issuer
+        if claim.get("iss") not in ("https://accounts.google.com", "accounts.google.com"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token issuer"
+            )
+
+        # If a specific scheduler service account is configured, enforce it
+        expected_sa = os.getenv("SCHEDULER_SERVICE_ACCOUNT")
+        if expected_sa:
+            token_email = claim.get("email")
+            if not token_email or token_email.lower() != expected_sa.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Unauthorized service account: {token_email}"
+                )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"OIDC verification failed: {str(e)}"
+        )
 
 
 @router.post("/backup", response_model=BackupResponse)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up DuoFlow Finance - Development Environment"
+echo "🚀 Setting up Mimo Finance - Development Environment"
 echo "========================================================"
 echo ""
 

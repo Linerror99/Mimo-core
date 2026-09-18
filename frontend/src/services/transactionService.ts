@@ -96,6 +96,14 @@ export const transactionService = {
   },
 
   /**
+   * Vider la corbeille (supprimer définitivement toutes les transactions supprimées)
+   */
+  async emptyTrash(): Promise<{ message: string; count: number }> {
+    const response = await api.delete<{ message: string; count: number }>('/transactions/trash');
+    return response.data;
+  },
+
+  /**
    * Lister les transactions en attente de validation (PENDING)
    */
   async listPending(): Promise<Transaction[]> {

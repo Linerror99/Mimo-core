@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: duoflow-postgres
+    container_name: mimo-postgres
     environment:
       POSTGRES_USER: duoflow
       POSTGRES_PASSWORD: duoflow123
@@ -17,12 +17,12 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - duoflow-network
+      - mimo-network
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: duoflow-redis
+    container_name: mimo-redis
     ports:
       - "${REDIS_HOST_PORT:-16379}:6379"
     command: redis-server --appendonly yes
@@ -34,14 +34,14 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - duoflow-network
+      - mimo-network
 
   # Backend API (FastAPI)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: duoflow-backend
+    container_name: mimo-backend
     environment:
       - DATABASE_URL=postgresql://duoflow:duoflow123@postgres:5432/duoflow
       - REDIS_URL=redis://redis:6379/0
@@ -59,7 +59,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - duoflow-network
+      - mimo-network
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   # Frontend (React + Vite)
@@ -67,7 +67,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: duoflow-frontend
+    container_name: mimo-frontend
     environment:
       - VITE_API_URL=http://localhost:8000
     ports:
@@ -75,13 +75,14 @@ services:
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
     networks:
-      - duoflow-network
+      - mimo-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  duoflow-network:
+  mimo-network:
     driver: bridge

@@ -104,6 +104,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Rate limiting middleware to prevent abuse.
+    Uses Redis for distributed state across Cloud Run instances,
+    with automatic fallback to in-memory if Redis is unavailable.
 
     Limits:
     - 100 requests per minute per IP address
@@ -115,51 +117,76 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute = requests_per_minute
         self.burst_limit = burst_limit
 
-        # Storage: {ip: [(timestamp, count), ...]}
+        # Fallback in-memory storage: {ip: [(timestamp, count), ...]}
         self.request_history: dict[str, list[tuple[datetime, int]]] = defaultdict(list)
+        self._redis_client = None
+
+    def _get_redis(self):
+        if self._redis_client is None:
+            try:
+                import redis.asyncio as aioredis
+                from app.config import settings
+                self._redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            except Exception as e:
+                logger.warning(f"Could not initialize Redis client for RateLimit: {e}")
+        return self._redis_client
 
     def _clean_old_requests(self, ip: str, current_time: datetime) -> None:
-        """Remove requests older than 1 minute."""
+        """Remove requests older than 1 minute in memory fallback."""
         one_minute_ago = current_time - timedelta(minutes=1)
         self.request_history[ip] = [
             (ts, count) for ts, count in self.request_history[ip]
             if ts > one_minute_ago
         ]
 
-    def _check_rate_limit(self, ip: str, current_time: datetime) -> tuple[bool, int]:
-        """
-        Check if IP has exceeded rate limit.
-
-        Returns:
-            (is_allowed, requests_in_last_minute)
-        """
-        # Clean old requests
+    def _check_rate_limit_memory(self, ip: str, current_time: datetime) -> tuple[bool, int]:
+        """Fallback memory-based rate limit."""
         self._clean_old_requests(ip, current_time)
-
-        # Count requests in last minute
         total_requests = sum(count for _, count in self.request_history[ip])
-
-        # Check burst limit (last second)
         one_second_ago = current_time - timedelta(seconds=1)
         recent_requests = sum(
             count for ts, count in self.request_history[ip]
             if ts > one_second_ago
         )
-
-        # Check limits
-        if recent_requests >= self.burst_limit:
+        if recent_requests >= self.burst_limit or total_requests >= self.requests_per_minute:
             return False, total_requests
-        if total_requests >= self.requests_per_minute:
-            return False, total_requests
-
+        self.request_history[ip].append((current_time, 1))
         return True, total_requests
+
+    async def _check_rate_limit_redis(self, ip: str, current_time: datetime) -> tuple[bool, int]:
+        """Distributed rate limiting via Redis."""
+        redis = self._get_redis()
+        if not redis:
+            return self._check_rate_limit_memory(ip, current_time)
+
+        try:
+            minute_key = f"ratelimit:{ip}:{current_time.strftime('%Y%m%d%H%M')}"
+            second_key = f"ratelimit_burst:{ip}:{current_time.strftime('%Y%m%d%H%M%S')}"
+
+            # Pipeline to increment both counters atomically
+            async with redis.pipeline(transaction=True) as pipe:
+                pipe.incr(minute_key)
+                pipe.expire(minute_key, 65)
+                pipe.incr(second_key)
+                pipe.expire(second_key, 5)
+                results = await pipe.execute()
+
+            minute_count = results[0]
+            second_count = results[2]
+
+            if second_count > self.burst_limit or minute_count > self.requests_per_minute:
+                return False, minute_count
+
+            return True, minute_count
+        except Exception as e:
+            logger.debug(f"Redis rate limiting failed, falling back to memory: {e}")
+            return self._check_rate_limit_memory(ip, current_time)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Apply rate limiting."""
         # Skip rate limiting for health checks
-        if request.url.path == "/health":
+        if request.url.path in ("/health", "/api/v1/health"):
             response = await call_next(request)
-            # Still add rate limit headers for consistency
             response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
             response.headers["X-RateLimit-Remaining"] = str(self.requests_per_minute)
             return response
@@ -171,8 +198,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         current_time = datetime.utcnow()
 
-        # Check rate limit
-        is_allowed, current_count = self._check_rate_limit(client_ip, current_time)
+        # Check rate limit via Redis (with in-memory fallback)
+        is_allowed, current_count = await self._check_rate_limit_redis(client_ip, current_time)
 
         if not is_allowed:
             logger.warning(
@@ -192,22 +219,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "status_code": 429,
                 },
                 headers={
-                    "Retry-After": "60",  # Retry after 60 seconds
+                    "Retry-After": "60",
                     "X-RateLimit-Limit": str(self.requests_per_minute),
                     "X-RateLimit-Remaining": "0",
                 }
             )
 
-        # Record request
-        self.request_history[client_ip].append((current_time, 1))
-
         # Process request
         response = await call_next(request)
 
         # Add rate limit headers
-        remaining = self.requests_per_minute - current_count - 1
+        remaining = max(0, self.requests_per_minute - current_count)
         response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
-        response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
 
         return response
 

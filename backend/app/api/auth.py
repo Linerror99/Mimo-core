@@ -1,10 +1,12 @@
 """
 Authentication API endpoints
 """
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
 
 from app.api.deps import CurrentUser
 from app.database import get_db
@@ -52,20 +54,41 @@ async def register(
 @router.post("/login")
 async def login(
     login_data: UserLogin,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """
     Authenticate user and return JWT tokens.
+    Sets refresh_token in a secure HttpOnly cookie.
 
     - **email**: User email
     - **password**: User password
 
-    Returns access_token (15min) and refresh_token (7 days).
+    Returns access_token and refresh_token.
     """
     auth_service = AuthService(db)
 
     try:
         tokens = await auth_service.login(login_data)
+
+        # Set secure HttpOnly cookie for refresh token (7 days)
+        # Note: SameSite="none" and Secure=True is required for cross-origin SPA <-> API on Cloud Run
+        samesite = settings.COOKIE_SAMESITE if hasattr(settings, "COOKIE_SAMESITE") else "none"
+        secure = settings.COOKIE_SECURE if hasattr(settings, "COOKIE_SECURE") else True
+        max_age = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
+
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens["refresh_token"],
+            max_age=max_age,
+            expires=max_age,
+            httponly=True,
+            secure=secure,
+            samesite=samesite,
+            path="/api/v1/auth",
+            domain=settings.COOKIE_DOMAIN if hasattr(settings, "COOKIE_DOMAIN") else None,
+        )
+
         return tokens
     except ValueError as e:
         raise HTTPException(
@@ -77,10 +100,11 @@ async def login(
 @router.post("/logout")
 async def logout(
     request: Request,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """
-    Logout current user by blacklisting their access token.
+    Logout current user by blacklisting their access token and clearing refresh cookie.
 
     Requires: Bearer token in Authorization header
     """
@@ -94,30 +118,66 @@ async def logout(
         except Exception:
             pass
 
+    # Clear refresh token cookie
+    samesite = settings.COOKIE_SAMESITE if hasattr(settings, "COOKIE_SAMESITE") else "none"
+    secure = settings.COOKIE_SECURE if hasattr(settings, "COOKIE_SECURE") else True
+    response.delete_cookie(
+        key="refresh_token",
+        path="/api/v1/auth",
+        domain=settings.COOKIE_DOMAIN if hasattr(settings, "COOKIE_DOMAIN") else None,
+        secure=secure,
+        httponly=True,
+        samesite=samesite,
+    )
+
     return {"message": "Successfully logged out"}
 
 
 @router.post("/refresh")
 async def refresh_token(
-    refresh_data: TokenRefresh,
-    db: Annotated[AsyncSession, Depends(get_db)]
+    request: Request,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    refresh_data: Optional[TokenRefresh] = None,
 ):
     """
-    Refresh access token using refresh token.
-
-    - **refresh_token**: Valid refresh token
+    Refresh access token using refresh token from HttpOnly cookie or request body.
 
     Returns new access_token.
     """
+    # 1. Try to read from HttpOnly cookie
+    token_to_use = request.cookies.get("refresh_token")
+
+    # 2. Fallback to request body if not in cookie (backward compatibility)
+    if not token_to_use and refresh_data and refresh_data.refresh_token:
+        token_to_use = refresh_data.refresh_token
+
+    if not token_to_use:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token manquant"
+        )
+
     auth_service = AuthService(db)
 
     try:
-        new_access_token = await auth_service.refresh_access_token(refresh_data.refresh_token)
+        new_access_token = await auth_service.refresh_access_token(token_to_use)
         return {
             "access_token": new_access_token,
             "token_type": "bearer"
         }
     except ValueError as e:
+        # Clear invalid cookie on failure
+        samesite = settings.COOKIE_SAMESITE if hasattr(settings, "COOKIE_SAMESITE") else "none"
+        secure = settings.COOKIE_SECURE if hasattr(settings, "COOKIE_SECURE") else True
+        response.delete_cookie(
+            key="refresh_token",
+            path="/api/v1/auth",
+            domain=settings.COOKIE_DOMAIN if hasattr(settings, "COOKIE_DOMAIN") else None,
+            secure=secure,
+            httponly=True,
+            samesite=samesite,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)

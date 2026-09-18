@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { usePrivacyStore } from '@/stores/privacyStore'
 import { NotificationBell } from '@/components/NotificationBell'
 import { Notification } from '@/types/notification'
+import { API_BASE_URL } from '@/config/api'
 
 type Page =
   | 'dashboard'
@@ -70,7 +71,6 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
   const [quickTxModalOpen, setQuickTxModalOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
   const getAvatarUrl = (avatarUrl: string | null) => {
     if (!avatarUrl) return undefined
     if (avatarUrl.startsWith('http')) return avatarUrl

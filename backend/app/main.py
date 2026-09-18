@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import (
@@ -35,16 +36,20 @@ from app.core.logger import logger
 # Import security and error handling
 from app.core.security import setup_cors, setup_security_middleware
 
+# Setup environment
+environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
+is_production = environment.lower() == "production"
+
 app = FastAPI(
     title="DuoFlow Finance API",
     description="API for personal and couple finance management",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json",
 )
 
 # Setup CORS (secure configuration based on environment)
-environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
 setup_cors(app, environment=environment, allowed_origins=settings.CORS_ORIGINS)
 
 # Setup security middleware (headers, rate limiting, logging)
@@ -63,6 +68,30 @@ UPLOAD_DIR = Path(upload_dir_path)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 (UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
 (UPLOAD_DIR / "receipts").mkdir(parents=True, exist_ok=True)
+
+
+@app.get("/uploads/avatars/{filename}")
+async def get_uploaded_avatar(filename: str):
+    local_path = UPLOAD_DIR / "avatars" / filename
+    if local_path.is_file():
+        return FileResponse(local_path)
+    if settings.GCS_BUCKET_UPLOADS:
+        gcs_url = f"https://storage.googleapis.com/{settings.GCS_BUCKET_UPLOADS}/avatars/{filename}"
+        return RedirectResponse(url=gcs_url, status_code=307)
+    raise HTTPException(status_code=404, detail="Avatar not found")
+
+
+@app.get("/uploads/receipts/{filename}")
+async def get_uploaded_receipt(filename: str):
+    local_path = UPLOAD_DIR / "receipts" / filename
+    if local_path.is_file():
+        return FileResponse(local_path)
+    if settings.GCS_BUCKET_UPLOADS:
+        gcs_url = f"https://storage.googleapis.com/{settings.GCS_BUCKET_UPLOADS}/receipts/{filename}"
+        return RedirectResponse(url=gcs_url, status_code=307)
+    raise HTTPException(status_code=404, detail="Receipt not found")
+
+
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Include routers

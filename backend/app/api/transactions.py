@@ -137,6 +137,29 @@ async def list_trash(
     return transactions
 
 
+@router.delete("/trash", status_code=status.HTTP_200_OK)
+async def empty_trash(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Vider la corbeille (supprimer définitivement toutes les transactions supprimées du foyer)
+
+    Returns:
+        Message de confirmation et nombre d'éléments supprimés
+    """
+    service = TransactionService(db)
+
+    count = await service.empty_trash(
+        household_id=current_user.household_id
+    )
+
+    return {
+        "message": f"{count} transaction(s) supprimée(s) définitivement",
+        "count": count
+    }
+
+
 @router.get("/pending", response_model=List[TransactionResponse])
 async def list_pending_transactions(
     current_user: User = Depends(get_current_user),
