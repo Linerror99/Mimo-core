@@ -13,8 +13,9 @@ from app.main import app
 
 # Utilise une base de test dédiée pour isoler complètement les tests de la base de dev
 raw_db_url = settings.DATABASE_URL
-if "/duoflow" in raw_db_url:
-    raw_db_url = raw_db_url.replace("/duoflow", "/duoflow_test")
+if "/" in raw_db_url:
+    base_url, db_name = raw_db_url.rsplit("/", 1)
+    raw_db_url = f"{base_url}/duoflow_test"
 TEST_DATABASE_URL = raw_db_url.replace(
     "postgresql://", "postgresql+asyncpg://"
 )

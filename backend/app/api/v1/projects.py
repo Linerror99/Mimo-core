@@ -158,3 +158,22 @@ async def rollback_project(
     et repasse le projet en statut DRAFT / simulation.
     """
     return await ProjectService.rollback_project(db, project_id, current_user.household_id)
+
+
+@router.post("/{project_id}/duplicate", response_model=ProjectDetailResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_project(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Dupliquer un projet existant avec l'ensemble de ses dépenses prévisionnelles.
+    Le nouveau projet est créé avec le statut DRAFT (simulation).
+    """
+    return await ProjectService.duplicate_project(
+        db=db,
+        project_id=project_id,
+        household_id=current_user.household_id,
+        user_id=current_user.id
+    )
+

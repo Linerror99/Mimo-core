@@ -42,6 +42,12 @@ export const projectService = {
     return response.data;
   },
 
+  // Dupliquer un projet
+  duplicateProject: async (id: string): Promise<ProjectDetail> => {
+    const response = await api.post<ProjectDetail>(`/projects/${id}/duplicate`);
+    return response.data;
+  },
+
   // Ajouter une dépense planifiée
   addItem: async (projectId: string, data: ProjectItemCreate): Promise<ProjectItem> => {
     const response = await api.post<ProjectItem>(`/projects/${projectId}/items`, data);

@@ -7,7 +7,10 @@ import {
   Plus,
   Compass,
   Trash2,
+  Copy,
   Edit2,
+  Pencil,
+  MoreVertical,
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
@@ -25,6 +28,13 @@ import {
   PartyPopper,
   Zap,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { projectService } from '@/services/projectService';
 import { accountService } from '@/services/accountService';
 import { categoryService } from '@/services/categoryService';
@@ -75,6 +85,17 @@ const PROJECT_COLORS = [
   '#ec4899', // Rose
   '#8b5cf6', // Violet
 ];
+
+const renderProjectIcon = (iconName?: string, className = "w-5 h-5") => {
+  switch (iconName) {
+    case 'Plane': return <Plane className={className} />;
+    case 'Home': return <Home className={className} />;
+    case 'Car': return <Car className={className} />;
+    case 'PartyPopper': return <PartyPopper className={className} />;
+    case 'ShoppingBag': return <ShoppingBag className={className} />;
+    default: return <Compass className={className} />;
+  }
+};
 
 const PROJECT_TEMPLATES = [
   {
@@ -138,13 +159,16 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal Projet
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Modal Projet (Création & Modification)
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | ProjectDetail | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [projectBudget, setProjectBudget] = useState('');
   const [projectColor, setProjectColor] = useState('#6366f1');
   const [projectIcon, setProjectIcon] = useState('Compass');
+  const [projectStartDate, setProjectStartDate] = useState('');
+  const [projectEndDate, setProjectEndDate] = useState('');
   const [templateItems, setTemplateItems] = useState<any[]>([]);
 
   // Modal / Vue Détail Projet
@@ -229,28 +253,23 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     setTemplateItems(items);
   };
 
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projectName.trim()) return;
+  const openCreateProjectModal = () => {
+    setEditingProject(null);
+    resetProjectForm();
+    setShowProjectModal(true);
+  };
 
-    try {
-      const created = await projectService.createProject({
-        name: projectName.trim(),
-        description: projectDesc.trim() || undefined,
-        total_budget: projectBudget ? parseFloat(projectBudget) : undefined,
-        color: projectColor,
-        icon: projectIcon,
-        items: templateItems.length > 0 ? templateItems : undefined,
-      });
-      setShowCreateModal(false);
-      resetProjectForm();
-      await loadInitialData();
-      loadProjectDetail(created.id);
-      setFeedback({ type: 'success', message: `Projet "${created.name}" créé avec succès !` });
-    } catch (err) {
-      console.error('Erreur création projet:', err);
-      setFeedback({ type: 'error', message: 'Erreur lors de la création du projet.' });
-    }
+  const openEditProjectModal = (proj: Project | ProjectDetail) => {
+    setEditingProject(proj);
+    setProjectName(proj.name || '');
+    setProjectDesc(proj.description || '');
+    setProjectBudget(proj.total_budget ? String(proj.total_budget) : '');
+    setProjectColor(proj.color || '#6366f1');
+    setProjectIcon(proj.icon || 'Compass');
+    setProjectStartDate(proj.target_start_date || '');
+    setProjectEndDate(proj.target_end_date || '');
+    setTemplateItems([]);
+    setShowProjectModal(true);
   };
 
   const resetProjectForm = () => {
@@ -259,7 +278,55 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     setProjectBudget('');
     setProjectColor('#6366f1');
     setProjectIcon('Compass');
+    setProjectStartDate('');
+    setProjectEndDate('');
     setTemplateItems([]);
+    setEditingProject(null);
+  };
+
+  const handleSaveProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectName.trim()) return;
+
+    try {
+      if (editingProject) {
+        const updated = await projectService.updateProject(editingProject.id, {
+          name: projectName.trim(),
+          description: projectDesc.trim() || undefined,
+          total_budget: projectBudget ? parseFloat(projectBudget) : undefined,
+          color: projectColor,
+          icon: projectIcon,
+          target_start_date: projectStartDate || undefined,
+          target_end_date: projectEndDate || undefined,
+        });
+        setShowProjectModal(false);
+        resetProjectForm();
+        await loadInitialData();
+        if (selectedProjectId === editingProject.id) {
+          loadProjectDetail(editingProject.id);
+        }
+        setFeedback({ type: 'success', message: `Projet "${updated.name}" mis à jour avec succès !` });
+      } else {
+        const created = await projectService.createProject({
+          name: projectName.trim(),
+          description: projectDesc.trim() || undefined,
+          total_budget: projectBudget ? parseFloat(projectBudget) : undefined,
+          color: projectColor,
+          icon: projectIcon,
+          target_start_date: projectStartDate || undefined,
+          target_end_date: projectEndDate || undefined,
+          items: templateItems.length > 0 ? templateItems : undefined,
+        });
+        setShowProjectModal(false);
+        resetProjectForm();
+        await loadInitialData();
+        loadProjectDetail(created.id);
+        setFeedback({ type: 'success', message: `Projet "${created.name}" créé avec succès !` });
+      }
+    } catch (err) {
+      console.error('Erreur sauvegarde projet:', err);
+      setFeedback({ type: 'error', message: 'Erreur lors de la sauvegarde du projet.' });
+    }
   };
 
   const handleDeleteProject = async (id: string, name: string) => {
@@ -275,6 +342,19 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     } catch (err) {
       console.error('Erreur suppression projet:', err);
       setFeedback({ type: 'error', message: 'Erreur lors de la suppression.' });
+    }
+  };
+
+  const handleDuplicateProject = async (id: string, name: string) => {
+    try {
+      const duplicated = await projectService.duplicateProject(id);
+      await loadInitialData();
+      setSelectedProjectId(duplicated.id);
+      setProjectDetail(duplicated);
+      setFeedback({ type: 'success', message: `Projet "${name}" dupliqué avec succès !` });
+    } catch (err) {
+      console.error('Erreur duplication projet:', err);
+      setFeedback({ type: 'error', message: 'Erreur lors de la duplication du projet.' });
     }
   };
 
@@ -472,10 +552,7 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
               </p>
             </div>
             <Button
-              onClick={() => {
-                resetProjectForm();
-                setShowCreateModal(true);
-              }}
+              onClick={openCreateProjectModal}
               className="mt-2"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -501,7 +578,7 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm"
                           style={{ backgroundColor: proj.color || '#6366f1' }}
                         >
-                          <Compass className="w-5 h-5" />
+                          {renderProjectIcon(proj.icon, "w-5 h-5")}
                         </div>
                         <div>
                           <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
@@ -527,16 +604,44 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                         </div>
                       </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteProject(proj.id, proj.name);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1.5 rounded-lg hover:bg-muted transition-all"
-                        title="Supprimer le projet"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {/* Menu 3-points (Modifier, Dupliquer, Supprimer) */}
+                      <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-all"
+                              title="Options du projet"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              onClick={() => openEditProjectModal(proj)}
+                              className="cursor-pointer flex items-center gap-2"
+                            >
+                              <Pencil className="w-4 h-4 text-primary" />
+                              <span>Modifier</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDuplicateProject(proj.id, proj.name)}
+                              className="cursor-pointer flex items-center gap-2"
+                            >
+                              <Copy className="w-4 h-4 text-sky-600" />
+                              <span>Dupliquer</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteProject(proj.id, proj.name)}
+                              className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Supprimer</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
 
                     {proj.description && (
@@ -605,7 +710,7 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                   className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow"
                   style={{ backgroundColor: projectDetail.color || '#6366f1' }}
                 >
-                  <Compass className="w-6 h-6" />
+                  {renderProjectIcon(projectDetail.icon, "w-6 h-6")}
                 </div>
                 <div>
                   <div className="flex items-center gap-3">
@@ -630,8 +735,8 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                 </div>
               </div>
 
-              {/* Actions Validation / Rollback */}
-              <div className="flex items-center gap-3">
+              {/* Actions Validation / Rollback / 3-points */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {projectDetail.status === 'DRAFT' ? (
                   <Button
                     onClick={handleCommitProject}
@@ -651,6 +756,39 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                     Repasser en simulation
                   </Button>
                 )}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" title="Options du projet">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onClick={() => openEditProjectModal(projectDetail)}
+                      className="cursor-pointer flex items-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4 text-primary" />
+                      <span>Modifier</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDuplicateProject(projectDetail.id, projectDetail.name)}
+                      className="cursor-pointer flex items-center gap-2"
+                    >
+                      <Copy className="w-4 h-4 text-sky-600" />
+                      <span>Dupliquer</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteProject(projectDetail.id, projectDetail.name)}
+                      className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Supprimer</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <button
                   onClick={() => {
                     setSelectedProjectId(null);
@@ -957,40 +1095,44 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
           </div>
         )}
 
-        {/* Modal Création Projet */}
-        {showCreateModal && (
+        {/* Modal Création & Modification Projet */}
+        {showProjectModal && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-card border rounded-2xl p-6 w-full max-w-md shadow-xl space-y-5">
+            <div className="bg-card border rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="font-semibold text-lg text-foreground">Créer un nouveau projet</h3>
+                <h3 className="font-semibold text-lg text-foreground">
+                  {editingProject ? 'Modifier le projet' : 'Créer un nouveau projet'}
+                </h3>
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => setShowProjectModal(false)}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateProject} className="space-y-4">
-                {/* Modèles rapides */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Modèles prédéfinis (clic rapide)</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {PROJECT_TEMPLATES.map((tpl) => (
-                      <button
-                        type="button"
-                        key={tpl.name}
-                        onClick={() => applyTemplate(tpl)}
-                        className="p-2 rounded-xl border bg-muted/30 hover:bg-muted/60 text-left transition-all hover:scale-[1.02] text-xs space-y-0.5"
-                      >
-                        <span className="font-semibold text-foreground block">{tpl.title}</span>
-                        <span className="text-[11px] text-muted-foreground block truncate">
-                          {tpl.items.length} dépenses • {tpl.budget} €
-                        </span>
-                      </button>
-                    ))}
+              <form onSubmit={handleSaveProject} className="space-y-4">
+                {/* Modèles rapides (uniquement en création) */}
+                {!editingProject && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Modèles prédéfinis (clic rapide)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {PROJECT_TEMPLATES.map((tpl) => (
+                        <button
+                          type="button"
+                          key={tpl.name}
+                          onClick={() => applyTemplate(tpl)}
+                          className="p-2 rounded-xl border bg-muted/30 hover:bg-muted/60 text-left transition-all hover:scale-[1.02] text-xs space-y-0.5"
+                        >
+                          <span className="font-semibold text-foreground block">{tpl.title}</span>
+                          <span className="text-[11px] text-muted-foreground block truncate">
+                            {tpl.items.length} dépenses • {tpl.budget} €
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label htmlFor="proj-name">Nom du projet *</Label>
@@ -1025,6 +1167,29 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                   />
                 </div>
 
+                {/* Dates prévisionnelles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="proj-start">Date de début (optionnel)</Label>
+                    <Input
+                      id="proj-start"
+                      type="date"
+                      value={projectStartDate}
+                      onChange={(e) => setProjectStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="proj-end">Date de fin (optionnel)</Label>
+                    <Input
+                      id="proj-end"
+                      type="date"
+                      value={projectEndDate}
+                      onChange={(e) => setProjectEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Couleur du badge */}
                 <div className="space-y-1.5">
                   <Label>Couleur du badge</Label>
                   <div className="flex items-center gap-2">
@@ -1042,16 +1207,41 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                   </div>
                 </div>
 
+                {/* Icône du projet */}
+                <div className="space-y-1.5">
+                  <Label>Icône du projet</Label>
+                  <div className="grid grid-cols-6 gap-2">
+                    {PROJECT_ICONS.map((item) => {
+                      const isSelected = projectIcon === item.name;
+                      return (
+                        <button
+                          type="button"
+                          key={item.name}
+                          onClick={() => setProjectIcon(item.name)}
+                          className={`flex items-center justify-center p-2 rounded-xl border transition-all ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary'
+                              : 'border-border text-muted-foreground hover:bg-muted'
+                          }`}
+                          title={item.label}
+                        >
+                          {renderProjectIcon(item.name, "w-5 h-5")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => setShowProjectModal(false)}
                   >
                     Annuler
                   </Button>
                   <Button type="submit" disabled={!projectName.trim()}>
-                    Créer le projet
+                    {editingProject ? 'Enregistrer les modifications' : 'Créer le projet'}
                   </Button>
                 </div>
               </form>

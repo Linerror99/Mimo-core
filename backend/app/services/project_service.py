@@ -250,6 +250,63 @@ class ProjectService:
         return {"success": True, "message": "Projet supprimé avec succès"}
 
     @staticmethod
+    async def duplicate_project(
+        db: AsyncSession,
+        project_id: str,
+        household_id: str,
+        user_id: str
+    ) -> ProjectDetailResponse:
+        """Dupliquer un projet avec tous ses items en statut DRAFT"""
+        query = (
+            select(Project)
+            .options(
+                selectinload(Project.items)
+            )
+            .where(Project.id == project_id, Project.household_id == household_id)
+        )
+        result = await db.execute(query)
+        source_project = result.scalar_one_or_none()
+        if not source_project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Projet introuvable"
+            )
+
+        # Créer le nouveau projet cloné
+        duplicated_project = Project(
+            household_id=household_id,
+            created_by=user_id,
+            name=f"{source_project.name} (Copie)",
+            description=source_project.description,
+            color=source_project.color or "#6366f1",
+            icon=source_project.icon or "Compass",
+            target_start_date=source_project.target_start_date,
+            target_end_date=source_project.target_end_date,
+            total_budget=source_project.total_budget,
+            status=ProjectStatus.DRAFT,
+        )
+        db.add(duplicated_project)
+        await db.flush()
+
+        # Cloner tous les items prévus
+        for item in source_project.items:
+            new_item = ProjectItem(
+                project_id=duplicated_project.id,
+                account_id=item.account_id,
+                category_id=item.category_id,
+                owner_user_id=item.owner_user_id or user_id,
+                transaction_id=None,
+                name=item.name,
+                amount=item.amount,
+                planned_date=item.planned_date,
+                notes=item.notes,
+            )
+            db.add(new_item)
+
+        await db.commit()
+        return await ProjectService.get_project_detail(db, duplicated_project.id, household_id)
+
+    @staticmethod
     async def add_project_item(
         db: AsyncSession,
         project_id: str,

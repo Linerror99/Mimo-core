@@ -255,3 +255,63 @@ async def test_project_commit_and_rollback(
         select(Transaction).where(Transaction.project_id == project_id)
     )
     assert len(list(tx_res_after.scalars().all())) == 0
+
+
+@pytest.mark.asyncio
+async def test_duplicate_project(
+    client: AsyncClient,
+    test_user_headers: dict,
+):
+    """Tester la duplication d'un projet et de ses dépenses associées"""
+    acc_id = await create_user_account(client, test_user_headers, initial_balance=2000.0)
+
+    # 1. Créer le projet original
+    payload = {
+        "name": "Roadtrip Italie",
+        "description": "Voyage en Toscane",
+        "color": "#f59e0b",
+        "icon": "Car",
+        "total_budget": 1800.0,
+        "items": [
+            {
+                "name": "Location de voiture",
+                "amount": 450.0,
+                "planned_date": (date.today() + timedelta(days=30)).isoformat(),
+                "account_id": acc_id,
+                "notes": "Sixt"
+            },
+            {
+                "name": "Logements",
+                "amount": 750.0,
+                "planned_date": (date.today() + timedelta(days=40)).isoformat(),
+                "account_id": acc_id,
+                "notes": "Airbnb"
+            }
+        ]
+    }
+    p_resp = await client.post("/api/v1/projects", json=payload, headers=test_user_headers)
+    assert p_resp.status_code == 201
+    orig_data = p_resp.json()
+    orig_id = orig_data["id"]
+
+    # 2. Dupliquer le projet
+    dup_resp = await client.post(f"/api/v1/projects/{orig_id}/duplicate", headers=test_user_headers)
+    assert dup_resp.status_code == 201
+    dup_data = dup_resp.json()
+
+    assert dup_data["id"] != orig_id
+    assert dup_data["name"] == "Roadtrip Italie (Copie)"
+    assert dup_data["description"] == "Voyage en Toscane"
+    assert dup_data["color"] == "#f59e0b"
+    assert dup_data["icon"] == "Car"
+    assert float(dup_data["total_budget"]) == 1800.0
+    assert dup_data["status"] == "DRAFT"
+    assert len(dup_data["items"]) == 2
+    assert float(dup_data["total_planned_amount"]) == 1200.0
+
+    # Vérifier que les items sont bien distincts et n'ont pas de transaction liée
+    for item in dup_data["items"]:
+        assert item["project_id"] == dup_data["id"]
+        assert item["transaction_id"] is None
+        assert item["name"] in ["Location de voiture", "Logements"]
+
