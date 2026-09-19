@@ -65,7 +65,8 @@
 
 **Mimo Finance** remplace la gestion financière par Excel avec une **timeline unifiée** (passé → présent → futur). L'application permet de :
 
-- 📊 **Visualiser** l'évolution de vos finances sur 12 mois
+- 📊 **Visualiser** l'évolution de vos finances sur 1 mois à 5 ans
+- 🧳 **Planifier des projets** (vacances, travaux, achats) avec simulation financière What-If et enveloppes dédiées
 - 🔄 **Automatiser** les transactions récurrentes (loyer, salaire, abonnements)
 - 👫 **Partager** vos finances en couple avec 3 portefeuilles tracés
 - ⏰ **Valider** automatiquement les transactions du jour
@@ -76,8 +77,9 @@
 | ❌ Avant (Excel) | ✅ Avec Mimo |
 |-----------------|-------------|
 | Perte d'historique | Timeline continue illimitée |
-| Pas de projections | Projections automatiques 12 mois |
+| Pas de projections | Projections automatiques multi-années (jusqu'à 5 ans) |
 | Gestion couple complexe | Mode couple avec fusion/dissolution |
+| Dépenses imprévues non testées | Simulateur What-If & Enveloppes de projets |
 | Transactions manuelles | Récurrences auto-générées |
 | Pas de notifications | Alertes validation quotidienne |
 
@@ -91,7 +93,7 @@
 
 ### 🔐 Authentification
 - Inscription / Connexion sécurisée (JWT)
-- Tokens refresh (7 jours)
+- Tokens refresh (7 jours) avec session résiliente
 - Blacklist Redis (déconnexion instantanée)
 - Modification profil / mot de passe
 
@@ -100,19 +102,28 @@
 - Solde dynamique calculé automatiquement
 - Fermeture compte (soft delete avec historique)
 
-### 💸 Transactions
+### 💸 Transactions & Timeline
 - États : PROJETÉ → EN ATTENTE → RÉALISÉ → ANNULÉ
-- Timeline mensuelle interactive
+- Timeline mensuelle interactive & ergonomie mobile compacte
+- Menu contextuel rapide (Modifier, Dupliquer, Supprimer)
+- Recherche instantanée globale et filtres avancés
 - Corbeille avec restauration (30 jours)
 - Upload reçus PDF sur Cloud Storage
 
 </td>
 <td width="50%">
 
+### 🧳 Projets & Enveloppes de Dépenses
+- Planification de projets (Voyages, Travaux, Événements...)
+- Simulation financière What-If : impact trésorerie en direct
+- Suivi Dépenses prévues vs Budget fixé
+- Injection dans la Timeline (Commit) & annulation (Rollback)
+- Duplication et édition complète de projets
+
 ### 🔄 Récurrences
 - Fréquences : Hebdo, Mensuel, Trimestriel, Annuel
-- Génération automatique 12 mois à l'avance
-- Modification/suppression groupée
+- Génération automatique des échéances
+- Modification/suppression unitaire ou groupée
 - Badge "Récurrent" sur timeline
 
 ### 👥 Mode Couple
@@ -121,11 +132,11 @@
 - 3 portefeuilles : Mon / Partenaire / Commun
 - Dissolution avec redistribution intelligente
 
-### 📊 Analytics & Objectifs
+### 📊 Analytics & Projections Long Terme
 - Dashboard avec KPIs temps réel
-- Graphiques revenus/dépenses (Recharts)
-- Projections balance sur 12 mois
-- Objectifs épargne avec barre de progression
+- Projections financières de 1 mois à 5 ans (Range API)
+- Détection des mois déficitaires et alertes de trésorerie
+- Objectifs épargne avec suivi de progression
 
 </td>
 </tr>
