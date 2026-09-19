@@ -17,6 +17,9 @@ import { SettingsHousehold } from './pages/SettingsHousehold'
 import Settings from './pages/Settings'
 import { Trash } from './pages/TrashPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { PrivacyPage } from './pages/PrivacyPage'
+import { TermsPage } from './pages/TermsPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { Toaster } from '@/components/ui/sonner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { FeedbackProvider } from './context/FeedbackContext'
@@ -163,6 +166,16 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/projects/:id" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <ProjectsPage navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
       
       <Route 
         path="/settings" 
@@ -240,6 +253,13 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+
+      {/* Public legal & info pages */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+
+      {/* Wildcard 404 page */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

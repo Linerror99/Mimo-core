@@ -281,9 +281,14 @@ export const useAuthStore = create<AuthState>()(
           });
           
           if (!response.ok) {
-            // Refresh token is invalid or expired, logout user
-            get().logout();
-            throw new Error('Session expired');
+            if (response.status === 401 || response.status === 403) {
+              // Refresh token is invalid or expired, logout user
+              await get().logout();
+              throw new Error('Session expired');
+            } else {
+              // Server or temporary error (500, 502, 503, 504), do NOT logout
+              throw new Error(`Refresh failed with status ${response.status}`);
+            }
           }
           
           const data = await response.json();
@@ -296,7 +301,8 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           logger.error('Token refresh error', error);
-          await get().logout();
+          // Do not logout here: if status was 401/403, logout was already called above.
+          // Network errors (Failed to fetch) must NOT wipe tokens.
           throw error;
         }
       },

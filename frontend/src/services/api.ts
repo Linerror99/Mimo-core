@@ -119,12 +119,18 @@ apiClient.interceptors.response.use(
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return apiClient(originalRequest);
-      } catch (refreshError) {
-        // Refresh failed, clear tokens and redirect to login
-        logger.error('Token refresh failed', refreshError);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
+      } catch (refreshError: any) {
+        // Only clear tokens and redirect if the refresh request itself was rejected as Unauthorized (401/403)
+        // If it was a network error or 5xx server timeout, DO NOT log out the user!
+        const status = refreshError.response?.status;
+        if (status === 401 || status === 403) {
+          logger.error('Token refresh rejected (401/403), logging out', refreshError);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/login';
+        } else {
+          logger.warn('Token refresh encountered temporary network/server error, preserving tokens', refreshError);
+        }
         return Promise.reject(refreshError);
       }
     }

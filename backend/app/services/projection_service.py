@@ -139,21 +139,22 @@ class ProjectionService:
         transactions = list(result.scalars().all())
 
         # Convertir en format projection
+        # Récupérer les templates récurrents en une seule requête pour éliminer le problème N+1
+        recurring_template_ids = {tx.recurring_template_id for tx in transactions if tx.recurring_template_id}
+        template_map = {}
+        if recurring_template_ids:
+            template_result = await db.execute(
+                select(RecurringTemplate.id, RecurringTemplate.name).where(
+                    RecurringTemplate.id.in_(recurring_template_ids)
+                )
+            )
+            template_map = {row[0]: row[1] for row in template_result.all()}
+
         projections = []
         for tx in transactions:
-            # Récupérer le template si c'est une récurrence
-            template_name = tx.description
-            if tx.recurring_template_id:
-                template_result = await db.execute(
-                    select(RecurringTemplate).where(
-                        RecurringTemplate.id == tx.recurring_template_id
-                    )
-                )
-                template = template_result.scalar_one_or_none()
-                if template:
-                    template_name = template.name
-
+            template_name = template_map.get(tx.recurring_template_id, tx.description)
             projections.append({
+                "id": tx.id,
                 "template_id": tx.recurring_template_id or "",
                 "template_name": template_name,
                 "date": tx.transaction_date,
@@ -162,6 +163,7 @@ class ProjectionService:
                 "account_id": tx.account_id,
                 "destination_account_id": tx.destination_account_id,
                 "category_id": tx.category_id,
+                "goal_id": tx.goal_id,
                 "frequency": "NONE"  # Pour compatibilité
             })
 
@@ -374,6 +376,189 @@ class ProjectionService:
             "treasury_balance": round(treasury_balance, 2),
             "projections": formatted_projections
         }
+
+    @staticmethod
+    async def calculate_range_projections(
+        db: AsyncSession,
+        household_id: str,
+        start_year: int,
+        start_month: int,
+        end_year: int,
+        end_month: int
+    ) -> List[dict]:
+        """
+        Calculer les projections pour une plage complète de mois (ex: 1 an, 2 ans, 5 ans)
+        en UNE SEULE passe optimisée, sans requêtes N+1 et avec calcul séquentiel en mémoire.
+        """
+        today = date.today()
+
+        # 1. Solde initial de tous les comptes actifs
+        accounts_result = await db.execute(
+            select(Account).where(
+                Account.household_id == household_id,
+                Account.is_active == "true"
+            )
+        )
+        accounts = list(accounts_result.scalars().all())
+        initial_balance = sum(float(acc.initial_balance) for acc in accounts)
+
+        savings_account_ids = {
+            acc.id for acc in accounts
+            if hasattr(acc, 'type') and str(getattr(acc.type, 'value', acc.type)) in ["SAVINGS", "INVESTMENT"]
+        }
+
+        def is_real_saving(description: str, dest_account_id: Optional[str], goal_id: Optional[str]) -> bool:
+            if goal_id:
+                return True
+            if dest_account_id and dest_account_id in savings_account_ids:
+                return True
+            desc_lower = (description or "").lower()
+            if any(k in desc_lower for k in ["épargne", "epargne", "investissement"]):
+                return True
+            return False
+
+        # 2. Toutes les transactions RÉALISÉES jusqu'à aujourd'hui
+        past_tx_res = await db.execute(
+            select(Transaction).where(
+                Transaction.household_id == household_id,
+                Transaction.state == "REALIZED",
+                Transaction.transaction_date <= today,
+                Transaction.deleted_at.is_(None)
+            )
+        )
+        past_txs = list(past_tx_res.scalars().all())
+        current_balance = initial_balance
+        for tx in past_txs:
+            if tx.type.value == "INCOME":
+                current_balance += float(tx.amount)
+            elif tx.type.value == "EXPENSE":
+                current_balance -= float(abs(tx.amount))
+
+        # 3. Déterminer les bornes temporelles globales
+        calc_start_date = min(date(start_year, start_month, 1), today.replace(day=1))
+        last_day_end = monthrange(end_year, end_month)[1]
+        calc_end_date = date(end_year, end_month, last_day_end)
+
+        # 4. Récupérer les transactions futures (start_future_date jusqu'à calc_end_date)
+        start_future_date = today + timedelta(days=1)
+        future_projections = []
+        if calc_end_date >= start_future_date:
+            future_projections = await ProjectionService.generate_projections(
+                db=db,
+                household_id=household_id,
+                start_date=start_future_date,
+                end_date=calc_end_date
+            )
+
+        for p in future_projections:
+            p["is_saving"] = is_real_saving(
+                description=p.get("template_name", ""),
+                dest_account_id=p.get("destination_account_id"),
+                goal_id=p.get("goal_id")
+            )
+
+        # Indexer les transactions futures par (year, month)
+        future_by_month: Dict[tuple, List[dict]] = {}
+        for p in future_projections:
+            p_date = p["date"]
+            p_year = p_date.year if hasattr(p_date, "year") else int(str(p_date).split("-")[0])
+            p_month = p_date.month if hasattr(p_date, "month") else int(str(p_date).split("-")[1])
+            key = (p_year, p_month)
+            if key not in future_by_month:
+                future_by_month[key] = []
+            future_by_month[key].append(p)
+
+        # 5. Récupérer les transactions réalisées en DB pour les mois passés ou en cours dans la plage
+        db_tx_by_month: Dict[tuple, List[dict]] = {}
+        if calc_start_date <= today:
+            cur_month_tx_res = await db.execute(
+                select(Transaction).where(
+                    Transaction.household_id == household_id,
+                    Transaction.transaction_date >= calc_start_date,
+                    Transaction.transaction_date <= min(today, calc_end_date),
+                    Transaction.deleted_at.is_(None)
+                ).order_by(Transaction.transaction_date)
+            )
+            for tx in cur_month_tx_res.scalars().all():
+                is_saving_flag = is_real_saving(
+                    description=tx.description,
+                    dest_account_id=tx.destination_account_id,
+                    goal_id=tx.goal_id
+                )
+                tx_date = tx.transaction_date
+                key = (tx_date.year, tx_date.month)
+                if key not in db_tx_by_month:
+                    db_tx_by_month[key] = []
+                db_tx_by_month[key].append({
+                    "id": tx.id,
+                    "name": tx.description,
+                    "amount": float(tx.amount),
+                    "type": tx.type.value if hasattr(tx.type, "value") else str(tx.type),
+                    "date": tx.transaction_date,
+                    "is_saving": is_saving_flag,
+                    "source": "database"
+                })
+
+        # 6. Parcourir tous les mois chronologiquement depuis calc_start_date jusqu'à (end_year, end_month)
+        results = []
+        running_balance = current_balance
+        running_treasury = current_balance
+
+        cur_y = calc_start_date.year
+        cur_m = calc_start_date.month
+
+        while cur_y < end_year or (cur_y == end_year and cur_m <= end_month):
+            m_key = (cur_y, cur_m)
+            month_futures = future_by_month.get(m_key, [])
+            month_db_txs = db_tx_by_month.get(m_key, [])
+
+            # Calcul des flux de ce mois (réalisés DB + futurs)
+            month_projections = []
+            month_projections.extend(month_db_txs)
+            month_projections.extend(month_futures)
+
+            income = sum(float(p["amount"]) for p in month_projections if p["type"] == "INCOME")
+            expense = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "EXPENSE")
+            transfers = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "TRANSFER" and p.get("is_saving", False))
+
+            # Mise à jour des soldes cumulés (uniquement pour les flux futurs après aujourd'hui)
+            for p in month_futures:
+                amt = float(abs(p["amount"]))
+                if p["type"] == "INCOME":
+                    running_balance += float(p["amount"])
+                    running_treasury += float(p["amount"])
+                elif p["type"] == "EXPENSE":
+                    running_balance -= amt
+                    running_treasury -= amt
+                elif p["type"] == "TRANSFER" and p.get("is_saving", False):
+                    running_treasury -= amt
+
+            # Si ce mois fait partie de la plage demandée (>= start_year, start_month), on l'ajoute
+            if cur_y > start_year or (cur_y == start_year and cur_m >= start_month):
+                formatted_projections = []
+                for p in month_projections:
+                    p_copy = dict(p)
+                    if hasattr(p_copy.get("date"), "isoformat"):
+                        p_copy["date"] = p_copy["date"].isoformat()
+                    formatted_projections.append(p_copy)
+
+                results.append({
+                    "month": cur_m,
+                    "year": cur_y,
+                    "income": round(income, 2),
+                    "expense": round(expense, 2),
+                    "transfers": round(transfers, 2),
+                    "balance": round(running_balance, 2),
+                    "treasury_balance": round(running_treasury, 2),
+                    "projections": formatted_projections
+                })
+
+            cur_m += 1
+            if cur_m > 12:
+                cur_m = 1
+                cur_y += 1
+
+        return results
 
     @staticmethod
     async def calculate_safe_to_spend(
