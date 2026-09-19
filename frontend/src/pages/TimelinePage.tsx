@@ -39,8 +39,16 @@ import {
   Repeat,
   Plus,
   Check,
-  AlertCircle
+  AlertCircle,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import "../styles/Timeline.css";
 
 type Page =
@@ -987,10 +995,10 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
 
         {/* Sélecteur de mois */}
         <div className="month-selector">
-          <button className="btn btn-icon" onClick={goToPreviousMonth} title="Mois précédent">
-            ◀
-          </button>
-          <div className="month-info">
+          <div className="month-controls-row">
+            <button className="btn btn-icon" onClick={goToPreviousMonth} title="Mois précédent">
+              ◀
+            </button>
             <div className="month-selects">
               <select
                 className="month-select"
@@ -1011,51 +1019,51 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
                 ))}
               </select>
             </div>
-            <p className="month-balance">
-              <span className={totals.balance >= 0 ? "positive" : "negative"}>
-                {totals.balance >= 0 ? '+' : ''}{formatAmount(totals.balance)}
-              </span>
-              {' '}ce mois
-              <span className="month-balance-sep"> • </span>
-              <span className="month-end-balance-text">
-                Solde fin de mois :{' '}
-                <strong className={endOfMonthBalance >= 0 ? "positive" : "negative"}>
-                  {formatAmount(endOfMonthBalance)}
-                </strong>
-              </span>
-            </p>
+            <button className="btn btn-icon" onClick={goToNextMonth} title="Mois suivant">
+              ▶
+            </button>
+            <button className="btn btn-secondary btn-today" onClick={goToToday}>
+              Aujourd'hui
+            </button>
+            <ExportButton
+              year={currentMonth.getFullYear()}
+              month={currentMonth.getMonth() + 1}
+              className="export-btn"
+            />
           </div>
-          <button className="btn btn-icon" onClick={goToNextMonth} title="Mois suivant">
-            ▶
-          </button>
-          <button className="btn btn-secondary" onClick={goToToday}>
-            Aujourd'hui
-          </button>
-          <ExportButton
-            year={currentMonth.getFullYear()}
-            month={currentMonth.getMonth() + 1}
-            className="export-btn"
-          />
+          <p className="month-balance">
+            <span className={totals.balance >= 0 ? "positive" : "negative"}>
+              {totals.balance >= 0 ? '+' : ''}{formatAmount(totals.balance)}
+            </span>
+            {' '}ce mois
+            <span className="month-balance-sep"> • </span>
+            <span className="month-end-balance-text">
+              Solde fin de mois :{' '}
+              <strong className={endOfMonthBalance >= 0 ? "positive" : "negative"}>
+                {formatAmount(endOfMonthBalance)}
+              </strong>
+            </span>
+          </p>
         </div>
 
         {/* Bannière transactions en attente de validation */}
         {allTransactions.filter(t => t.state === TransactionState.PENDING && !t.deleted_at).length > 0 && (
           <div className="pending-alert-banner">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-              <div>
-                <strong className="text-amber-900 font-semibold">
-                  {allTransactions.filter(t => t.state === TransactionState.PENDING && !t.deleted_at).length} transaction(s) à valider aujourd'hui
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <strong className="text-amber-900 font-semibold text-xs sm:text-sm block truncate">
+                  {allTransactions.filter(t => t.state === TransactionState.PENDING && !t.deleted_at).length} opération(s) à valider
                 </strong>
-                <p className="text-xs text-amber-700 mt-0.5">Ces opérations sont arrivées à échéance et attendent votre confirmation.</p>
+                <p className="text-[11px] text-amber-700 hidden sm:block">Ces opérations sont arrivées à échéance et attendent confirmation.</p>
               </div>
             </div>
             <button
               type="button"
-              className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm"
+              className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-2.5 py-1 text-xs rounded-lg flex items-center gap-1 shadow-xs shrink-0"
               onClick={handleValidateAllPending}
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-3.5 h-3.5" />
               <span>Tout valider</span>
             </button>
           </div>
@@ -1657,68 +1665,97 @@ function TransactionCard({
           <ArrowUpRight className="w-5 h-5 text-rose-500" />
         )}
       </div>
-      <div className="transaction-info">
-        <div className="transaction-main">
-          <span className="transaction-description">{transaction.description}</span>
-          {isProjected && <span className="badge badge-projected">Projeté</span>}
-          {isPending && <span className="badge badge-pending">À valider</span>}
-          {transaction.recurring_template_id && (
-            <span className="badge badge-recurring">Récurrent</span>
-          )}
+      <div className="transaction-content">
+        <div className="transaction-header-line">
+          <div className="transaction-title-group">
+            <span className="transaction-description" title={transaction.description}>{transaction.description}</span>
+            {isProjected && <span className="badge badge-projected">Projeté</span>}
+            {isPending && <span className="badge badge-pending">À valider</span>}
+            {transaction.recurring_template_id && (
+              <span className="badge badge-recurring">Récurrent</span>
+            )}
+          </div>
+          <span className={`transaction-amount ${isIncome ? 'income' : isTransfer ? 'transfer' : 'expense'}`}>
+            {isIncome ? '+' : isTransfer ? '' : '-'}{formatAmount(Math.abs(transaction.amount))}
+          </span>
         </div>
-        <div className="transaction-details">
-          {isTransfer && account && destinationAccount ? (
-            <span className="detail-item flex items-center gap-1">
-              <BankLogo accountName={account.name} logoUrl={account.logo_url} size="xs" />
-              <span>{account.name}</span>
-              <span className="text-slate-400">➔</span>
-              <BankLogo accountName={destinationAccount.name} logoUrl={destinationAccount.logo_url} size="xs" />
-              <span>{destinationAccount.name}</span>
-            </span>
-          ) : (
-            account && (
-              <span className="detail-item flex items-center gap-1">
+        <div className="transaction-meta-line">
+          <div className="transaction-details">
+            {isTransfer && account && destinationAccount ? (
+              <span className="tx-meta-badge flex items-center gap-1">
                 <BankLogo accountName={account.name} logoUrl={account.logo_url} size="xs" />
-                <span>{account.name}</span>
+                <span className="truncate max-w-[80px] sm:max-w-none">{account.name}</span>
+                <span className="text-slate-400 text-[10px]">➔</span>
+                <BankLogo accountName={destinationAccount.name} logoUrl={destinationAccount.logo_url} size="xs" />
+                <span className="truncate max-w-[80px] sm:max-w-none">{destinationAccount.name}</span>
               </span>
-            )
-          )}
-          {category && (
-            <span className="detail-item flex items-center gap-1">
-              <Tag className="w-3 h-3 text-slate-400" />
-              <span>{category.name}</span>
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="transaction-amount-actions">
-        <span className={`transaction-amount ${isIncome ? 'income' : isTransfer ? 'transfer' : 'expense'}`}>
-          {isIncome ? '+' : isTransfer ? '' : '-'}{formatAmount(Math.abs(transaction.amount))}
-        </span>
-        <div className="transaction-actions">
-          {isPending && onValidate && (
-            <button
-              type="button"
-              className="btn-validate-quick"
-              onClick={(e) => {
-                e.stopPropagation();
-                onValidate(transaction.id);
-              }}
-              title="Valider cette transaction"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Valider</span>
-            </button>
-          )}
-          <button className="btn-action" onClick={() => onDuplicate(transaction)} title="Dupliquer">
-            <Copy className="w-3.5 h-3.5" />
-          </button>
-          <button className="btn-action" onClick={() => onEdit(transaction)} title="Modifier">
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button className="btn-action" onClick={() => onDelete(transaction)} title="Supprimer">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+            ) : (
+              account && (
+                <span className="tx-meta-badge flex items-center gap-1">
+                  <BankLogo accountName={account.name} logoUrl={account.logo_url} size="xs" />
+                  <span className="truncate max-w-[90px] sm:max-w-none">{account.name}</span>
+                </span>
+              )
+            )}
+            {category && (
+              <span className="tx-meta-badge flex items-center gap-1">
+                <Tag className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="truncate max-w-[100px] sm:max-w-none">{category.name}</span>
+              </span>
+            )}
+          </div>
+          <div className="transaction-actions" onClick={(e) => e.stopPropagation()}>
+            {isPending && onValidate && (
+              <button
+                type="button"
+                className="btn-validate-quick"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onValidate(transaction.id);
+                }}
+                title="Valider cette transaction"
+              >
+                <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">Valider</span>
+              </button>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="btn-action p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  title="Options de la transaction"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40 bg-popover border shadow-md">
+                <DropdownMenuItem
+                  onClick={() => onEdit(transaction)}
+                  className="cursor-pointer flex items-center gap-2 text-xs py-1.5"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-primary" />
+                  <span>Modifier</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDuplicate(transaction)}
+                  className="cursor-pointer flex items-center gap-2 text-xs py-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Dupliquer</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onDelete(transaction)}
+                  className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2 text-xs py-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Supprimer</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </div>

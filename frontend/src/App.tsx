@@ -166,6 +166,16 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/projects/:id" 
+        element={
+          <ProtectedRoute>
+            <LegacyNavigationWrapper>
+              {({ navigate, onLogout }) => <ProjectsPage navigate={navigate} onLogout={onLogout} />}
+            </LegacyNavigationWrapper>
+          </ProtectedRoute>
+        } 
+      />
       
       <Route 
         path="/settings" 

@@ -18,6 +18,7 @@ import {
   Calendar,
   CreditCard,
   ArrowRight,
+  ArrowLeft,
   TrendingDown,
   X,
   Layers,
@@ -28,6 +29,7 @@ import {
   PartyPopper,
   Zap,
 } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -191,9 +193,22 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
   // Action feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const { id: routeProjectId } = useParams<{ id?: string }>();
+  const routerNavigate = useNavigate();
+
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (routeProjectId) {
+      loadProjectDetail(routeProjectId);
+    } else {
+      setSelectedProjectId(null);
+      setProjectDetail(null);
+      setSimulation(null);
+    }
+  }, [routeProjectId]);
 
   const loadInitialData = async () => {
     try {
@@ -228,6 +243,37 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
       setFeedback({ type: 'error', message: 'Impossible de charger le projet.' });
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const handleSelectProject = (id: string) => {
+    setSelectedProjectId(id);
+    routerNavigate(`/projects/${id}`);
+    loadProjectDetail(id);
+  };
+
+  const handleBackToList = () => {
+    setSelectedProjectId(null);
+    setProjectDetail(null);
+    setSimulation(null);
+    routerNavigate('/projects');
+  };
+
+  const formatDateRange = (start?: string, end?: string) => {
+    if (!start && !end) return null;
+    if (start && end) {
+      try {
+        const s = new Date(start).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+        const e = new Date(end).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+        return `${s} — ${e}`;
+      } catch (_) {
+        return `${start} — ${end}`;
+      }
+    }
+    try {
+      return new Date(start || end!).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    } catch (_) {
+      return start || end;
     }
   };
 
@@ -481,615 +527,779 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     }
   };
 
-  const formatEuro = (val: number) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
+  const formatEuro = (val: number | string | null | undefined) => {
+    if (val === null || val === undefined || val === '') return '0,00 €';
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(isNaN(num) ? 0 : num);
+  };
 
   return (
     <Layout currentPage="projects" navigate={navigate} onLogout={onLogout}>
       <div className="p-6 max-w-7xl mx-auto space-y-8">
-        {/* En-tête */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-6">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
-                <Compass className="w-6 h-6" />
+        {/* ======================================================== */}
+        {/* VUE 2 : PAGE DÉDIÉE AU PROJET SÉLECTIONNÉ               */}
+        {/* ======================================================== */}
+        {selectedProjectId ? (
+          loadingDetail || !projectDetail ? (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBackToList}
+                  className="text-muted-foreground hover:text-foreground -ml-2 gap-2 font-medium"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Retour à tous les projets</span>
+                </Button>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                Projets & Simulations "What-If"
-              </h1>
+              <div className="rounded-2xl border bg-card p-16 text-center space-y-4">
+                <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground">Chargement des détails du projet...</p>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              Planifiez des enveloppes de dépenses (vacances, travaux, mariage...), simulez l'impact
-              trésorerie compte par compte, et validez-les dans votre budget quand vous êtes prêt.
-            </p>
-          </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Fil d'Ariane & Bouton Retour */}
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBackToList}
+                  className="text-muted-foreground hover:text-foreground -ml-2 gap-2 font-medium group"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  <span>Retour à tous les projets</span>
+                </Button>
+              </div>
 
-          <Button
-            onClick={() => {
-              resetProjectForm();
-              setShowCreateModal(true);
-            }}
-            className="flex items-center gap-2 shadow-md"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouveau Projet</span>
-          </Button>
-        </div>
-
-        {/* Feedback alert */}
-        {feedback && (
-          <div
-            className={`p-4 rounded-xl border flex items-center justify-between text-sm ${
-              feedback.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
-                : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
-            }`}
-          >
-            <span>{feedback.message}</span>
-            <button onClick={() => setFeedback(null)} className="opacity-70 hover:opacity-100">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Grille des Projets */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 rounded-2xl bg-muted/40 animate-pulse" />
-            ))}
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="text-center py-16 px-4 border border-dashed rounded-2xl bg-card space-y-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
-              <Sparkles className="w-8 h-8" />
-            </div>
-            <div className="max-w-md mx-auto space-y-1">
-              <h3 className="text-lg font-semibold text-foreground">Aucun projet en cours</h3>
-              <p className="text-sm text-muted-foreground">
-                Créez votre premier projet (ex: Vacances en Grèce, Achat d'une voiture, Travaux) pour
-                simuler la faisabilité financière avant d'engager les dépenses.
-              </p>
-            </div>
-            <Button
-              onClick={openCreateProjectModal}
-              className="mt-2"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Créer un projet
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((proj) => {
-              const isCommitted = proj.status === 'COMMITTED';
-              return (
+              {/* Feedback alert dans la vue projet */}
+              {feedback && (
                 <div
-                  key={proj.id}
-                  onClick={() => loadProjectDetail(proj.id)}
-                  className={`group relative rounded-2xl border bg-card p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
-                    selectedProjectId === proj.id ? 'ring-2 ring-primary border-transparent' : ''
+                  className={`p-4 rounded-xl border flex items-center justify-between text-sm ${
+                    feedback.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                      : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
                   }`}
                 >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm"
-                          style={{ backgroundColor: proj.color || '#6366f1' }}
+                  <span>{feedback.message}</span>
+                  <button onClick={() => setFeedback(null)} className="opacity-70 hover:opacity-100">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Carte Principale du Projet */}
+              <div className="rounded-2xl border bg-card p-6 shadow-xs space-y-6">
+                {/* En-tête du projet */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0"
+                      style={{ backgroundColor: projectDetail.color || '#6366f1' }}
+                    >
+                      {renderProjectIcon(projectDetail.icon, "w-7 h-7")}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">{projectDetail.name}</h1>
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                            projectDetail.status === 'COMMITTED'
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
+                          }`}
                         >
-                          {renderProjectIcon(proj.icon, "w-5 h-5")}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                            {proj.name}
-                          </h3>
-                          <span
-                            className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mt-0.5 ${
-                              isCommitted
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
-                            }`}
-                          >
-                            {isCommitted ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3" /> Validé & Actif
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-3 h-3" /> En simulation
-                              </>
-                            )}
-                          </span>
-                        </div>
+                          {projectDetail.status === 'COMMITTED' ? 'Validé & Actif' : 'Simulation en cours'}
+                        </span>
                       </div>
 
-                      {/* Menu 3-points (Modifier, Dupliquer, Supprimer) */}
-                      <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-all"
-                              title="Options du projet"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem
-                              onClick={() => openEditProjectModal(proj)}
-                              className="cursor-pointer flex items-center gap-2"
-                            >
-                              <Pencil className="w-4 h-4 text-primary" />
-                              <span>Modifier</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDuplicateProject(proj.id, proj.name)}
-                              className="cursor-pointer flex items-center gap-2"
-                            >
-                              <Copy className="w-4 h-4 text-sky-600" />
-                              <span>Dupliquer</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteProject(proj.id, proj.name)}
-                              className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              <span>Supprimer</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        {formatDateRange(projectDetail.target_start_date, projectDetail.target_end_date) && (
+                          <span className="flex items-center gap-1 font-medium text-foreground">
+                            <Calendar className="w-3.5 h-3.5 text-primary" />
+                            {formatDateRange(projectDetail.target_start_date, projectDetail.target_end_date)}
+                          </span>
+                        )}
+                        {projectDetail.description && (
+                          <span>{projectDetail.description}</span>
+                        )}
                       </div>
                     </div>
-
-                    {proj.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {proj.description}
-                      </p>
-                    )}
                   </div>
 
-                  <div className="mt-5 pt-4 border-t space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Dépenses prévues :</span>
-                      <span className="font-semibold text-foreground text-sm">
-                        {formatEuro(proj.total_planned_amount || 0)}
-                      </span>
-                    </div>
-
-                    {proj.total_budget && (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-muted-foreground">
-                          <span>Budget cible : {formatEuro(proj.total_budget)}</span>
-                          <span>
-                            {Math.min(
-                              Math.round(
-                                ((proj.total_planned_amount || 0) / proj.total_budget) * 100
-                              ),
-                              100
-                            )}
-                            %
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              backgroundColor: proj.color || '#6366f1',
-                              width: `${Math.min(
-                                ((proj.total_planned_amount || 0) / proj.total_budget) * 100,
-                                100
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
+                  {/* Actions Validation / Rollback / Options */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    {projectDetail.status === 'DRAFT' ? (
+                      <Button
+                        onClick={handleCommitProject}
+                        disabled={projectDetail.items.length === 0}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-sm"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Valider et intégrer au budget
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={handleRollbackProject}
+                        className="flex items-center gap-2 border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Repasser en simulation
+                      </Button>
                     )}
 
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-muted-foreground">
-                      <span>{proj.items_count || 0} paiement(s)</span>
-                      <span className="flex items-center gap-1 text-primary font-medium group-hover:translate-x-0.5 transition-transform">
-                        Simuler & Gérer <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-9 w-9 p-0" title="Options du projet">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem
+                          onClick={() => openEditProjectModal(projectDetail)}
+                          className="cursor-pointer flex items-center gap-2"
+                        >
+                          <Pencil className="w-4 h-4 text-primary" />
+                          <span>Modifier</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDuplicateProject(projectDetail.id, projectDetail.name)}
+                          className="cursor-pointer flex items-center gap-2"
+                        >
+                          <Copy className="w-4 h-4 text-sky-600" />
+                          <span>Dupliquer</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteProject(projectDetail.id, projectDetail.name)}
+                          className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Supprimer</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
 
-        {/* Modal / Vue Détaillée du Projet Sélectionné */}
-        {selectedProjectId && projectDetail && (
-          <div className="rounded-2xl border bg-card p-6 shadow-md space-y-6 mt-6 animate-in fade-in duration-200">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b">
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow"
-                  style={{ backgroundColor: projectDetail.color || '#6366f1' }}
-                >
-                  {renderProjectIcon(projectDetail.icon, "w-6 h-6")}
-                </div>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-bold text-foreground">{projectDetail.name}</h2>
-                    <span
-                      className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                        projectDetail.status === 'COMMITTED'
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                {/* 4 KPIs de Synthèse Financière du Projet */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Budget alloué</span>
+                    <p className="text-lg md:text-xl font-bold text-foreground font-mono-amounts">
+                      {projectDetail.total_budget ? formatEuro(projectDetail.total_budget) : 'Non fixé'}
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Dépenses prévues</span>
+                    <p className="text-lg md:text-xl font-bold text-foreground font-mono-amounts">
+                      {formatEuro(projectDetail.total_planned_amount || 0)}
+                    </p>
+                    <span className="text-[11px] text-muted-foreground block">
+                      {projectDetail.items.length} dépense{projectDetail.items.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Déjà décaissé</span>
+                    <p className="text-lg md:text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono-amounts">
+                      {(() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const realizedTotal = projectDetail.items
+                          .filter((it) => it.planned_date <= todayStr)
+                          .reduce((sum, it) => sum + Number(it.amount), 0);
+                        return formatEuro(realizedTotal);
+                      })()}
+                    </p>
+                    <span className="text-[11px] text-muted-foreground block">
+                      {(() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const count = projectDetail.items.filter((it) => it.planned_date <= todayStr).length;
+                        return `${count} réglée${count > 1 ? 's' : ''}`;
+                      })()}
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Marge / Reste</span>
+                    <p
+                      className={`text-lg md:text-xl font-bold font-mono-amounts ${
+                        projectDetail.total_budget && (Number(projectDetail.total_planned_amount) || 0) > Number(projectDetail.total_budget)
+                          ? 'text-rose-600'
+                          : 'text-foreground'
                       }`}
                     >
-                      {projectDetail.status === 'COMMITTED'
-                        ? 'Validé & Actif'
-                        : 'Simulation en cours'}
+                      {projectDetail.total_budget
+                        ? formatEuro((Number(projectDetail.total_budget) || 0) - (Number(projectDetail.total_planned_amount) || 0))
+                        : '—'}
+                    </p>
+                    <span className="text-[11px] text-muted-foreground block">
+                      {projectDetail.total_budget
+                        ? ((Number(projectDetail.total_planned_amount) || 0) > Number(projectDetail.total_budget) ? 'Dépassement de budget' : 'Marge disponible')
+                        : 'Sans plafond'}
                     </span>
                   </div>
-                  {projectDetail.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {projectDetail.description}
-                    </p>
-                  )}
                 </div>
-              </div>
 
-              {/* Actions Validation / Rollback / 3-points */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                {projectDetail.status === 'DRAFT' ? (
-                  <Button
-                    onClick={handleCommitProject}
-                    disabled={projectDetail.items.length === 0}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-sm"
+                {/* Suivi d'exécution : Prévu vs Réalisé si Validé */}
+                {projectDetail.status === 'COMMITTED' && (() => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const realizedItems = projectDetail.items.filter((it) => it.planned_date <= todayStr);
+                  const realizedTotal = realizedItems.reduce((sum, it) => sum + Number(it.amount), 0);
+                  const plannedTotal = Number(projectDetail.total_planned_amount) || 0;
+                  const remainingTotal = Math.max(0, plannedTotal - realizedTotal);
+                  const progressPercent = plannedTotal > 0
+                    ? Math.min(100, Math.round((realizedTotal / plannedTotal) * 100))
+                    : 0;
+
+                  return (
+                    <div className="p-4 rounded-xl border bg-card/70 backdrop-blur-sm space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          Suivi d'exécution : Prévu vs Réalisé
+                        </span>
+                        <span className="font-bold text-foreground font-mono-amounts">
+                          {formatEuro(realizedTotal)} réglés sur {formatEuro(projectDetail.total_planned_amount || 0)} ({progressPercent}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
+                        <div
+                          className="h-full bg-emerald-500 transition-all"
+                          style={{ width: `${progressPercent}%` }}
+                          title={`Déjà payé : ${formatEuro(realizedTotal)}`}
+                        />
+                        <div
+                          className="h-full bg-primary/30 transition-all"
+                          style={{ width: `${100 - progressPercent}%` }}
+                          title={`Reste à régler : ${formatEuro(remainingTotal)}`}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          Déjà décaissé : {formatEuro(realizedTotal)} ({realizedItems.length} paiement{realizedItems.length > 1 ? 's' : ''})
+                        </span>
+                        <span className="text-slate-500 font-medium flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-primary/40 inline-block" />
+                          Reste à décaisser : {formatEuro(remainingTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Onglets Dépenses / Simulation */}
+                <div className="flex items-center gap-2 border-b">
+                  <button
+                    onClick={() => setActiveTab('expenses')}
+                    className={`pb-3 px-3 text-sm font-medium border-b-2 transition-all ${
+                      activeTab === 'expenses'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Valider le projet et intégrer
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={handleRollbackProject}
-                    className="flex items-center gap-2 border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                    Dépenses prévues ({projectDetail.items.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('simulation')}
+                    className={`pb-3 px-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-all ${
+                      activeTab === 'simulation'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    <RotateCcw className="w-4 h-4" />
-                    Repasser en simulation
-                  </Button>
+                    <Sparkles className="w-4 h-4" />
+                    Simulation What-If
+                    {simulation && !simulation.is_viable && (
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Contenu Onglet 1 : Dépenses prévues */}
+                {activeTab === 'expenses' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Paiements comptants & réservations
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Chaque dépense est associée à son compte bancaire et à sa date prévue.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={openCreateItemModal}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Ajouter une dépense
+                      </Button>
+                    </div>
+
+                    {projectDetail.items.length === 0 ? (
+                      <div className="text-center py-12 border border-dashed rounded-xl space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Aucune dépense enregistrée pour ce projet.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={openCreateItemModal}
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Ajouter la première dépense
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                            <tr>
+                              <th className="py-3 px-4">Désignation</th>
+                              <th className="py-3 px-4">Date prévue</th>
+                              <th className="py-3 px-4">Compte débité</th>
+                              <th className="py-3 px-4">Catégorie</th>
+                              <th className="py-3 px-4 text-right">Montant</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {projectDetail.items.map((item) => (
+                              <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                                <td className="py-3 px-4 font-medium text-foreground">
+                                  {item.name}
+                                  {item.notes && (
+                                    <span className="block text-[11px] text-muted-foreground">
+                                      {item.notes}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5 opacity-60" />
+                                    {new Date(item.planned_date).toLocaleDateString('fr-FR', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-[11px]">
+                                    <CreditCard className="w-3 h-3 opacity-60" />
+                                    {item.account_name || 'Compte'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-muted-foreground">
+                                  {item.category_name || '-'}
+                                </td>
+                                <td className="py-3 px-4 text-right font-semibold text-foreground text-sm font-mono-amounts">
+                                  {formatEuro(item.amount)}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => openEditItemModal(item)}
+                                      className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-muted transition-colors"
+                                      title="Modifier la dépense"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteItem(item.id)}
+                                      className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-muted transition-colors"
+                                      title="Supprimer la dépense"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-muted/20 border-t font-semibold">
+                            <tr>
+                              <td colSpan={4} className="py-3 px-4 text-foreground">
+                                Total prévu
+                              </td>
+                              <td className="py-3 px-4 text-right text-foreground text-sm font-mono-amounts">
+                                {formatEuro(projectDetail.total_planned_amount || 0)}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" title="Options du projet">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem
-                      onClick={() => openEditProjectModal(projectDetail)}
-                      className="cursor-pointer flex items-center gap-2"
+                {/* Contenu Onglet 2 : Simulation What-If */}
+                {activeTab === 'simulation' && simulation && (
+                  <div className="space-y-6">
+                    {/* Bandeau de Viabilité */}
+                    <div
+                      className={`p-4 rounded-xl border flex items-start gap-3 ${
+                        simulation.is_viable
+                          ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 dark:bg-emerald-950/20 dark:border-emerald-800 dark:text-emerald-300'
+                          : 'bg-rose-50/80 border-rose-200 text-rose-900 dark:bg-rose-950/20 dark:border-rose-800 dark:text-rose-300'
+                      }`}
                     >
-                      <Pencil className="w-4 h-4 text-primary" />
-                      <span>Modifier</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDuplicateProject(projectDetail.id, projectDetail.name)}
-                      className="cursor-pointer flex items-center gap-2"
-                    >
-                      <Copy className="w-4 h-4 text-sky-600" />
-                      <span>Dupliquer</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteProject(projectDetail.id, projectDetail.name)}
-                      className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Supprimer</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <div className="mt-0.5">
+                        {simulation.is_viable ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold">
+                          {simulation.is_viable
+                            ? 'Projet 100% Viable Financièrement !'
+                            : 'Alerte : Risque de découvert détecté'}
+                        </h4>
+                        <p className="text-xs opacity-90 leading-relaxed">
+                          {simulation.is_viable
+                            ? 'Tous vos comptes restent dans le positif tout au long de la période. Vous pouvez valider ce projet en toute sérénité.'
+                            : 'L’un de vos comptes risque de passer en négatif à une ou plusieurs dates lors du décaissement des dépenses de ce projet.'}
+                        </p>
 
-                <button
-                  onClick={() => {
-                    setSelectedProjectId(null);
-                    setProjectDetail(null);
-                  }}
-                  className="p-2 rounded-xl text-muted-foreground hover:bg-muted"
-                  title="Fermer la vue"
-                >
-                  <X className="w-5 h-5" />
+                        {simulation.warnings && simulation.warnings.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/50 space-y-2">
+                            <ul className="space-y-1 text-xs">
+                              {simulation.warnings.map((w, idx) => (
+                                <li key={idx} className="flex items-center gap-1.5 font-medium">
+                                  <span>•</span> {w.message}
+                                </li>
+                              ))}
+                            </ul>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setItemName(`Virement de secours vers ${simulation.critical_account_name || 'compte'}`);
+                                setItemDate(simulation.critical_date || new Date().toISOString().split('T')[0]);
+                                const savingsAcc = accounts.find((a) => a.type === 'SAVINGS') || accounts[0];
+                                if (savingsAcc) setItemAccountId(savingsAcc.id);
+                                setItemAmount('300');
+                                setItemNotes(`Alimentation pour combler le découvert prévu le ${simulation.critical_date}`);
+                                setShowItemModal(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-200 text-xs font-semibold hover:bg-rose-200 dark:hover:bg-rose-900/60 transition-colors"
+                            >
+                              <Zap className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Planifier un ajustement de trésorerie pour ce découvert</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* KPIs de Simulation */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                        <span className="text-xs text-muted-foreground">Coût total du projet</span>
+                        <p className="text-lg font-bold text-foreground font-mono-amounts">
+                          {formatEuro(simulation.total_cost)}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                        <span className="text-xs text-muted-foreground">Solde de référence (min)</span>
+                        <p className="text-lg font-bold text-slate-600 font-mono-amounts">
+                          {formatEuro(simulation.projected_min_balance_baseline)}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
+                        <span className="text-xs text-muted-foreground">Solde avec projet (min)</span>
+                        <p
+                          className={`text-lg font-bold font-mono-amounts ${
+                            simulation.projected_min_balance_whatif < 0
+                              ? 'text-rose-600'
+                              : 'text-indigo-600'
+                          }`}
+                        >
+                          {formatEuro(simulation.projected_min_balance_whatif)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Graphique What-If Dédié */}
+                    <ProjectWhatIfChart
+                      timeline={simulation.timeline}
+                      projectName={projectDetail.name}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        ) : (
+          /* ======================================================== */
+          /* VUE 1 : LISTE / GALERIE DE TOUS LES PROJETS              */
+          /* ======================================================== */
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* En-tête de la liste */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-6">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+                    <Compass className="w-6 h-6" />
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    Projets & Enveloppes
+                  </h1>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  Planifiez vos projets (vacances, travaux, achats...), simulez leur impact sur la trésorerie et suivez l'avancement de votre budget.
+                </p>
+              </div>
+
+              <Button
+                onClick={openCreateProjectModal}
+                className="flex items-center gap-2 shadow-md"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nouveau Projet</span>
+              </Button>
+            </div>
+
+            {/* Feedback alert dans la liste */}
+            {feedback && (
+              <div
+                className={`p-4 rounded-xl border flex items-center justify-between text-sm ${
+                  feedback.type === 'success'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
+                }`}
+              >
+                <span>{feedback.message}</span>
+                <button onClick={() => setFeedback(null)} className="opacity-70 hover:opacity-100">
+                  <X className="w-4 h-4" />
                 </button>
-              </div>
-            </div>
-
-            {/* Jauge Prévu vs Réalisé pour les projets validés */}
-            {projectDetail.status === 'COMMITTED' && (() => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const realizedItems = projectDetail.items.filter((it) => it.planned_date <= todayStr);
-              const realizedTotal = realizedItems.reduce((sum, it) => sum + Number(it.amount), 0);
-              const remainingTotal = Math.max(0, (projectDetail.total_planned_amount || 0) - realizedTotal);
-              const progressPercent = projectDetail.total_planned_amount > 0
-                ? Math.min(100, Math.round((realizedTotal / projectDetail.total_planned_amount) * 100))
-                : 0;
-
-              return (
-                <div className="p-4 rounded-xl border bg-card/70 backdrop-blur-sm space-y-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Suivi d'exécution : Prévu vs Réalisé
-                    </span>
-                    <span className="font-bold text-foreground font-mono-amounts">
-                      {formatEuro(realizedTotal)} réglés sur {formatEuro(projectDetail.total_planned_amount)} ({progressPercent}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
-                    <div
-                      className="h-full bg-emerald-500 transition-all"
-                      style={{ width: `${progressPercent}%` }}
-                      title={`Déjà payé : ${formatEuro(realizedTotal)}`}
-                    />
-                    <div
-                      className="h-full bg-primary/30 transition-all"
-                      style={{ width: `${100 - progressPercent}%` }}
-                      title={`Reste à régler : ${formatEuro(remainingTotal)}`}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                      Déjà décaissé : {formatEuro(realizedTotal)} ({realizedItems.length} paiement{realizedItems.length > 1 ? 's' : ''})
-                    </span>
-                    <span className="text-slate-500 font-medium flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-primary/40 inline-block" />
-                      Reste à décaisser : {formatEuro(remainingTotal)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Onglets Dépenses / Simulation */}
-            <div className="flex items-center gap-2 border-b">
-              <button
-                onClick={() => setActiveTab('expenses')}
-                className={`pb-3 px-3 text-sm font-medium border-b-2 transition-all ${
-                  activeTab === 'expenses'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Dépenses prévues ({projectDetail.items.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('simulation')}
-                className={`pb-3 px-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-all ${
-                  activeTab === 'simulation'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                Simulation What-If
-                {simulation && !simulation.is_viable && (
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                )}
-              </button>
-            </div>
-
-            {/* Contenu Onglet 1 : Dépenses prévues */}
-            {activeTab === 'expenses' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Paiements comptants & réservations
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Chaque dépense est associée à son compte bancaire et à sa date prévue.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={openCreateItemModal}
-                    className="flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Ajouter une dépense
-                  </Button>
-                </div>
-
-                {projectDetail.items.length === 0 ? (
-                  <div className="text-center py-12 border border-dashed rounded-xl space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Aucune dépense enregistrée pour ce projet.
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={openCreateItemModal}
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Ajouter la première dépense
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
-                        <tr>
-                          <th className="py-3 px-4">Désignation</th>
-                          <th className="py-3 px-4">Date prévue</th>
-                          <th className="py-3 px-4">Compte débité</th>
-                          <th className="py-3 px-4">Catégorie</th>
-                          <th className="py-3 px-4 text-right">Montant</th>
-                          <th className="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {projectDetail.items.map((item) => (
-                          <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                            <td className="py-3 px-4 font-medium text-foreground">
-                              {item.name}
-                              {item.notes && (
-                                <span className="block text-[11px] text-muted-foreground">
-                                  {item.notes}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5 opacity-60" />
-                                {new Date(item.planned_date).toLocaleDateString('fr-FR', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                })}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-[11px]">
-                                <CreditCard className="w-3 h-3 opacity-60" />
-                                {item.account_name || 'Compte'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-muted-foreground">
-                              {item.category_name || '-'}
-                            </td>
-                            <td className="py-3 px-4 text-right font-semibold text-foreground text-sm">
-                              {formatEuro(item.amount)}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => openEditItemModal(item)}
-                                  className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-muted transition-colors"
-                                  title="Modifier la dépense"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteItem(item.id)}
-                                  className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-muted transition-colors"
-                                  title="Supprimer la dépense"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/20 border-t font-semibold">
-                        <tr>
-                          <td colSpan={4} className="py-3 px-4 text-foreground">
-                            Total prévu
-                          </td>
-                          <td className="py-3 px-4 text-right text-foreground text-sm">
-                            {formatEuro(projectDetail.total_planned_amount || 0)}
-                          </td>
-                          <td />
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Contenu Onglet 2 : Simulation What-If */}
-            {activeTab === 'simulation' && simulation && (
-              <div className="space-y-6">
-                {/* Bandeau de Viabilité */}
-                <div
-                  className={`p-4 rounded-xl border flex items-start gap-3 ${
-                    simulation.is_viable
-                      ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 dark:bg-emerald-950/20 dark:border-emerald-800 dark:text-emerald-300'
-                      : 'bg-rose-50/80 border-rose-200 text-rose-900 dark:bg-rose-950/20 dark:border-rose-800 dark:text-rose-300'
-                  }`}
+            {/* Synthèse des Projets (KPI Bar) */}
+            {projects.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl border bg-card/60 backdrop-blur-sm space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Projets planifiés</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">{projects.length}</span>
+                    <span className="text-xs text-muted-foreground">({projects.filter(p => p.status === 'COMMITTED').length} validés)</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl border bg-card/60 backdrop-blur-sm space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dépenses prévues</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground font-mono-amounts">
+                      {formatEuro(projects.reduce((sum, p) => sum + (Number(p.total_planned_amount) || 0), 0))}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl border bg-card/60 backdrop-blur-sm space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Budget cible cumulé</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground font-mono-amounts">
+                      {formatEuro(projects.reduce((sum, p) => sum + (Number(p.total_budget) || 0), 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Grille des Projets */}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-56 rounded-2xl bg-muted/40 animate-pulse" />
+                ))}
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="text-center py-16 px-4 border border-dashed rounded-2xl bg-card space-y-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <div className="max-w-md mx-auto space-y-1">
+                  <h3 className="text-lg font-semibold text-foreground">Aucun projet en cours</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Créez votre premier projet (ex: Vacances en Grèce, Achat d'une voiture, Travaux) pour
+                    simuler la faisabilité financière avant d'engager les dépenses.
+                  </p>
+                </div>
+                <Button
+                  onClick={openCreateProjectModal}
+                  className="mt-2"
                 >
-                  <div className="mt-0.5">
-                    {simulation.is_viable ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                    ) : (
-                      <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold">
-                      {simulation.is_viable
-                        ? 'Projet 100% Viable Financièrement !'
-                        : 'Alerte : Risque de découvert détecté'}
-                    </h4>
-                    <p className="text-xs opacity-90 leading-relaxed">
-                      {simulation.is_viable
-                        ? 'Tous vos comptes restent dans le positif tout au long de la période. Vous pouvez valider ce projet en toute sérénité.'
-                        : 'L’un de vos comptes risque de passer en négatif à une ou plusieurs dates lors du décaissement des dépenses de ce projet.'}
-                    </p>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Créer un projet
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {projects.map((proj) => {
+                  const isCommitted = proj.status === 'COMMITTED';
+                  const planned = Number(proj.total_planned_amount) || 0;
+                  const budget = Number(proj.total_budget) || 0;
+                  const percent = budget > 0 ? Math.min(100, Math.round((planned / budget) * 100)) : 0;
+                  const dateRange = formatDateRange(proj.target_start_date, proj.target_end_date);
+                  const color = proj.color || '#6366f1';
 
-                    {/* Liste des warnings et suggestion d'ajustement */}
-                    {simulation.warnings && simulation.warnings.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/50 space-y-2">
-                        <ul className="space-y-1 text-xs">
-                          {simulation.warnings.map((w, idx) => (
-                            <li key={idx} className="flex items-center gap-1.5 font-medium">
-                              <span>•</span> {w.message}
-                            </li>
-                          ))}
-                        </ul>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setItemName(`Virement de secours vers ${simulation.critical_account_name || 'compte'}`);
-                            setItemDate(simulation.critical_date || new Date().toISOString().split('T')[0]);
-                            const savingsAcc = accounts.find((a) => a.type === 'SAVINGS') || accounts[0];
-                            if (savingsAcc) setItemAccountId(savingsAcc.id);
-                            setItemAmount('300');
-                            setItemNotes(`Alimentation pour combler le découvert prévu le ${simulation.critical_date}`);
-                            setShowItemModal(true);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-200 text-xs font-semibold hover:bg-rose-200 dark:hover:bg-rose-900/60 transition-colors"
-                        >
-                          <Zap className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Planifier un ajustement de trésorerie pour ce découvert</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* KPIs de Simulation */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
-                    <span className="text-xs text-muted-foreground">Coût total du projet</span>
-                    <p className="text-lg font-bold text-foreground">
-                      {formatEuro(simulation.total_cost)}
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
-                    <span className="text-xs text-muted-foreground">Solde de référence (min)</span>
-                    <p className="text-lg font-bold text-slate-600">
-                      {formatEuro(simulation.projected_min_balance_baseline)}
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
-                    <span className="text-xs text-muted-foreground">Solde avec projet (min)</span>
-                    <p
-                      className={`text-lg font-bold ${
-                        simulation.projected_min_balance_whatif < 0
-                          ? 'text-rose-600'
-                          : 'text-indigo-600'
-                      }`}
+                  return (
+                    <div
+                      key={proj.id}
+                      onClick={() => handleSelectProject(proj.id)}
+                      className="group relative rounded-2xl border border-border/70 bg-card hover:bg-card/90 p-5 shadow-xs hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
                     >
-                      {formatEuro(simulation.projected_min_balance_whatif)}
-                    </p>
-                  </div>
-                </div>
+                      {/* Ligne accentuée colorée discrète en haut */}
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1 transition-opacity"
+                        style={{ backgroundColor: color }}
+                      />
 
-                {/* Graphique What-If Dédié */}
-                <ProjectWhatIfChart
-                  timeline={simulation.timeline}
-                  projectName={projectDetail.name}
-                />
+                      {/* En-tête de la carte */}
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105"
+                              style={{
+                                backgroundColor: `${color}15`,
+                                borderColor: `${color}35`,
+                                color: color,
+                              }}
+                            >
+                              {renderProjectIcon(proj.icon, "w-5 h-5")}
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-foreground text-base tracking-tight group-hover:text-primary transition-colors truncate">
+                                {proj.name}
+                              </h3>
+                              {dateRange ? (
+                                <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                                  <Calendar className="w-3 h-3 text-muted-foreground/70 shrink-0" />
+                                  <span className="truncate">{dateRange}</span>
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground mt-0.5 block truncate">
+                                  Enveloppe de dépenses
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span
+                              className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                                isCommitted
+                                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
+                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
+                              }`}
+                            >
+                              {isCommitted ? (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3" /> Validé
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3 h-3" /> Brouillon
+                                </>
+                              )}
+                            </span>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-all"
+                                  title="Options du projet"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem
+                                  onClick={() => openEditProjectModal(proj)}
+                                  className="cursor-pointer flex items-center gap-2"
+                                >
+                                  <Pencil className="w-4 h-4 text-primary" />
+                                  <span>Modifier</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDuplicateProject(proj.id, proj.name)}
+                                  className="cursor-pointer flex items-center gap-2"
+                                >
+                                  <Copy className="w-4 h-4 text-sky-600" />
+                                  <span>Dupliquer</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteProject(proj.id, proj.name)}
+                                  className="cursor-pointer text-destructive focus:text-destructive flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  <span>Supprimer</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+
+                        {proj.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed pt-0.5">
+                            {proj.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Section Financière Épurée (Fintech Style) */}
+                      <div className="mt-4 pt-3.5 border-t border-border/50 space-y-3">
+                        <div className="bg-muted/30 rounded-xl p-3 border border-border/40 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground font-medium">Dépenses prévues</span>
+                            <span className="font-bold text-foreground text-sm font-mono-amounts">
+                              {formatEuro(planned)}
+                            </span>
+                          </div>
+
+                          {budget > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-300"
+                                  style={{
+                                    backgroundColor: color,
+                                    width: `${percent}%`,
+                                  }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[11px] text-muted-foreground font-medium">
+                                <span>Budget fixé : {formatEuro(budget)}</span>
+                                <span className={planned > budget ? 'text-rose-600 font-bold' : ''}>
+                                  {percent}%
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Footer de la carte */}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-0.5">
+                          <span>{proj.items_count || 0} dépense{proj.items_count && proj.items_count > 1 ? 's' : ''}</span>
+                          <span className="flex items-center gap-1 text-primary font-semibold text-xs group-hover:translate-x-1 transition-transform">
+                            Ouvrir le projet <ArrowRight className="w-3.5 h-3.5" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
