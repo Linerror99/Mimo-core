@@ -43,20 +43,24 @@ while true; do
     echo -e " ${BOLD}Sécurité & Diagnostic :${NC}"
     echo -e "   ${CYAN}6)${NC}  Lancer les tests de sécurité en direct (scripts/test-security.sh)"
     echo -e "   ${CYAN}7)${NC}  Vérifier la santé des services locaux  (scripts/health-check.sh)"
+    echo " ${BOLD}Données de Test :${NC}"
+    echo -e "   ${CYAN}8)${NC}  Générer les données de test (SQL)      (python scripts/generate_test_data.py)"
+    echo -e "   ${CYAN}9)${NC}  Charger les données de test en Local"
+    echo -e "   ${CYAN}10)${NC} Charger les données de test (Cloud GCP)"
     echo ""
     echo -e " ${BOLD}Base de données :${NC}"
-    echo -e "   ${CYAN}8)${NC}  Sauvegarder la base de données         (scripts/backup-db.sh)"
-    echo -e "   ${CYAN}9)${NC}  Restaurer une sauvegarde               (scripts/restore-db.sh)"
-    echo -e "   ${CYAN}10)${NC} Appliquer les migrations Alembic       (scripts/run-migrations.sh)"
+    echo -e "   ${CYAN}11)${NC} Sauvegarder la base de données         (scripts/backup-db.sh)"
+    echo -e "   ${CYAN}12)${NC} Restaurer une sauvegarde               (scripts/restore-db.sh)"
+    echo -e "   ${CYAN}13)${NC} Appliquer les migrations Alembic       (scripts/run-migrations.sh)"
     echo ""
     echo -e " ${BOLD}Déploiement GCP (Cloud Run) :${NC}"
-    echo -e "   ${CYAN}11)${NC} Déployer TOUT (Backend + Frontend)    (./deploy.sh all)"
-    echo -e "   ${CYAN}12)${NC} Déployer uniquement le Backend        (./deploy.sh backend)"
-    echo -e "   ${CYAN}13)${NC} Déployer uniquement le Frontend       (./deploy.sh frontend)"
+    echo -e "   ${CYAN}14)${NC} Déployer TOUT (Backend + Frontend)    (./deploy.sh all)"
+    echo -e "   ${CYAN}15)${NC} Déployer uniquement le Backend        (./deploy.sh backend)"
+    echo -e "   ${CYAN}16)${NC} Déployer uniquement le Frontend       (./deploy.sh frontend)"
     echo ""
     echo -e "   ${RED}q)${NC}  Quitter"
     echo ""
-    read -p "Sélectionnez une option [1-13 ou q] : " choice
+    read -p "Sélectionnez une option [1-16 ou q] : " choice
 
     echo ""
     case $choice in
@@ -98,26 +102,54 @@ while true; do
             ./scripts/health-check.sh
             ;;
         8)
+            echo -e "${YELLOW}>>> Génération du script de données de test (test_data.sql)...${NC}"
+            if command -v python &> /dev/null; then
+                python scripts/generate_test_data.py || echo -e "${RED}Erreur lors de l'exécution du script Python.${NC}"
+            elif command -v python3 &> /dev/null; then
+                python3 scripts/generate_test_data.py || echo -e "${RED}Erreur lors de l'exécution du script Python.${NC}"
+            else
+                echo -e "${RED}Python n'est pas installé ou n'est pas dans le PATH.${NC}"
+            fi
+            ;;
+        9)
+            echo -e "${YELLOW}>>> Chargement des données de test en Local...${NC}"
+            if [ -f "test_data.sql" ]; then
+                docker exec -i mimo-postgres psql -U duoflow -d duoflow < test_data.sql
+                echo -e "${GREEN}>>> Données chargées en Local avec succès !${NC}"
+                echo ""
+                echo -e " ${BOLD}Comptes de test disponibles (Mot de passe: ${YELLOW}password123${NC}) :${NC}"
+                echo -e "   1. ${CYAN}alexandre@test.com${NC} - Salarié CDI (2600 €/m)"
+                echo -e "   2. ${CYAN}sophie@test.com${NC}    - Freelance Tech (3400 €/m)"
+                echo -e "   3. ${CYAN}lucas@test.com${NC}     - Étudiant / Alternant (950 €/m)"
+            else
+                echo -e "${RED}Erreur : test_data.sql introuvable. Veuillez générer d'abord.${NC}"
+            fi
+            ;;
+        10)
+            echo -e "${YELLOW}>>> Chargement des données de test sur le Cloud...${NC}"
+            ./scripts/load-test-data-cloud.sh
+            ;;
+        11)
             echo -e "${YELLOW}>>> Sauvegarde de la base de données...${NC}"
             ./scripts/backup-db.sh
             ;;
-        9)
+        12)
             echo -e "${YELLOW}>>> Restauration de la base de données...${NC}"
             ./scripts/restore-db.sh
             ;;
-        10)
+        13)
             echo -e "${YELLOW}>>> Exécution des migrations...${NC}"
             ./scripts/run-migrations.sh
             ;;
-        11)
+        14)
             echo -e "${YELLOW}>>> Déploiement complet en cours...${NC}"
             ./deploy.sh all
             ;;
-        12)
+        15)
             echo -e "${YELLOW}>>> Déploiement du Backend...${NC}"
             ./deploy.sh backend
             ;;
-        13)
+        16)
             echo -e "${YELLOW}>>> Déploiement du Frontend...${NC}"
             ./deploy.sh frontend
             ;;

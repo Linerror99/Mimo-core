@@ -19,19 +19,24 @@ echo  Securite ^& Diagnostic :
 echo    [6]  Lancer les tests de securite         (bash scripts/test-security.sh)
 echo    [7]  Verifier la sante des services       (bash scripts/health-check.sh)
 echo.
+echo  Donnees de Test :
+echo    [8]  Generer donnees de test (SQL)        (python scripts/generate_test_data.py)
+echo    [9]  Charger donnees de test en Local
+echo    [10] Charger donnees de test (Cloud GCP)
+echo.
 echo  Base de donnees :
-echo    [8]  Sauvegarder la base de donnees       (bash scripts/backup-db.sh)
-echo    [9]  Restaurer une sauvegarde             (bash scripts/restore-db.sh)
-echo    [10] Appliquer les migrations Alembic     (bash scripts/run-migrations.sh)
+echo    [11] Sauvegarder la base de donnees       (bash scripts/backup-db.sh)
+echo    [12] Restaurer une sauvegarde             (bash scripts/restore-db.sh)
+echo    [13] Appliquer les migrations Alembic     (bash scripts/run-migrations.sh)
 echo.
 echo  Deploiement GCP (Cloud Run) :
-echo    [11] Deployer TOUT (Backend + Frontend)   (bash deploy.sh all)
-echo    [12] Deployer uniquement le Backend       (bash deploy.sh backend)
-echo    [13] Deployer uniquement le Frontend      (bash deploy.sh frontend)
+echo    [14] Deployer TOUT (Backend + Frontend)   (bash deploy.sh all)
+echo    [15] Deployer uniquement le Backend       (bash deploy.sh backend)
+echo    [16] Deployer uniquement le Frontend      (bash deploy.sh frontend)
 echo.
 echo    [Q]  Quitter
 echo.
-set /p choice="Selectionnez une option [1-13 ou Q] : "
+set /p choice="Selectionnez une option [1-16 ou Q] : "
 
 if /i "%choice%"=="1" goto start_app
 if /i "%choice%"=="2" goto rebuild_app
@@ -40,12 +45,15 @@ if /i "%choice%"=="4" goto restart_app
 if /i "%choice%"=="5" goto logs_app
 if /i "%choice%"=="6" goto sec_tests
 if /i "%choice%"=="7" goto health_check
-if /i "%choice%"=="8" goto backup_db
-if /i "%choice%"=="9" goto restore_db
-if /i "%choice%"=="10" goto migrations
-if /i "%choice%"=="11" goto deploy_all
-if /i "%choice%"=="12" goto deploy_backend
-if /i "%choice%"=="13" goto deploy_frontend
+if /i "%choice%"=="8" goto generate_test_data
+if /i "%choice%"=="9" goto load_test_local
+if /i "%choice%"=="10" goto load_test_cloud
+if /i "%choice%"=="11" goto backup_db
+if /i "%choice%"=="12" goto restore_db
+if /i "%choice%"=="13" goto migrations
+if /i "%choice%"=="14" goto deploy_all
+if /i "%choice%"=="15" goto deploy_backend
+if /i "%choice%"=="16" goto deploy_frontend
 if /i "%choice%"=="q" goto quit
 
 echo Choix invalide.
@@ -115,6 +123,39 @@ goto menu
 
 :health_check
 bash scripts/health-check.sh
+pause
+goto menu
+
+:generate_test_data
+echo.
+echo ^>^>^> Generation du script de donnees de test (test_data.sql)...
+python scripts\generate_test_data.py
+echo ^>^>^> Fichier test_data.sql genere avec succes !
+pause
+goto menu
+
+:load_test_local
+echo.
+echo ^>^>^> Chargement des donnees de test en Local...
+if exist test_data.sql (
+    docker exec -i mimo-postgres psql -U duoflow -d duoflow < test_data.sql
+    echo ^>^>^> Donnees chargees en Local avec succes !
+    echo.
+    echo  Comptes de test disponibles (Mot de passe: password123) :
+    echo    1. alexandre@test.com - Salarie CDI (2600 EUR/m)
+    echo    2. sophie@test.com    - Freelance Tech (3400 EUR/m)
+    echo    3. lucas@test.com     - Etudiant / Alternant (950 EUR/m)
+    echo.
+) else (
+    echo Erreur : test_data.sql introuvable. Veuillez generer d'abord.
+)
+pause
+goto menu
+
+:load_test_cloud
+echo.
+echo ^>^>^> Chargement des donnees de test sur Cloud SQL...
+bash scripts/load-test-data-cloud.sh
 pause
 goto menu
 
