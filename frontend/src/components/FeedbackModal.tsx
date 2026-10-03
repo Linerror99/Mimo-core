@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { CheckCircle2, Trash2, AlertTriangle, Info } from 'lucide-react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import '../styles/FeedbackModal.css';
 
 export interface FeedbackOptions {
@@ -7,7 +8,10 @@ export interface FeedbackOptions {
   message: string;
   type?: 'success' | 'delete' | 'info' | 'warning';
   confirmText?: string;
+  cancelText?: string;
+  showCancel?: boolean;
   onConfirm?: () => void;
+  onCancel?: () => void;
 }
 
 interface FeedbackModalProps {
@@ -17,9 +21,14 @@ interface FeedbackModalProps {
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, options, onClose }) => {
+  useBodyScrollLock(isOpen);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isOpen && (e.key === 'Enter' || e.key === 'Escape')) {
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
+        handleCancel();
+      } else if (e.key === 'Enter') {
         handleOk();
       }
     };
@@ -28,6 +37,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, options, o
   }, [isOpen, options]);
 
   if (!isOpen || !options) return null;
+
+  const handleCancel = () => {
+    if (options.onCancel) options.onCancel();
+    onClose();
+  };
 
   const handleOk = () => {
     if (options.onConfirm) options.onConfirm();
@@ -49,21 +63,42 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, options, o
   };
 
   return (
-    <div className="feedback-overlay" onClick={handleOk}>
+    <div className="feedback-overlay" onClick={options.showCancel ? handleCancel : handleOk}>
       <div className={`feedback-card feedback-${options.type || 'success'}`} onClick={(e) => e.stopPropagation()}>
         <div className={`feedback-icon-wrapper ${options.type || 'success'}`}>
           {renderIcon()}
         </div>
         <h3 className="feedback-title">{options.title}</h3>
         <p className="feedback-message">{options.message}</p>
-        <button
-          type="button"
-          className="feedback-btn-ok"
-          onClick={handleOk}
-          autoFocus
-        >
-          {options.confirmText || 'Compris'}
-        </button>
+
+        {options.showCancel ? (
+          <div className="feedback-buttons-row">
+            <button
+              type="button"
+              className="feedback-btn-cancel"
+              onClick={handleCancel}
+            >
+              {options.cancelText || 'Annuler'}
+            </button>
+            <button
+              type="button"
+              className={`feedback-btn-ok feedback-btn-${options.type || 'success'}`}
+              onClick={handleOk}
+              autoFocus
+            >
+              {options.confirmText || 'Confirmer'}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`feedback-btn-ok feedback-btn-${options.type || 'success'}`}
+            onClick={handleOk}
+            autoFocus
+          >
+            {options.confirmText || 'Compris'}
+          </button>
+        )}
       </div>
     </div>
   );

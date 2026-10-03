@@ -21,6 +21,8 @@ import { Account } from "../types/account";
 import { Category } from "../types/category";
 import { ExportButton } from "../components/ExportButton";
 import { useFeedback } from "../context/FeedbackContext";
+import { invalidateFinancialData } from "../lib/invalidation";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { BankLogo } from "../components/BankLogo";
 import { TimelineSkeleton } from "../components/skeletons/TimelineSkeleton";
 import {
@@ -83,6 +85,9 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [deleteOption, setDeleteOption] = useState<'single' | 'all' | 'period'>('single');
   const [deletePeriod, setDeletePeriod] = useState({ start: '', end: '' });
+
+  useBodyScrollLock(showModal || showDeleteModal);
+
   // View mode: 'list' | 'calendar'
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   // Selected day in calendar view (YYYY-MM-DD)
@@ -169,29 +174,41 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
     setSelectedTransactionIds(new Set());
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedTransactionIds.size === 0) return;
     const count = selectedTransactionIds.size;
-    if (!window.confirm(`Supprimer ces ${count} transactions sélectionnées (envoi à la corbeille) ?`)) {
-      return;
-    }
-    try {
-      setIsBulkDeleting(true);
-      await Promise.all(Array.from(selectedTransactionIds).map(id => transactionService.delete(id)));
-      setSelectedTransactionIds(new Set());
-      await loadData();
-      const txs = await transactionService.list();
-      setAllTransactions(txs);
-      showFeedback({
-        title: "Suppression groupée réussie",
-        message: `${count} transaction(s) ont été envoyées vers la corbeille.`,
-        type: "delete"
-      });
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression groupée");
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    showFeedback({
+      title: "Suppression groupée",
+      message: `Voulez-vous déplacer ces ${count} transactions sélectionnées vers la corbeille ?`,
+      type: "delete",
+      showCancel: true,
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      onConfirm: async () => {
+        try {
+          setIsBulkDeleting(true);
+          await Promise.all(Array.from(selectedTransactionIds).map(id => transactionService.delete(id)));
+          setSelectedTransactionIds(new Set());
+          await loadData();
+          const txs = await transactionService.list();
+          setAllTransactions(txs);
+          showFeedback({
+            title: "Suppression groupée réussie",
+            message: `${count} transaction(s) ont été envoyées vers la corbeille.`,
+            type: "delete"
+          });
+        } catch (err: any) {
+          setError(err.response?.data?.detail || "Erreur lors de la suppression groupée");
+          showFeedback({
+            title: "Erreur",
+            message: err.response?.data?.detail || "Erreur lors de la suppression groupée",
+            type: "warning"
+          });
+        } finally {
+          setIsBulkDeleting(false);
+        }
+      }
+    });
   };
 
   const loadData = async () => {
@@ -360,6 +377,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       }
 
       await loadData();
+      invalidateFinancialData();
       const txs = await transactionService.list();
       setAllTransactions(txs);
       handleCloseModal();
@@ -389,23 +407,36 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       return;
     }
 
-    if (!window.confirm("Supprimer cette transaction (envoi à la corbeille) ?")) {
-      return;
-    }
-
-    try {
-      await transactionService.delete(transaction.id);
-      await loadData();
-      const txs = await transactionService.list();
-      setAllTransactions(txs);
-      showFeedback({
-        title: "Transaction supprimée",
-        message: `La transaction "${transaction.description}" a été déplacée vers la corbeille.`,
-        type: "delete"
-      });
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression");
-    }
+    showFeedback({
+      title: "Supprimer cette transaction ?",
+      message: `Voulez-vous déplacer la transaction "${transaction.description}" vers la corbeille ?`,
+      type: "delete",
+      showCancel: true,
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      onConfirm: async () => {
+        try {
+          await transactionService.delete(transaction.id);
+          await loadData();
+          invalidateFinancialData();
+          const txs = await transactionService.list();
+          setAllTransactions(txs);
+          showFeedback({
+            title: "Transaction supprimée",
+            message: `La transaction "${transaction.description}" a été déplacée vers la corbeille.`,
+            type: "delete"
+          });
+        } catch (err: any) {
+          const msg = err.response?.data?.detail || "Erreur lors de la suppression";
+          setError(msg);
+          showFeedback({
+            title: "Erreur",
+            message: msg,
+            type: "warning"
+          });
+        }
+      }
+    });
   };
 
   const handleConfirmDelete = async () => {
@@ -426,6 +457,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       setShowDeleteModal(false);
       setDeletingTransaction(null);
       await loadData();
+      invalidateFinancialData();
       const txs = await transactionService.list();
       setAllTransactions(txs);
       showFeedback({
@@ -449,6 +481,7 @@ export function Timeline({ navigate, onLogout }: TimelineProps) {
       const txs = await transactionService.list();
       setAllTransactions(txs);
       await loadData();
+      invalidateFinancialData();
     } catch (err: any) {
       showFeedback({
         title: "Erreur",

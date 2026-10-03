@@ -1,8 +1,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, Home, UserPlus } from 'lucide-react';
+import { ArrowLeft, User, Home, UserPlus, Trash2 } from 'lucide-react';
 
-type SettingsTab = 'profile' | 'household' | 'invitations';
+type SettingsTab = 'profile' | 'household' | 'invitations' | 'trash';
 
 type Page =
   | 'dashboard'
@@ -38,7 +38,7 @@ export function SettingsHeader({ currentTab, navigate, title, description }: Set
           <ArrowLeft className="w-4 h-4" />
           <span>Retour au tableau de bord</span>
         </button>
-        {title && <h1 className="text-3xl font-bold text-slate-900">{title}</h1>}
+        {title && <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{title}</h1>}
         {description && <p className="text-slate-500 text-sm mt-1">{description}</p>}
       </div>
 
@@ -72,6 +72,16 @@ export function SettingsHeader({ currentTab, navigate, title, description }: Set
         >
           <UserPlus className="w-4 h-4" />
           <span>Invitations</span>
+        </Button>
+
+        <Button
+          variant={currentTab === 'trash' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => navigate('trash')}
+          className="rounded-xl text-sm font-semibold flex items-center gap-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Corbeille</span>
         </Button>
       </div>
     </div>

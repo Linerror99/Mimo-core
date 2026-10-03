@@ -28,8 +28,11 @@ import {
   ShoppingBag,
   PartyPopper,
   Zap,
+  Target,
 } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { SavingsGoalsSection } from './projects/components/SavingsGoalsSection';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +52,8 @@ import {
 import { Account } from '@/types/account';
 import { Category } from '@/types/category';
 import { ProjectWhatIfChart } from '@/components/ProjectWhatIfChart';
+import { useFeedback } from '@/context/FeedbackContext';
+import { invalidateFinancialData } from '@/lib/invalidation';
 
 type Page =
   | 'dashboard'
@@ -190,11 +195,19 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
   const [itemCategoryId, setItemCategoryId] = useState('');
   const [itemNotes, setItemNotes] = useState('');
 
+  useBodyScrollLock(showProjectModal || showItemModal);
+  const { showFeedback } = useFeedback();
+
   // Action feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { id: routeProjectId } = useParams<{ id?: string }>();
   const routerNavigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mainTab = searchParams.get('tab') === 'goals' ? 'goals' : 'projects';
+  const handleMainTabChange = (tab: 'projects' | 'goals') => {
+    setSearchParams(tab === 'goals' ? { tab: 'goals' } : {});
+  };
 
   useEffect(() => {
     loadInitialData();
@@ -375,20 +388,38 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     }
   };
 
-  const handleDeleteProject = async (id: string, name: string) => {
-    if (!window.confirm(`Voulez-vous vraiment supprimer le projet "${name}" ?`)) return;
-    try {
-      await projectService.deleteProject(id);
-      if (selectedProjectId === id) {
-        setSelectedProjectId(null);
-        setProjectDetail(null);
-      }
-      await loadInitialData();
-      setFeedback({ type: 'success', message: `Projet "${name}" supprimé.` });
-    } catch (err) {
-      console.error('Erreur suppression projet:', err);
-      setFeedback({ type: 'error', message: 'Erreur lors de la suppression.' });
-    }
+  const handleDeleteProject = (id: string, name: string) => {
+    showFeedback({
+      title: 'Supprimer ce projet ?',
+      message: `Voulez-vous vraiment supprimer le projet "${name}" ? Cette action est irréversible.`,
+      type: 'delete',
+      showCancel: true,
+      confirmText: 'Supprimer',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          await projectService.deleteProject(id);
+          if (selectedProjectId === id) {
+            setSelectedProjectId(null);
+            setProjectDetail(null);
+          }
+          await loadInitialData();
+          invalidateFinancialData();
+          showFeedback({
+            title: 'Projet supprimé',
+            message: `Le projet "${name}" a été supprimé avec succès.`,
+            type: 'delete',
+          });
+        } catch (err) {
+          console.error('Erreur suppression projet:', err);
+          showFeedback({
+            title: 'Erreur',
+            message: 'Erreur lors de la suppression du projet.',
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
   const handleDuplicateProject = async (id: string, name: string) => {
@@ -397,10 +428,19 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
       await loadInitialData();
       setSelectedProjectId(duplicated.id);
       setProjectDetail(duplicated);
-      setFeedback({ type: 'success', message: `Projet "${name}" dupliqué avec succès !` });
+      invalidateFinancialData();
+      showFeedback({
+        title: 'Projet dupliqué',
+        message: `Le projet "${name}" a été dupliqué avec succès !`,
+        type: 'success',
+      });
     } catch (err) {
       console.error('Erreur duplication projet:', err);
-      setFeedback({ type: 'error', message: 'Erreur lors de la duplication du projet.' });
+      showFeedback({
+        title: 'Erreur',
+        message: 'Erreur lors de la duplication du projet.',
+        type: 'warning',
+      });
     }
   };
 
@@ -473,58 +513,100 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
     setItemNotes('');
   };
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = (itemId: string) => {
     if (!selectedProjectId) return;
-    try {
-      await projectService.deleteItem(selectedProjectId, itemId);
-      await loadProjectDetail(selectedProjectId);
-      await loadInitialData();
-      setFeedback({ type: 'success', message: 'Dépense retirée du projet.' });
-    } catch (err) {
-      console.error('Erreur suppression dépense:', err);
-    }
+    showFeedback({
+      title: 'Retirer cette dépense ?',
+      message: 'Voulez-vous vraiment retirer cette dépense du projet ?',
+      type: 'delete',
+      showCancel: true,
+      confirmText: 'Retirer',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          await projectService.deleteItem(selectedProjectId, itemId);
+          await loadProjectDetail(selectedProjectId);
+          await loadInitialData();
+          invalidateFinancialData();
+          showFeedback({
+            title: 'Dépense retirée',
+            message: 'La dépense a été retirée du projet avec succès.',
+            type: 'delete',
+          });
+        } catch (err) {
+          console.error('Erreur suppression dépense:', err);
+          showFeedback({
+            title: 'Erreur',
+            message: 'Erreur lors du retrait de la dépense.',
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
-  const handleCommitProject = async () => {
+  const handleCommitProject = () => {
     if (!selectedProjectId || !projectDetail) return;
-    if (
-      !window.confirm(
-        `Confirmez-vous la validation du projet "${projectDetail.name}" ? Ses dépenses seront injectées dans votre timeline officielle.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const res = await projectService.commit(selectedProjectId);
-      await loadProjectDetail(selectedProjectId);
-      await loadInitialData();
-      setFeedback({ type: 'success', message: res.message });
-    } catch (err) {
-      console.error('Erreur commit:', err);
-      setFeedback({ type: 'error', message: 'Erreur lors de la validation du projet.' });
-    }
+    showFeedback({
+      title: 'Valider et intégrer au budget ?',
+      message: `Confirmez-vous la validation du projet "${projectDetail.name}" ? Ses dépenses prévues seront injectées dans votre timeline officielle.`,
+      type: 'info',
+      showCancel: true,
+      confirmText: 'Valider le projet',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          const res = await projectService.commit(selectedProjectId);
+          await loadProjectDetail(selectedProjectId);
+          await loadInitialData();
+          invalidateFinancialData();
+          showFeedback({
+            title: 'Projet validé !',
+            message: res.message || 'Le projet a été intégré à votre budget.',
+            type: 'success',
+          });
+        } catch (err: any) {
+          console.error('Erreur commit:', err);
+          showFeedback({
+            title: 'Erreur',
+            message: err?.response?.data?.detail || 'Erreur lors de la validation du projet.',
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
-  const handleRollbackProject = async () => {
+  const handleRollbackProject = () => {
     if (!selectedProjectId || !projectDetail) return;
-    if (
-      !window.confirm(
-        `Voulez-vous repasser le projet "${projectDetail.name}" en simulation ? Les transactions projetées non réalisées seront retirées de la timeline.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const res = await projectService.rollback(selectedProjectId);
-      await loadProjectDetail(selectedProjectId);
-      await loadInitialData();
-      setFeedback({ type: 'success', message: res.message });
-    } catch (err) {
-      console.error('Erreur rollback:', err);
-      setFeedback({ type: 'error', message: "Erreur lors de l'annulation." });
-    }
+    showFeedback({
+      title: 'Repasser en simulation ?',
+      message: `Voulez-vous repasser le projet "${projectDetail.name}" en simulation ? Les transactions projetées non réalisées seront retirées de la timeline.`,
+      type: 'warning',
+      showCancel: true,
+      confirmText: 'Repasser en simulation',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          const res = await projectService.rollback(selectedProjectId);
+          await loadProjectDetail(selectedProjectId);
+          await loadInitialData();
+          invalidateFinancialData();
+          showFeedback({
+            title: 'Simulation restaurée',
+            message: res.message || 'Le projet est repassé en simulation.',
+            type: 'info',
+          });
+        } catch (err: any) {
+          console.error('Erreur rollback:', err);
+          showFeedback({
+            title: 'Erreur',
+            message: err?.response?.data?.detail || "Erreur lors de l'annulation.",
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
   const formatEuro = (val: number | string | null | undefined) => {
@@ -1040,8 +1122,39 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
         ) : (
           /* ======================================================== */
           /* VUE 1 : LISTE / GALERIE DE TOUS LES PROJETS              */
-          /* ======================================================== */
           <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Navigation par Onglets : Projets & Enveloppes vs Objectifs d'Épargne */}
+            <div className="flex items-center gap-2 p-1 bg-muted/60 rounded-xl w-fit border border-border/50">
+              <button
+                type="button"
+                onClick={() => handleMainTabChange('projects')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  mainTab === 'projects'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Compass className="w-4 h-4 text-primary" />
+                <span>Projets & Enveloppes ({projects.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMainTabChange('goals')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  mainTab === 'goals'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Target className="w-4 h-4 text-emerald-500" />
+                <span>Objectifs d'Épargne</span>
+              </button>
+            </div>
+
+            {mainTab === 'goals' ? (
+              <SavingsGoalsSection onSwitchToProjects={() => handleMainTabChange('projects')} />
+            ) : (
+              <>
             {/* En-tête de la liste */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-6">
               <div>
@@ -1301,6 +1414,8 @@ export function ProjectsPage({ navigate, onLogout }: ProjectsPageProps) {
                   );
                 })}
               </div>
+            )}
+              </>
             )}
           </div>
         )}

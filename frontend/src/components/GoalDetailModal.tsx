@@ -11,6 +11,7 @@ import { accountService } from '@/services/accountService';
 import { Transaction, TransactionType, TransactionState } from '@/types/transaction';
 import { Account } from '@/types/account';
 import { useFeedback } from '@/context/FeedbackContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface GoalDetailModalProps {
   goal: Goal | null;
@@ -29,6 +30,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   onEditGoal,
   onDeleteGoal,
 }) => {
+  useBodyScrollLock(isOpen);
   const { showFeedback } = useFeedback();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -110,24 +112,42 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
         type: 'success',
       });
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erreur lors de l\'ajout du versement');
+      showFeedback({
+        title: 'Erreur',
+        message: err.response?.data?.detail || "Erreur lors de l'ajout du versement",
+        type: 'warning',
+      });
     }
   };
 
-  const handleDeleteTransaction = async (txId: string) => {
-    if (!window.confirm('Supprimer ce versement ?')) return;
-    try {
-      await transactionService.delete(txId);
-      await loadGoalData();
-      onGoalUpdated();
-      showFeedback({
-        title: 'Versement supprimé',
-        message: 'Le versement a été retiré de l\'épargne.',
-        type: 'delete',
-      });
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDeleteTransaction = (txId: string) => {
+    showFeedback({
+      title: 'Supprimer ce versement ?',
+      message: 'Voulez-vous vraiment retirer ce versement de votre épargne ?',
+      type: 'delete',
+      showCancel: true,
+      confirmText: 'Supprimer',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          await transactionService.delete(txId);
+          await loadGoalData();
+          onGoalUpdated();
+          showFeedback({
+            title: 'Versement supprimé',
+            message: "Le versement a été retiré de l'épargne.",
+            type: 'delete',
+          });
+        } catch (err) {
+          console.error(err);
+          showFeedback({
+            title: 'Erreur',
+            message: 'Erreur lors de la suppression du versement.',
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
   const progress = goal.target_amount && goal.target_amount > 0
