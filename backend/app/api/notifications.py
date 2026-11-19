@@ -50,6 +50,16 @@ async def list_notifications(
     )
 
 
+@router.get("/unread/count")
+async def get_unread_notifications_count(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retourne uniquement le compteur de notifications non lues (polling léger)."""
+    count = await NotificationService.count_unread(db=db, user_id=current_user.id)
+    return {"count": count}
+
+
 @router.patch("/{notification_id}/read", response_model=NotificationResponse)
 async def mark_notification_as_read(
     notification_id: str,

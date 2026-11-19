@@ -6,7 +6,7 @@ import type {
 
 export const notificationService = {
   async list(unreadOnly = false): Promise<NotificationListResponse> {
-    const qs = unreadOnly ? "?unread=true" : "";
+    const qs = unreadOnly ? "?unread_only=true" : "";
     return apiRequest<NotificationListResponse>(`/notifications${qs}`);
   },
 

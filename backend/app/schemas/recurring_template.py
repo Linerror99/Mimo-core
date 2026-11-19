@@ -46,6 +46,10 @@ class RecurringTemplateBase(BaseModel):
     destination_account_id: Optional[str] = Field(None, description="ID du compte destination (pour TRANSFER)")
     category_id: Optional[str] = Field(None, description="ID de la catégorie")
 
+
+class RecurringTemplateCreate(RecurringTemplateBase):
+    """Schema pour création de RecurringTemplate"""
+
     @field_validator('end_date')
     @classmethod
     def validate_end_date(cls, v, info):
@@ -93,11 +97,6 @@ class RecurringTemplateBase(BaseModel):
             if v is None:
                 raise ValueError("custom_days required for CUSTOM")
         return v
-
-
-class RecurringTemplateCreate(RecurringTemplateBase):
-    """Schema pour création de RecurringTemplate"""
-    pass
 
 
 class RecurringTemplateUpdate(BaseModel):
