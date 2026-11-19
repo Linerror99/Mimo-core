@@ -166,6 +166,22 @@ export function ProjectsPageClient({
     }
   };
 
+  const handleShiftProjectDates = async (
+    projectId: string,
+    payload: { days?: number; months?: number }
+  ) => {
+    try {
+      await projectService.shiftDates(projectId, payload);
+      toast.success("Dates du projet décalées");
+      await refreshProjects();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Impossible de décaler les dates"
+      );
+      throw err;
+    }
+  };
+
   return (
     <AppShell activePath="/projects">
       <ProjectsView
@@ -185,6 +201,7 @@ export function ProjectsPageClient({
         onDeleteProjectItem={handleDeleteProjectItem}
         onCommitProject={handleCommitProject}
         onRollbackProject={handleRollbackProject}
+        onShiftProjectDates={handleShiftProjectDates}
         defaultOpenCreate={searchParams.get("new") === "1"}
       />
     </AppShell>

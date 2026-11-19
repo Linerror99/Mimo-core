@@ -37,6 +37,12 @@ function TimelineContent() {
       transactionService.list({ start_date: startDate, end_date: endDate }),
   });
 
+  const { data: allTransactions = [] } = useQuery({
+    queryKey: ["transactions", "all"],
+    queryFn: () => transactionService.list(),
+    staleTime: 60_000,
+  });
+
   const { data: templates = [] } = useQuery({
     queryKey: ["recurring-templates"],
     queryFn: () => recurringService.list(),
@@ -59,6 +65,7 @@ function TimelineContent() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       queryClient.invalidateQueries({ queryKey: ["projections"] }),
       queryClient.invalidateQueries({ queryKey: ["recurring-templates"] }),
+      queryClient.invalidateQueries({ queryKey: ["goals"] }),
       queryClient.invalidateQueries({ queryKey: ["projects"] }),
       queryClient.invalidateQueries({ queryKey: ["project-detail"] }),
       queryClient.invalidateQueries({ queryKey: ["project-simulation"] }),
@@ -226,6 +233,7 @@ function TimelineContent() {
           setMonth(m);
         }}
         transactions={transactions}
+        allTransactions={allTransactions}
         templates={templates}
         accounts={accounts}
         categories={categories}
@@ -242,6 +250,8 @@ function TimelineContent() {
         onDeleteTemplate={handleDeleteTemplate}
         onExportPdf={handleExportPdf}
         defaultOpenCreate={searchParams.get("new") === "1"}
+        initialAccountFilter={searchParams.get("account_id") || "ALL"}
+        initialCategoryFilter={searchParams.get("category_id") || "ALL"}
       />
     </AppShell>
   );

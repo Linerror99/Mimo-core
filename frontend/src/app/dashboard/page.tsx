@@ -84,6 +84,7 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+      queryClient.invalidateQueries({ queryKey: ["goals"] }),
       queryClient.invalidateQueries({ queryKey: ["projects"] }),
       queryClient.invalidateQueries({ queryKey: ["project-detail"] }),
       queryClient.invalidateQueries({ queryKey: ["project-simulation"] }),

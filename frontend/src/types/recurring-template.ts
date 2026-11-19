@@ -54,6 +54,7 @@ export interface RecurringTemplateUpdate {
   custom_days?: number | null;
   category_id?: string | null;
   is_active?: string;
+  apply_to_future?: boolean;
 }
 
 export const TEMPLATE_FREQUENCY_LABELS: Record<TemplateFrequency, string> = {

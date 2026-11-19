@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { AccountsView } from "@/components/features/accounts/accounts-view";
 import { accountService } from "@/services/account-service";
-import type { AccountCreate, AccountUpdate } from "@/types/account";
+import { transactionService } from "@/services/transaction-service";
+import type { Account, AccountCreate, AccountUpdate } from "@/types/account";
 
 function AccountsContent() {
   const searchParams = useSearchParams();
@@ -51,6 +52,42 @@ function AccountsContent() {
     }
   };
 
+  const handleReconcileBalance = async (
+    account: Account,
+    realBalance: number
+  ) => {
+    const diff = Number((realBalance - Number(account.current_balance)).toFixed(2));
+    if (Math.abs(diff) < 0.01) {
+      toast.info("Le solde est déjà parfaitement aligné");
+      return;
+    }
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const txDate = yesterday.toISOString().slice(0, 10);
+    try {
+      await transactionService.create({
+        description: `Ajustement de solde (${account.name})`,
+        amount: diff,
+        transaction_date: txDate,
+        type: diff > 0 ? "INCOME" : "EXPENSE",
+        account_id: account.id,
+        notes: `Rapprochement bancaire : solde recalé à ${realBalance.toFixed(2)} €`,
+      });
+      toast.success("Solde rapproché avec succès");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["projections"] }),
+      ]);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Impossible de rapprocher le solde"
+      );
+      throw err;
+    }
+  };
+
   return (
     <AppShell activePath="/accounts">
       <AccountsView
@@ -61,6 +98,7 @@ function AccountsContent() {
         onCreate={handleCreate}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
+        onReconcileBalance={handleReconcileBalance}
         defaultOpenCreate={searchParams.get("new") === "1"}
       />
     </AppShell>

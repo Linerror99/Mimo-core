@@ -35,6 +35,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { usePrivacyStore } from "@/stores/privacy-store";
 import { accountService } from "@/services/account-service";
 import { notificationService } from "@/services/notification-service";
+import { QuickTransactionModal } from "@/components/shared/quick-transaction-modal";
 
 export interface NavItem {
   label: string;
@@ -157,6 +158,7 @@ export function AppShell({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isQuickTxOpen, setIsQuickTxOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const [cmdQuery, setCmdQuery] = useState("");
@@ -253,9 +255,17 @@ export function AppShell({
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [isProfileMenuOpen]);
 
-  // Keyboard shortcuts: Ctrl+K (Command Palette), Ctrl+B (Sidebar), Escape
+  // Keyboard shortcuts: Ctrl+K (Command Palette), Ctrl+B (Sidebar), N (Quick Transaction), Escape
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsCommandOpen((prev) => !prev);
@@ -266,8 +276,18 @@ export function AppShell({
           window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
           return next;
         });
+      } else if (
+        !isTyping &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === "n"
+      ) {
+        e.preventDefault();
+        setIsQuickTxOpen(true);
       } else if (e.key === "Escape") {
         setIsCommandOpen(false);
+        setIsQuickTxOpen(false);
         setIsMobileDrawerOpen(false);
         setIsProfileMenuOpen(false);
       }
@@ -784,6 +804,26 @@ export function AppShell({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Quick Transaction FAB (bottom-right, purple accent) */}
+      <button
+        type="button"
+        data-testid="quick-transaction-fab"
+        onClick={() => setIsQuickTxOpen(true)}
+        aria-label="Ajouter une transaction rapide"
+        title="Transaction rapide (touche N)"
+        className="fixed bottom-6 right-6 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-violet-600 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-all hover:scale-[1.03] hover:bg-violet-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#09090B]"
+      >
+        <Plus className="h-5 w-5" />
+        <span className="hidden sm:inline">Transaction</span>
+      </button>
+
+      {isQuickTxOpen && (
+        <QuickTransactionModal
+          open={isQuickTxOpen}
+          onClose={() => setIsQuickTxOpen(false)}
+        />
       )}
     </div>
   );

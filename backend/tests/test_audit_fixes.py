@@ -5,6 +5,7 @@ from decimal import Decimal
 import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import DEFAULT_INSECURE_JWT_SECRET, Settings
@@ -377,3 +378,179 @@ class TestAuditBackendFixes:
         tx2_after = (await client.get(f"/api/v1/transactions/{tx2.id}", headers=headers)).json()
         assert float(tx2_after["amount"]) == -800.0
         assert tx2_after["transaction_date"] == d2.isoformat()
+
+    async def test_goal_current_amount_auto_syncs_on_transaction_lifecycle(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """Creating, validating, updating and deleting goal-linked transactions must keep goal.current_amount in sync."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        account = Account(
+            household_id=test_user_household_id,
+            name="Courant Goal Sync",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("4000.00"),
+        )
+        db_session.add(account)
+        await db_session.commit()
+        await db_session.refresh(account)
+
+        goal_res = await client.post(
+            "/api/v1/goals",
+            json={"name": "Épargne Auto", "target_amount": 2000.0, "goal_type": "personal"},
+            headers=headers,
+        )
+        assert goal_res.status_code == 201
+        goal_id = goal_res.json()["id"]
+
+        # Create a past REALIZED transaction linked to goal
+        tx_res = await client.post(
+            "/api/v1/transactions",
+            json={
+                "description": "Versement 1",
+                "amount": -300.0,
+                "transaction_date": (date.today() - timedelta(days=2)).isoformat(),
+                "type": "EXPENSE",
+                "account_id": account.id,
+                "goal_id": goal_id,
+            },
+            headers=headers,
+        )
+        assert tx_res.status_code == 201
+        tx_id = tx_res.json()["id"]
+
+        goal_after_create = (await client.get(f"/api/v1/goals/{goal_id}", headers=headers)).json()
+        assert float(goal_after_create["current_amount"]) == 300.0
+
+        # Update amount -> goal updates automatically
+        await client.patch(
+            f"/api/v1/transactions/{tx_id}",
+            json={"amount": -450.0},
+            headers=headers,
+        )
+        goal_after_upd = (await client.get(f"/api/v1/goals/{goal_id}", headers=headers)).json()
+        assert float(goal_after_upd["current_amount"]) == 450.0
+
+        # Soft delete -> goal returns to 0
+        await client.delete(f"/api/v1/transactions/{tx_id}", headers=headers)
+        goal_after_del = (await client.get(f"/api/v1/goals/{goal_id}", headers=headers)).json()
+        assert float(goal_after_del["current_amount"]) == 0.0
+
+    async def test_recurring_template_apply_to_future_updates_projected_occurrences(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """PATCH /recurring-templates/{id} with apply_to_future=True updates future PROJECTED occurrences."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        account = Account(
+            household_id=test_user_household_id,
+            name="Courant Template",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("2000.00"),
+        )
+        db_session.add(account)
+        await db_session.commit()
+        await db_session.refresh(account)
+
+        start = date.today() + timedelta(days=3)
+        tpl_res = await client.post(
+            "/api/v1/recurring-templates",
+            json={
+                "name": "Abonnement Fibre",
+                "amount": 35.0,
+                "type": "EXPENSE",
+                "frequency": "MONTHLY",
+                "start_date": start.isoformat(),
+                "day_of_month": start.day,
+                "account_id": account.id,
+            },
+            headers=headers,
+        )
+        assert tpl_res.status_code == 201
+        tpl_id = tpl_res.json()["id"]
+
+        upd_res = await client.patch(
+            f"/api/v1/recurring-templates/{tpl_id}",
+            json={"amount": 42.0, "name": "Fibre Pro", "apply_to_future": True},
+            headers=headers,
+        )
+        assert upd_res.status_code == 200
+
+        txs_res = await db_session.execute(
+            select(Transaction).where(
+                Transaction.recurring_template_id == tpl_id,
+                Transaction.state == TransactionState.PROJECTED,
+            )
+        )
+        future_txs = list(txs_res.scalars().all())
+        assert len(future_txs) > 0
+        for tx in future_txs:
+            assert float(tx.amount) == -42.0
+            assert tx.description == "Fibre Pro"
+
+    async def test_project_shift_dates_shifts_items_and_committed_transactions(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """POST /projects/{id}/shift-dates shifts target dates, items, and linked PROJECTED transactions."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        account = Account(
+            household_id=test_user_household_id,
+            name="Courant Shift",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("5000.00"),
+        )
+        db_session.add(account)
+        await db_session.commit()
+        await db_session.refresh(account)
+
+        base_date = date.today() + timedelta(days=10)
+        proj_res = await client.post(
+            "/api/v1/projects",
+            json={
+                "name": "Travaux Salon",
+                "target_start_date": base_date.isoformat(),
+                "items": [
+                    {
+                        "name": "Peinture",
+                        "amount": 300.0,
+                        "planned_date": base_date.isoformat(),
+                        "account_id": account.id,
+                    }
+                ],
+            },
+            headers=headers,
+        )
+        assert proj_res.status_code == 201
+        project_id = proj_res.json()["id"]
+        await client.post(f"/api/v1/projects/{project_id}/commit", headers=headers)
+
+        shift_res = await client.post(
+            f"/api/v1/projects/{project_id}/shift-dates",
+            json={"days": 7, "months": 0},
+            headers=headers,
+        )
+        assert shift_res.status_code == 200
+        expected_date = (base_date + timedelta(days=7)).isoformat()
+        shifted = shift_res.json()
+        assert shifted["target_start_date"] == expected_date
+        assert shifted["items"][0]["planned_date"] == expected_date
+
+        tx_id = shifted["items"][0]["transaction_id"]
+        tx = (await client.get(f"/api/v1/transactions/{tx_id}", headers=headers)).json()
+        assert tx["transaction_date"] == expected_date
+
+        # Deleting the linked transaction from Timeline must also delete the linked ProjectItem
+        del_res = await client.delete(f"/api/v1/transactions/{tx_id}", headers=headers)
+        assert del_res.status_code == 204
+        proj_after_del = (await client.get(f"/api/v1/projects/{project_id}", headers=headers)).json()
+        assert len(proj_after_del["items"]) == 0

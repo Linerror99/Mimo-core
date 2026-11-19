@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Edit3, Plus, Tag, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Edit3, Plus, Tag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -197,6 +198,14 @@ export function CategoriesView({
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <Link
+                      href={`/timeline?category_id=${cat.id}`}
+                      aria-label={`Voir les opérations de ${cat.name}`}
+                      title="Voir les opérations dans la timeline"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-violet-500/10 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-400"
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
                     <button
                       type="button"
                       onClick={() => openEdit(cat)}

@@ -19,10 +19,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AmountDisplay } from "@/components/shared/amount-display";
+import { PurchaseSimulatorCard } from "@/components/features/goals/purchase-simulator-card";
 import { cn, formatDateFr, getTodayIso } from "@/lib/utils";
 import type { Account } from "@/types/account";
 import type { Goal, GoalCreate, GoalType, GoalUpdate } from "@/types/goal";
-import type { SafeToSpendData } from "@/types/projection";
+import type {
+  PurchaseSimulationPayload,
+  PurchaseSimulationResult,
+  SafeToSpendData,
+} from "@/types/projection";
 import type { Transaction } from "@/types/transaction";
 
 interface GoalsViewProps {
@@ -50,6 +55,12 @@ interface GoalsViewProps {
     destinationAccountId?: string;
   }) => Promise<void> | void;
   onDeleteContributionTx?: (txId: string) => Promise<void> | void;
+  onSimulatePurchase?: (
+    payload: PurchaseSimulationPayload
+  ) => Promise<PurchaseSimulationResult>;
+  onCommitSimulation?: (
+    payload: PurchaseSimulationPayload
+  ) => Promise<void> | void;
   defaultOpenCreate?: boolean;
 }
 
@@ -84,6 +95,8 @@ export function GoalsView({
   onDeleteGoal,
   onRecordContributionTx,
   onDeleteContributionTx,
+  onSimulatePurchase,
+  onCommitSimulation,
   defaultOpenCreate = false,
 }: GoalsViewProps) {
   // Dialog création / édition (processus exact de l'ancien GoalDialog)
@@ -271,6 +284,15 @@ export function GoalsView({
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {/* Simulateur d'achat & d'objectif intégré (distinct de /projects) */}
+      {onSimulatePurchase && (
+        <PurchaseSimulatorCard
+          accounts={accounts}
+          onSimulate={onSimulatePurchase}
+          onCommit={onCommitSimulation}
+        />
       )}
 
       {/* Header */}

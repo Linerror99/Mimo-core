@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   CalendarClock,
   Check,
   ChevronLeft,
   ChevronRight,
+  Compass,
   Copy,
   Download,
   Edit3,
@@ -15,6 +17,7 @@ import {
   Repeat,
   Search,
   SlidersHorizontal,
+  Target,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,7 @@ interface TimelineViewProps {
   month: number;
   onChangeMonth: (year: number, month: number) => void;
   transactions: Transaction[];
+  allTransactions?: Transaction[];
   templates: RecurringTemplate[];
   accounts: Account[];
   categories: Category[];
@@ -97,6 +101,8 @@ interface TimelineViewProps {
   onDeleteTemplate: (id: string) => Promise<void> | void;
   onExportPdf?: () => Promise<void> | void;
   defaultOpenCreate?: boolean;
+  initialAccountFilter?: string;
+  initialCategoryFilter?: string;
 }
 
 const WEEKDAYS = [
@@ -107,6 +113,21 @@ const WEEKDAYS = [
   { value: 4, label: "Vendredi" },
   { value: 5, label: "Samedi" },
   { value: 6, label: "Dimanche" },
+];
+
+const MONTHS_FR = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
 ];
 
 export function TimelineSkeleton() {
@@ -132,6 +153,7 @@ export function TimelineView({
   month,
   onChangeMonth,
   transactions,
+  allTransactions,
   templates,
   accounts,
   categories,
@@ -148,6 +170,8 @@ export function TimelineView({
   onDeleteTemplate,
   onExportPdf,
   defaultOpenCreate = false,
+  initialAccountFilter = "ALL",
+  initialCategoryFilter = "ALL",
 }: TimelineViewProps) {
   const [viewMode, setViewMode] = useState<"transactions" | "templates">(
     "transactions"
@@ -157,7 +181,77 @@ export function TimelineView({
   const [stateFilter, setStateFilter] = useState<TransactionState | "ALL">(
     "ALL"
   );
-  const [accountFilter, setAccountFilter] = useState<string>("ALL");
+  const [accountFilter, setAccountFilter] = useState<string>(
+    initialAccountFilter || "ALL"
+  );
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    initialCategoryFilter || "ALL"
+  );
+  const [filterScope, setFilterScope] = useState<
+    "current_month" | "all_time" | "custom"
+  >("current_month");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterMinAmount, setFilterMinAmount] = useState("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [tplApplyToFuture, setTplApplyToFuture] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  useEffect(() => {
+    setAccountFilter(initialAccountFilter || "ALL");
+  }, [initialAccountFilter]);
+
+  useEffect(() => {
+    setCategoryFilter(initialCategoryFilter || "ALL");
+  }, [initialCategoryFilter]);
+
+  // Clear selection when month or filters change
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [year, month, viewMode]);
+
+  // Keyboard navigation Left/Right between months (disabled while typing or modal open)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (
+        txModalOpen ||
+        tplModalOpen ||
+        Boolean(validatingTx) ||
+        Boolean(bulkTpl) ||
+        Boolean(txToDelete) ||
+        Boolean(tplToDelete) ||
+        confirmBulkDeleteOpen
+      ) {
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (month === 1) onChangeMonth(year - 1, 12);
+        else onChangeMonth(year, month - 1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (month === 12) onChangeMonth(year + 1, 1);
+        else onChangeMonth(year, month + 1);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   // Transaction Modal
   const [txModalOpen, setTxModalOpen] = useState(defaultOpenCreate);
@@ -212,24 +306,103 @@ export function TimelineView({
   );
   const [deleting, setDeleting] = useState(false);
 
+  const isGlobalSearchActive =
+    filterScope === "all_time" ||
+    filterScope === "custom" ||
+    search.trim().length > 0;
+
+  const activeFiltersCount = [
+    typeFilter !== "ALL",
+    stateFilter !== "ALL",
+    accountFilter !== "ALL",
+    categoryFilter !== "ALL",
+    filterScope !== "current_month",
+    filterMinAmount.trim() !== "",
+    filterMaxAmount.trim() !== "",
+  ].filter(Boolean).length;
+
+  const resetAllFilters = () => {
+    setSearch("");
+    setTypeFilter("ALL");
+    setStateFilter("ALL");
+    setAccountFilter("ALL");
+    setCategoryFilter("ALL");
+    setFilterScope("current_month");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilterMinAmount("");
+    setFilterMaxAmount("");
+  };
+
   const filteredTransactions = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return transactions
+    const minAmt =
+      filterMinAmount.trim() !== ""
+        ? Number.parseFloat(filterMinAmount)
+        : null;
+    const maxAmt =
+      filterMaxAmount.trim() !== ""
+        ? Number.parseFloat(filterMaxAmount)
+        : null;
+
+    // Quand on recherche ou qu'on choisit une portée globale/personnalisée, on cherche dans TOUT l'historique
+    const sourceList =
+      isGlobalSearchActive && allTransactions && allTransactions.length > 0
+        ? allTransactions
+        : transactions;
+
+    return sourceList
       .filter((t) => !t.deleted_at)
+      .filter((t) => {
+        if (filterScope === "custom") {
+          const d = t.transaction_date.slice(0, 10);
+          if (filterStartDate && d < filterStartDate) return false;
+          if (filterEndDate && d > filterEndDate) return false;
+        }
+        return true;
+      })
       .filter((t) => (typeFilter === "ALL" ? true : t.type === typeFilter))
       .filter((t) => (stateFilter === "ALL" ? true : t.state === stateFilter))
       .filter((t) =>
         accountFilter === "ALL" ? true : t.account_id === accountFilter
       )
       .filter((t) =>
+        categoryFilter === "ALL" ? true : t.category_id === categoryFilter
+      )
+      .filter((t) => {
+        const absVal = Math.abs(Number(t.amount));
+        if (minAmt !== null && !Number.isNaN(minAmt) && absVal < minAmt) {
+          return false;
+        }
+        if (maxAmt !== null && !Number.isNaN(maxAmt) && absVal > maxAmt) {
+          return false;
+        }
+        return true;
+      })
+      .filter((t) =>
         !q
           ? true
           : t.description.toLowerCase().includes(q) ||
+            (t.notes || "").toLowerCase().includes(q) ||
             (t.category_name || "").toLowerCase().includes(q) ||
             (t.account_name || "").toLowerCase().includes(q)
       )
       .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date));
-  }, [transactions, search, typeFilter, stateFilter, accountFilter]);
+  }, [
+    transactions,
+    allTransactions,
+    isGlobalSearchActive,
+    search,
+    filterScope,
+    filterStartDate,
+    filterEndDate,
+    filterMinAmount,
+    filterMaxAmount,
+    typeFilter,
+    stateFilter,
+    accountFilter,
+    categoryFilter,
+  ]);
 
   const monthIncome = filteredTransactions
     .filter((t) => t.type === "INCOME")
@@ -438,6 +611,7 @@ export function TimelineView({
           day_of_week: tplFreq === "WEEKLY" ? parsedDayOfWeek : null,
           custom_days: tplFreq === "CUSTOM" ? parsedCustomDays : null,
           category_id: tplType === "TRANSFER" ? null : tplCategoryId || null,
+          apply_to_future: tplApplyToFuture,
         });
       } else {
         await onCreateTemplate({
@@ -600,7 +774,7 @@ export function TimelineView({
         </div>
 
         {viewMode === "transactions" && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1 dark:border-zinc-800 dark:bg-[#121215]">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1 dark:border-zinc-800 dark:bg-[#121215]">
             <button
               type="button"
               onClick={goPrevMonth}
@@ -609,9 +783,30 @@ export function TimelineView({
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[136px] text-center text-xs font-semibold text-slate-900 dark:text-zinc-100">
-              {formatFullMonthLabel(month, year)}
-            </span>
+            <select
+              aria-label="Choisir le mois"
+              value={month}
+              onChange={(e) => onChangeMonth(year, Number(e.target.value))}
+              className="h-7 rounded-md bg-transparent px-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:bg-[#121215] dark:text-zinc-100"
+            >
+              {MONTHS_FR.map((label, idx) => (
+                <option key={label} value={idx + 1}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Choisir l'année"
+              value={year}
+              onChange={(e) => onChangeMonth(Number(e.target.value), month)}
+              className="h-7 rounded-md bg-transparent px-1.5 font-mono text-xs font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:bg-[#121215] dark:text-zinc-100"
+            >
+              {Array.from({ length: 9 }, (_, i) => year - 3 + i).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={goNextMonth}
@@ -696,58 +891,358 @@ export function TimelineView({
             </div>
           )}
 
-          {/* Filter Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher par libellé, catégorie ou compte..."
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
-              />
+          {/* Global Search & Advanced Filter Bar */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[240px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher par libellé, catégorie, compte ou note (tout l'historique)..."
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                />
+              </div>
+
+              <select
+                aria-label="Portée de recherche"
+                value={filterScope}
+                onChange={(e) =>
+                  setFilterScope(
+                    e.target.value as "current_month" | "all_time" | "custom"
+                  )
+                }
+                className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium dark:border-zinc-800 dark:bg-[#121215]"
+              >
+                <option value="current_month">Mois affiché</option>
+                <option value="all_time">Tout l&apos;historique</option>
+                <option value="custom">Période personnalisée</option>
+              </select>
+
+              <Button
+                type="button"
+                variant={showAdvancedFilters ? "primary" : "secondary"}
+                size="sm"
+                onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                aria-label="Filtres avancés"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Filtres
+                {activeFiltersCount > 0 && (
+                  <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-violet-600 px-1 text-[10px] font-bold text-white">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </Button>
+
+              {(activeFiltersCount > 0 || search.trim() !== "") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetAllFilters}
+                >
+                  Réinitialiser
+                </Button>
+              )}
             </div>
-            <select
-              aria-label="Filtrer par type"
-              value={typeFilter}
-              onChange={(e) =>
-                setTypeFilter(e.target.value as TransactionType | "ALL")
-              }
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium dark:border-zinc-800 dark:bg-[#121215]"
-            >
-              <option value="ALL">Tous les types</option>
-              <option value="EXPENSE">Dépenses</option>
-              <option value="INCOME">Revenus</option>
-              <option value="TRANSFER">Virements</option>
-            </select>
-            <select
-              aria-label="Filtrer par état"
-              value={stateFilter}
-              onChange={(e) =>
-                setStateFilter(e.target.value as TransactionState | "ALL")
-              }
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium dark:border-zinc-800 dark:bg-[#121215]"
-            >
-              <option value="ALL">Tous les états</option>
-              <option value="REALIZED">Réalisées</option>
-              <option value="PENDING">En attente</option>
-              <option value="PROJECTED">Projetées</option>
-            </select>
-            <select
-              aria-label="Filtrer par compte"
-              value={accountFilter}
-              onChange={(e) => setAccountFilter(e.target.value)}
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium dark:border-zinc-800 dark:bg-[#121215]"
-            >
-              <option value="ALL">Tous les comptes</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
+
+            {/* Active Global/Custom Scope Indicator */}
+            {isGlobalSearchActive && (
+              <div
+                data-testid="timeline-global-scope-banner"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-300/60 bg-violet-50/70 px-3.5 py-2 text-xs text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
+              >
+                <span>
+                  {filterScope === "custom"
+                    ? `Période personnalisée (${filterStartDate || "début"} → ${filterEndDate || "fin"})`
+                    : "Recherche globale sur tout l'historique"}{" "}
+                  · <strong>{filteredTransactions.length} résultat(s)</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="font-semibold underline hover:opacity-80"
+                >
+                  Revenir au mois affiché ({formatFullMonthLabel(month, year)})
+                </button>
+              </div>
+            )}
+
+            {/* Collapsible Advanced Filters Panel */}
+            {(showAdvancedFilters || filterScope === "custom") && (
+              <div
+                data-testid="timeline-advanced-filters"
+                className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 dark:border-zinc-800 dark:bg-[#121215]"
+              >
+                {filterScope === "custom" && (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="filter-start-date"
+                        className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                      >
+                        Du
+                      </label>
+                      <input
+                        id="filter-start-date"
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="filter-end-date"
+                        className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                      >
+                        Au
+                      </label>
+                      <input
+                        id="filter-end-date"
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="filter-type"
+                    className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                  >
+                    Type
+                  </label>
+                  <select
+                    id="filter-type"
+                    aria-label="Filtrer par type"
+                    value={typeFilter}
+                    onChange={(e) =>
+                      setTypeFilter(e.target.value as TransactionType | "ALL")
+                    }
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="ALL">Tous les types</option>
+                    <option value="EXPENSE">Dépenses</option>
+                    <option value="INCOME">Revenus</option>
+                    <option value="TRANSFER">Virements</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-state"
+                    className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                  >
+                    État
+                  </label>
+                  <select
+                    id="filter-state"
+                    aria-label="Filtrer par état"
+                    value={stateFilter}
+                    onChange={(e) =>
+                      setStateFilter(e.target.value as TransactionState | "ALL")
+                    }
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="ALL">Tous les états</option>
+                    <option value="REALIZED">Réalisées</option>
+                    <option value="PENDING">En attente</option>
+                    <option value="PROJECTED">Projetées</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-account"
+                    className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                  >
+                    Compte
+                  </label>
+                  <select
+                    id="filter-account"
+                    aria-label="Filtrer par compte"
+                    value={accountFilter}
+                    onChange={(e) => setAccountFilter(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="ALL">Tous les comptes</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-category"
+                    className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                  >
+                    Catégorie
+                  </label>
+                  <select
+                    id="filter-category"
+                    aria-label="Filtrer par catégorie"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="ALL">Toutes les catégories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-min-amount"
+                    className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                  >
+                    Montant min (€)
+                  </label>
+                  <input
+                    id="filter-min-amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    value={filterMinAmount}
+                    onChange={(e) => setFilterMinAmount(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 font-mono text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter-max-amount"
+                    className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+                  >
+                    Montant max (€)
+                  </label>
+                  <input
+                    id="filter-max-amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="∞"
+                    value={filterMaxAmount}
+                    onChange={(e) => setFilterMaxAmount(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 font-mono text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                  />
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Bulk Selection Bar */}
+          {selectedIds.length > 0 && (
+            <div
+              data-testid="timeline-bulk-bar"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-300/70 bg-violet-50/80 px-4 py-2.5 text-xs dark:border-violet-500/40 dark:bg-violet-500/15"
+            >
+              <div className="flex items-center gap-2 font-semibold text-violet-900 dark:text-violet-200">
+                <span>{selectedIds.length} opération(s) sélectionnée(s)</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds([])}
+                  className="text-[11px] font-medium underline opacity-80 hover:opacity-100"
+                >
+                  Effacer
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {filteredTransactions.some(
+                  (t) => selectedIds.includes(t.id) && t.state === "PENDING"
+                ) && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={bulkBusy}
+                    onClick={async () => {
+                      setBulkBusy(true);
+                      try {
+                        const pendingIds = filteredTransactions
+                          .filter(
+                            (t) =>
+                              selectedIds.includes(t.id) &&
+                              t.state === "PENDING"
+                          )
+                          .map((t) => t.id);
+                        for (const id of pendingIds) {
+                          await onValidateTransaction(id);
+                        }
+                        setSelectedIds([]);
+                      } finally {
+                        setBulkBusy(false);
+                      }
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Valider la sélection
+                  </Button>
+                )}
+                {categories.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      aria-label="Catégorie pour le lot"
+                      value={bulkCategoryId}
+                      onChange={(e) => setBulkCategoryId(e.target.value)}
+                      className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-zinc-700 dark:bg-[#121215]"
+                    >
+                      <option value="">Recatégoriser...</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {bulkCategoryId && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={bulkBusy}
+                        onClick={async () => {
+                          setBulkBusy(true);
+                          try {
+                            for (const id of selectedIds) {
+                              await onUpdateTransaction(id, {
+                                category_id: bulkCategoryId,
+                              });
+                            }
+                            setBulkCategoryId("");
+                            setSelectedIds([]);
+                          } finally {
+                            setBulkBusy(false);
+                          }
+                        }}
+                      >
+                        Appliquer
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="danger-outline"
+                  disabled={bulkBusy}
+                  onClick={() => setConfirmBulkDeleteOpen(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer ({selectedIds.length})
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Transactions Table */}
           {filteredTransactions.length === 0 ? (
@@ -764,10 +1259,28 @@ export function TimelineView({
             />
           ) : (
             <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="max-h-[68vh] overflow-auto">
                 <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:border-zinc-800 dark:bg-[#16161A] dark:text-zinc-400">
+                      <th className="w-10 px-3 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label="Tout sélectionner"
+                          checked={
+                            filteredTransactions.length > 0 &&
+                            selectedIds.length === filteredTransactions.length
+                          }
+                          onChange={(e) =>
+                            setSelectedIds(
+                              e.target.checked
+                                ? filteredTransactions.map((t) => t.id)
+                                : []
+                            )
+                          }
+                          className="rounded border-slate-300"
+                        />
+                      </th>
                       <th className="px-4 py-3">Date</th>
                       <th className="px-4 py-3">Libellé</th>
                       <th className="hidden px-4 py-3 md:table-cell">Compte</th>
@@ -808,11 +1321,26 @@ export function TimelineView({
                               "hover:bg-slate-50/80 dark:hover:bg-zinc-900/40"
                           )}
                         >
+                          <td className="w-10 px-3 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`Sélectionner ${tx.description}`}
+                              checked={selectedIds.includes(tx.id)}
+                              onChange={(e) =>
+                                setSelectedIds((prev) =>
+                                  e.target.checked
+                                    ? [...prev, tx.id]
+                                    : prev.filter((id) => id !== tx.id)
+                                )
+                              }
+                              className="rounded border-slate-300"
+                            />
+                          </td>
                           <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-500 tabular-money dark:text-zinc-400">
                             {formatDateFr(tx.transaction_date)}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <span
                                 className={cn(
                                   "font-medium",
@@ -829,6 +1357,34 @@ export function TimelineView({
                                   <Repeat className="h-3 w-3" />
                                   Récurrent
                                 </Badge>
+                              )}
+                              {tx.project_id && (
+                                <Link
+                                  href={`/projects/${tx.project_id}`}
+                                  title="Ouvrir le projet lié"
+                                >
+                                  <Badge
+                                    variant="info"
+                                    className="cursor-pointer hover:opacity-85"
+                                  >
+                                    <Compass className="h-3 w-3" />
+                                    {tx.project_name || "Projet"}
+                                  </Badge>
+                                </Link>
+                              )}
+                              {tx.goal_id && (
+                                <Link
+                                  href="/goals"
+                                  title="Ouvrir l'objectif lié"
+                                >
+                                  <Badge
+                                    variant="success"
+                                    className="cursor-pointer hover:opacity-85"
+                                  >
+                                    <Target className="h-3 w-3" />
+                                    {tx.goal_name || "Objectif"}
+                                  </Badge>
+                                </Link>
                               )}
                             </div>
                             {catLabel && (
@@ -1524,6 +2080,18 @@ export function TimelineView({
               </div>
             )}
           </div>
+          {editingTpl && (
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-violet-300/60 bg-violet-50/70 px-3 py-2 text-xs font-medium text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300">
+              <input
+                type="checkbox"
+                checked={tplApplyToFuture}
+                onChange={(e) => setTplApplyToFuture(e.target.checked)}
+                className="rounded border-violet-300"
+              />
+              Appliquer aussi aux occurrences futures déjà planifiées (projetées)
+            </label>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
@@ -1691,6 +2259,27 @@ export function TimelineView({
             : ""
         }
         confirmLabel="Supprimer le modèle"
+      />
+
+      <ConfirmDialog
+        open={confirmBulkDeleteOpen}
+        onClose={() => setConfirmBulkDeleteOpen(false)}
+        onConfirm={async () => {
+          setBulkBusy(true);
+          try {
+            for (const id of selectedIds) {
+              await onDeleteTransaction(id);
+            }
+            setSelectedIds([]);
+            setConfirmBulkDeleteOpen(false);
+          } finally {
+            setBulkBusy(false);
+          }
+        }}
+        loading={bulkBusy}
+        title={`Supprimer ${selectedIds.length} transaction(s) ?`}
+        description="Les opérations sélectionnées seront déplacées vers la corbeille."
+        confirmLabel="Déplacer vers la corbeille"
       />
     </div>
   );

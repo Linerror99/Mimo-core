@@ -403,10 +403,10 @@ export function ProjectionView({
             <CardHeader>
               <CardTitle>Détail mensuel</CardTitle>
             </CardHeader>
-            <div className="overflow-x-auto">
+            <div className="max-h-[540px] overflow-auto">
               <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:border-zinc-800 dark:bg-[#16161A] dark:text-zinc-400">
                     <th className="px-4 py-3">Mois</th>
                     <th className="px-4 py-3 text-right">Revenus</th>
                     <th className="px-4 py-3 text-right">Dépenses</th>

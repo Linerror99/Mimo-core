@@ -113,6 +113,10 @@ class RecurringTemplateUpdate(BaseModel):
 
     category_id: Optional[str] = None
     is_active: Optional[str] = Field(None, pattern="^(true|false)$")
+    apply_to_future: bool = Field(
+        default=False,
+        description="Si True, applique les modifications aux occurrences futures (PROJECTED) déjà générées"
+    )
 
 
 class RecurringTemplateResponse(RecurringTemplateBase):

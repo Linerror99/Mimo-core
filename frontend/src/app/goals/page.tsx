@@ -12,6 +12,7 @@ import { projectionService } from "@/services/projection-service";
 import { transactionService } from "@/services/transaction-service";
 import { useAuthStore } from "@/stores/auth-store";
 import type { Goal, GoalCreate, GoalUpdate } from "@/types/goal";
+import type { PurchaseSimulationPayload } from "@/types/projection";
 
 function GoalsContent() {
   const searchParams = useSearchParams();
@@ -132,6 +133,34 @@ function GoalsContent() {
     }
   };
 
+  const handleSimulatePurchase = async (payload: PurchaseSimulationPayload) => {
+    try {
+      return await projectionService.simulatePurchase(payload);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Simulation impossible");
+      throw err;
+    }
+  };
+
+  const handleCommitSimulation = async (payload: PurchaseSimulationPayload) => {
+    try {
+      await projectionService.commitSimulation(payload);
+      toast.success("Simulation intégrée dans vos objectifs et votre timeline");
+      await Promise.all([
+        refreshGoals(),
+        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["projections"] }),
+      ]);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Impossible d'intégrer la simulation"
+      );
+      throw err;
+    }
+  };
+
   return (
     <AppShell activePath="/goals">
       <GoalsView
@@ -148,6 +177,8 @@ function GoalsContent() {
         onDeleteGoal={handleDeleteGoal}
         onRecordContributionTx={handleRecordContributionTx}
         onDeleteContributionTx={handleDeleteContributionTx}
+        onSimulatePurchase={handleSimulatePurchase}
+        onCommitSimulation={handleCommitSimulation}
         defaultOpenCreate={searchParams.get("new") === "1"}
       />
     </AppShell>

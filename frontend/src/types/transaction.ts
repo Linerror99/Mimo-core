@@ -33,6 +33,10 @@ export interface Transaction {
   account_name?: string;
   category_name?: string;
   destination_account_name?: string;
+  goal_id?: string | null;
+  goal_name?: string | null;
+  project_id?: string | null;
+  project_name?: string | null;
 }
 
 export interface TransactionCreate {

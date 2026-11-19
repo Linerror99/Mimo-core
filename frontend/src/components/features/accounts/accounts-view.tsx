@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
+  ArrowRight,
   Building2,
   Edit3,
   PiggyBank,
   Plus,
   Power,
+  Scale,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -36,6 +39,10 @@ interface AccountsViewProps {
   onCreate: (payload: AccountCreate) => Promise<void> | void;
   onUpdate: (id: string, payload: AccountUpdate) => Promise<void> | void;
   onDelete: (id: string) => Promise<void> | void;
+  onReconcileBalance?: (
+    account: Account,
+    realBalance: number
+  ) => Promise<void> | void;
   defaultOpenCreate?: boolean;
 }
 
@@ -79,6 +86,7 @@ export function AccountsView({
   onCreate,
   onUpdate,
   onDelete,
+  onReconcileBalance,
   defaultOpenCreate = false,
 }: AccountsViewProps) {
   const [modalOpen, setModalOpen] = useState(defaultOpenCreate);
@@ -93,6 +101,13 @@ export function AccountsView({
   // Destructive delete confirmation
   const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Balance reconciliation modal
+  const [reconcileAccount, setReconcileAccount] = useState<Account | null>(
+    null
+  );
+  const [realBalanceInput, setRealBalanceInput] = useState("");
+  const [reconciling, setReconciling] = useState(false);
 
   if (isLoading) return <AccountsSkeleton />;
 
@@ -330,6 +345,31 @@ export function AccountsView({
                     Solde initial :{" "}
                     <AmountDisplay amount={Number(acc.initial_balance)} />
                   </p>
+                  <div className="mt-3 flex items-center justify-between gap-2 pt-2">
+                    <Link
+                      href={`/timeline?account_id=${acc.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
+                    >
+                      Voir les opérations
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                    {acc.is_active && onReconcileBalance && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReconcileAccount(acc);
+                          setRealBalanceInput(
+                            String(Number(acc.current_balance).toFixed(2))
+                          );
+                        }}
+                        aria-label={`Rapprocher ${acc.name}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-400 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-violet-500 dark:hover:text-violet-400"
+                      >
+                        <Scale className="h-3 w-3" />
+                        Rapprocher
+                      </button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -459,6 +499,94 @@ export function AccountsView({
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Balance Reconciliation Modal */}
+      <Modal
+        open={Boolean(reconcileAccount)}
+        onClose={() => setReconcileAccount(null)}
+        title={`Rapprocher le solde — ${reconcileAccount?.name ?? ""}`}
+        description="Saisissez le solde réel affiché par votre banque : Mimo créera automatiquement une opération d'ajustement."
+        maxWidthClass="max-w-md"
+      >
+        {reconcileAccount && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!onReconcileBalance) return;
+              const parsed = Number.parseFloat(realBalanceInput);
+              if (Number.isNaN(parsed)) return;
+              setReconciling(true);
+              try {
+                await onReconcileBalance(reconcileAccount, parsed);
+                setReconcileAccount(null);
+              } finally {
+                setReconciling(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+              <span className="text-slate-500 dark:text-zinc-400">
+                Solde actuel dans Mimo
+              </span>
+              <AmountDisplay
+                amount={Number(reconcileAccount.current_balance)}
+                className="font-semibold text-slate-900 dark:text-zinc-100"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="reconcile-real-balance"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Solde réel constaté sur votre banque (€)
+              </label>
+              <input
+                id="reconcile-real-balance"
+                type="number"
+                step="0.01"
+                required
+                value={realBalanceInput}
+                onChange={(e) => setRealBalanceInput(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+            </div>
+
+            {(() => {
+              const parsed = Number.parseFloat(realBalanceInput);
+              if (Number.isNaN(parsed)) return null;
+              const diff = parsed - Number(reconcileAccount.current_balance);
+              return (
+                <div className="flex items-center justify-between rounded-lg border border-violet-300/60 bg-violet-50/70 px-3.5 py-2.5 text-xs dark:border-violet-500/30 dark:bg-violet-500/10">
+                  <span className="text-violet-800 dark:text-violet-300">
+                    Ajustement qui sera créé
+                  </span>
+                  <AmountDisplay
+                    amount={diff}
+                    signed
+                    colored
+                    className="font-semibold"
+                  />
+                </div>
+              );
+            })()}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setReconcileAccount(null)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={reconciling}>
+                {reconciling ? "Rapprochement..." : "Recaler le solde"}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Destructive Delete Confirmation */}

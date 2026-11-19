@@ -168,6 +168,10 @@ interface ProjectsViewProps {
   ) => Promise<void> | void;
   onCommitProject: (projectId: string) => Promise<void> | void;
   onRollbackProject: (projectId: string) => Promise<void> | void;
+  onShiftProjectDates?: (
+    projectId: string,
+    payload: { days?: number; months?: number }
+  ) => Promise<void> | void;
   defaultOpenCreate?: boolean;
 }
 
@@ -204,6 +208,7 @@ export function ProjectsView({
   onDeleteProjectItem,
   onCommitProject,
   onRollbackProject,
+  onShiftProjectDates,
   defaultOpenCreate = false,
 }: ProjectsViewProps) {
   // Onglets internes à la Vue 2 (Détail projet) : Dépenses prévues / Simulation What-If
@@ -236,6 +241,11 @@ export function ProjectsView({
   // Destructive delete confirmation
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState(false);
+
+  // Shift dates modal
+  const [shiftOpen, setShiftOpen] = useState(false);
+  const [shiftDays, setShiftDays] = useState("7");
+  const [shifting, setShifting] = useState(false);
 
   if (isLoading) return <ProjectsSkeleton />;
 
@@ -449,6 +459,17 @@ export function ProjectsView({
                     >
                       <RotateCcw className="h-4 w-4" />
                       Repasser en simulation
+                    </Button>
+                  )}
+                  {onShiftProjectDates && selectedProject.items.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setShiftOpen(true)}
+                      aria-label="Décaler les dates du projet"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Décaler les dates
                     </Button>
                   )}
                   <Button
@@ -1303,6 +1324,96 @@ export function ProjectsView({
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Shift All Project Dates Modal */}
+      <Modal
+        open={shiftOpen && Boolean(selectedProject)}
+        onClose={() => setShiftOpen(false)}
+        title="Décaler toutes les dates du projet"
+        description="Décale simultanément les dates cibles, toutes les activités et les transactions futures liées."
+        maxWidthClass="max-w-md"
+      >
+        {selectedProject && onShiftProjectDates && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { label: "+ 1 semaine", payload: { days: 7 } },
+                  { label: "+ 1 mois", payload: { months: 1 } },
+                  { label: "+ 3 mois", payload: { months: 3 } },
+                  { label: "- 1 mois", payload: { months: -1 } },
+                ] as const
+              ).map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="secondary"
+                  disabled={shifting}
+                  onClick={async () => {
+                    setShifting(true);
+                    try {
+                      await onShiftProjectDates(
+                        selectedProject.id,
+                        preset.payload
+                      );
+                      setShiftOpen(false);
+                    } finally {
+                      setShifting(false);
+                    }
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const d = Number.parseInt(shiftDays, 10);
+                if (Number.isNaN(d) || d === 0) return;
+                setShifting(true);
+                try {
+                  await onShiftProjectDates(selectedProject.id, { days: d });
+                  setShiftOpen(false);
+                } finally {
+                  setShifting(false);
+                }
+              }}
+              className="space-y-3 border-t border-slate-200 pt-3 dark:border-zinc-800"
+            >
+              <div>
+                <label
+                  htmlFor="shift-custom-days"
+                  className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+                >
+                  Décalage personnalisé (en jours, négatif pour avancer)
+                </label>
+                <input
+                  id="shift-custom-days"
+                  type="number"
+                  required
+                  value={shiftDays}
+                  onChange={(e) => setShiftDays(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShiftOpen(false)}
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={shifting}>
+                  {shifting ? "Décalage..." : "Appliquer"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

@@ -89,4 +89,17 @@ export const projectService = {
       method: "POST",
     });
   },
+
+  async shiftDates(
+    projectId: string,
+    payload: { days?: number; months?: number }
+  ): Promise<ProjectDetail> {
+    return apiRequest<ProjectDetail>(`/projects/${projectId}/shift-dates`, {
+      method: "POST",
+      body: {
+        days: payload.days ?? 0,
+        months: payload.months ?? 0,
+      },
+    });
+  },
 };

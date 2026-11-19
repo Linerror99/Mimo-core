@@ -128,6 +128,7 @@ class TransactionResponse(TransactionBase):
     category_id: Optional[str]
     destination_account_id: Optional[str]
     goal_id: Optional[str] = None
+    project_id: Optional[str] = None
     recurring_template_id: Optional[str] = None
     state: TransactionState = Field(..., description="État calculé (REALIZED ou PROJECTED)")
     recurrence_frequency: RecurrenceFrequency
@@ -143,6 +144,7 @@ class TransactionResponse(TransactionBase):
     category_name: Optional[str] = Field(None, description="Nom de la catégorie")
     destination_account_name: Optional[str] = Field(None, description="Nom du compte destination")
     goal_name: Optional[str] = Field(None, description="Nom de l'objectif d'épargne lié")
+    project_name: Optional[str] = Field(None, description="Nom du projet lié")
 
     model_config = {"from_attributes": True}
 

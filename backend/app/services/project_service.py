@@ -828,3 +828,49 @@ class ProjectService:
             transactions_created=count,
             message=f"Le projet '{project.name}' a été repassé en simulation. {count} transaction(s) future(s) retirée(s).",
         )
+
+    @staticmethod
+    async def shift_project_dates(
+        db: AsyncSession,
+        project_id: str,
+        household_id: str,
+        days: int = 0,
+        months: int = 0
+    ) -> ProjectDetailResponse:
+        """
+        Décaler globalement toutes les dates d'un projet (dates cibles + toutes les activités
+        + transactions liées non réalisées si le projet est COMMITTED).
+        """
+        from dateutil.relativedelta import relativedelta
+
+        project = await db.get(Project, project_id)
+        if not project or project.household_id != household_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projet introuvable")
+
+        delta = relativedelta(months=months, days=days)
+        if project.target_start_date:
+            project.target_start_date = project.target_start_date + delta
+        if project.target_end_date:
+            project.target_end_date = project.target_end_date + delta
+
+        items_res = await db.execute(
+            select(ProjectItem).where(ProjectItem.project_id == project_id)
+        )
+        items = list(items_res.scalars().all())
+        today = date.today()
+
+        for item in items:
+            if item.planned_date:
+                item.planned_date = item.planned_date + delta
+            if item.transaction_id:
+                tx = await db.get(Transaction, item.transaction_id)
+                if tx and tx.deleted_at is None and tx.state != TransactionState.REALIZED:
+                    tx.transaction_date = item.planned_date
+                    tx.state = (
+                        TransactionState.PROJECTED
+                        if item.planned_date > today
+                        else TransactionState.PENDING
+                    )
+
+        await db.commit()
+        return await ProjectService.get_project_detail(db, project.id, household_id)

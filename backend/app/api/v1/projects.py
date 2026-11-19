@@ -20,6 +20,7 @@ from app.schemas.project import (
     ProjectItemResponse,
     ProjectItemUpdate,
     ProjectResponse,
+    ProjectShiftDatesRequest,
     ProjectSimulationResponse,
     ProjectUpdate,
 )
@@ -175,5 +176,22 @@ async def duplicate_project(
         project_id=project_id,
         household_id=current_user.household_id,
         user_id=current_user.id
+    )
+
+
+@router.post("/{project_id}/shift-dates", response_model=ProjectDetailResponse)
+async def shift_project_dates(
+    project_id: str,
+    payload: ProjectShiftDatesRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Décaler globalement les dates d'un projet (et de ses transactions liées non réalisées)."""
+    return await ProjectService.shift_project_dates(
+        db=db,
+        project_id=project_id,
+        household_id=current_user.household_id,
+        days=payload.days,
+        months=payload.months,
     )
 
