@@ -12,6 +12,9 @@ cd "${ROOT_DIR}"
 
 run_backend_tests() {
     echo "🧪 [Backend TDD] Exécution de Pytest dans Docker..."
+    docker compose up -d postgres redis >/dev/null
+    docker exec mimo-postgres psql -U duoflow -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'duoflow_test'" | grep -q 1 \
+        || docker exec mimo-postgres psql -U duoflow -d postgres -c "CREATE DATABASE duoflow_test;" >/dev/null
     docker compose run --rm backend pytest tests/ -v --cov=app --cov-report=term-missing
 }
 

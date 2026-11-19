@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AmountDisplay } from "@/components/shared/amount-display";
@@ -34,6 +35,10 @@ export function TrashView({
   onPermanentDelete,
   onEmptyTrash,
 }: TrashViewProps) {
+  const [txToPurge, setTxToPurge] = useState<Transaction | null>(null);
+  const [confirmEmptyOpen, setConfirmEmptyOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   if (isLoading) return <TrashSkeleton />;
 
   return (
@@ -48,7 +53,10 @@ export function TrashView({
           </p>
         </div>
         {items.length > 0 && (
-          <Button variant="danger-outline" onClick={onEmptyTrash}>
+          <Button
+            variant="danger-outline"
+            onClick={() => setConfirmEmptyOpen(true)}
+          >
             <Trash2 className="h-4 w-4" />
             Vider la corbeille ({items.length})
           </Button>
@@ -99,7 +107,7 @@ export function TrashView({
                 <Button
                   size="sm"
                   variant="danger-outline"
-                  onClick={() => onPermanentDelete(tx.id)}
+                  onClick={() => setTxToPurge(tx)}
                   aria-label={`Supprimer définitivement ${tx.description}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -109,6 +117,47 @@ export function TrashView({
           ))}
         </Card>
       )}
+
+      <ConfirmDialog
+        open={Boolean(txToPurge)}
+        onClose={() => setTxToPurge(null)}
+        onConfirm={async () => {
+          if (!txToPurge) return;
+          setBusy(true);
+          try {
+            await onPermanentDelete(txToPurge.id);
+            setTxToPurge(null);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        loading={busy}
+        title="Supprimer définitivement ?"
+        description={
+          txToPurge
+            ? `La transaction « ${txToPurge.description} » sera définitivement effacée. Cette action est irréversible.`
+            : ""
+        }
+        confirmLabel="Supprimer définitivement"
+      />
+
+      <ConfirmDialog
+        open={confirmEmptyOpen}
+        onClose={() => setConfirmEmptyOpen(false)}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await onEmptyTrash();
+            setConfirmEmptyOpen(false);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        loading={busy}
+        title="Vider toute la corbeille ?"
+        description={`Les ${items.length} transaction(s) présentes dans la corbeille seront définitivement supprimées.`}
+        confirmLabel="Vider la corbeille"
+      />
     </div>
   );
 }

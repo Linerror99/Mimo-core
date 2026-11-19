@@ -13,10 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AmountDisplay } from "@/components/shared/amount-display";
+import { BankLogo } from "@/components/shared/bank-logo";
+import { BankLogoPicker } from "@/components/shared/bank-logo-picker";
 import {
   ACCOUNT_TYPE_LABELS,
   type Account,
@@ -43,6 +46,13 @@ const ACCOUNT_TYPES: AccountType[] = [
   "LOAN",
   "CASH",
   "OTHER",
+];
+
+const CURRENCIES = [
+  { code: "EUR", label: "EUR (€)" },
+  { code: "USD", label: "USD ($)" },
+  { code: "GBP", label: "GBP (£)" },
+  { code: "CHF", label: "CHF" },
 ];
 
 export function AccountsSkeleton() {
@@ -76,7 +86,13 @@ export function AccountsView({
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountType>("CHECKING");
   const [initialBalance, setInitialBalance] = useState("0");
+  const [currency, setCurrency] = useState("EUR");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Destructive delete confirmation
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   if (isLoading) return <AccountsSkeleton />;
 
@@ -94,6 +110,8 @@ export function AccountsView({
     setName("");
     setType("CHECKING");
     setInitialBalance("0");
+    setCurrency("EUR");
+    setLogoUrl(null);
     setModalOpen(true);
   };
 
@@ -102,6 +120,8 @@ export function AccountsView({
     setName(account.name);
     setType(account.type);
     setInitialBalance(String(account.initial_balance));
+    setCurrency(account.currency || "EUR");
+    setLogoUrl(account.logo_url ?? null);
     setModalOpen(true);
   };
 
@@ -111,22 +131,41 @@ export function AccountsView({
     setSubmitting(true);
     try {
       if (editing) {
-        await onUpdate(editing.id, {
+        const payload: AccountUpdate = {
           name: name.trim(),
           type,
-        });
+        };
+        if (logoUrl !== (editing.logo_url ?? null)) {
+          payload.logo_url = logoUrl;
+        }
+        await onUpdate(editing.id, payload);
       } else {
         const parsedBalance = Number.parseFloat(initialBalance) || 0;
-        await onCreate({
+        const payload: AccountCreate = {
           name: name.trim(),
           type,
           initial_balance: parsedBalance,
-          currency: "EUR",
-        });
+          currency,
+        };
+        if (logoUrl) {
+          payload.logo_url = logoUrl;
+        }
+        await onCreate(payload);
       }
       setModalOpen(false);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!accountToDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(accountToDelete.id);
+      setAccountToDelete(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -221,20 +260,32 @@ export function AccountsView({
             <Card key={acc.id} className={!acc.is_active ? "opacity-65" : ""}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-[15px] font-semibold text-slate-900 dark:text-zinc-100">
-                        {acc.name}
-                      </h2>
-                      {!acc.is_active && (
-                        <Badge variant="neutral">Clôturé</Badge>
-                      )}
+                  <div className="flex min-w-0 items-start gap-3">
+                    <BankLogo
+                      accountName={acc.name}
+                      logoUrl={acc.logo_url}
+                      size="md"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="truncate text-[15px] font-semibold text-slate-900 dark:text-zinc-100">
+                          {acc.name}
+                        </h2>
+                        {!acc.is_active && (
+                          <Badge variant="neutral">Clôturé</Badge>
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <Badge variant="info">
+                          {ACCOUNT_TYPE_LABELS[acc.type]}
+                        </Badge>
+                        {acc.currency && acc.currency !== "EUR" && (
+                          <Badge variant="neutral">{acc.currency}</Badge>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant="info" className="mt-1.5">
-                      {ACCOUNT_TYPE_LABELS[acc.type]}
-                    </Badge>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
                       onClick={() => openEditModal(acc)}
@@ -259,7 +310,7 @@ export function AccountsView({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDelete(acc.id)}
+                      onClick={() => setAccountToDelete(acc)}
                       aria-label={`Supprimer ${acc.name}`}
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400"
                     >
@@ -291,7 +342,8 @@ export function AccountsView({
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? "Modifier le compte" : "Nouveau compte bancaire"}
-        description="Définissez le libellé, le type et le solde d'ouverture."
+        description="Définissez le libellé, le type, la banque et le solde d'ouverture."
+        maxWidthClass="max-w-lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -311,7 +363,8 @@ export function AccountsView({
               className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label
                 htmlFor="acc-type"
@@ -332,6 +385,29 @@ export function AccountsView({
                 ))}
               </select>
             </div>
+
+            <div>
+              <label
+                htmlFor="acc-currency"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Devise
+              </label>
+              <select
+                id="acc-currency"
+                value={currency}
+                disabled={Boolean(editing)}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-zinc-800 dark:bg-[#121215] dark:disabled:bg-zinc-900"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label
                 htmlFor="acc-balance"
@@ -350,14 +426,22 @@ export function AccountsView({
                 onChange={(e) => setInitialBalance(e.target.value)}
                 className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-zinc-800 dark:bg-[#121215] dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
               />
-              {editing && (
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
-                  Le solde d&apos;un compte existant évolue uniquement via vos
-                  transactions.
-                </p>
-              )}
             </div>
           </div>
+
+          {editing && (
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+              Le solde d&apos;un compte existant évolue uniquement via vos
+              transactions.
+            </p>
+          )}
+
+          <BankLogoPicker
+            value={logoUrl}
+            onChange={setLogoUrl}
+            accountName={name}
+          />
+
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
@@ -376,6 +460,21 @@ export function AccountsView({
           </div>
         </form>
       </Modal>
+
+      {/* Destructive Delete Confirmation */}
+      <ConfirmDialog
+        open={Boolean(accountToDelete)}
+        onClose={() => setAccountToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        loading={deleting}
+        title="Clôturer ce compte ?"
+        description={
+          accountToDelete
+            ? `Le compte « ${accountToDelete.name} » sera clôturé (soft-delete). Votre historique de transactions reste préservé.`
+            : ""
+        }
+        confirmLabel="Clôturer le compte"
+      />
     </div>
   );
 }

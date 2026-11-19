@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -10,8 +10,10 @@ import {
   Check,
   Clock,
   Download,
+  PieChart,
   Plus,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   Wallet,
 } from "lucide-react";
@@ -30,8 +32,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AmountDisplay } from "@/components/shared/amount-display";
+import { CashFlowSankey } from "@/components/features/dashboard/cash-flow-sankey";
+import { ValidationModal } from "@/components/features/timeline/validation-modal";
 import { formatDateFr, formatMonthLabel } from "@/lib/utils";
 import type { Account } from "@/types/account";
+import type { Category } from "@/types/category";
 import type { WalletsResponse } from "@/types/household";
 import type { MonthlyProjection, SafeToSpendData } from "@/types/projection";
 import type { Transaction } from "@/types/transaction";
@@ -39,6 +44,7 @@ import type { Transaction } from "@/types/transaction";
 export interface DashboardData {
   totalBalance: number;
   accounts: Account[];
+  categories?: Category[];
   monthTransactions: Transaction[];
   pendingTransactions: Transaction[];
   safeToSpend: SafeToSpendData | null;
@@ -49,10 +55,21 @@ export interface DashboardData {
 interface DashboardViewProps {
   isLoading: boolean;
   data: DashboardData | null;
-  onValidatePending?: (id: string) => Promise<void> | void;
+  onValidatePending?: (id: string, newAmount?: number) => Promise<void> | void;
+  onPostponePending?: (id: string, newDate: string) => Promise<void> | void;
+  onCancelPending?: (id: string) => Promise<void> | void;
   onExportPdf?: () => Promise<void> | void;
   isExportingPdf?: boolean;
 }
+
+const CATEGORY_BAR_COLORS = [
+  "#7C3AED",
+  "#E11D48",
+  "#4F46E5",
+  "#2563EB",
+  "#F59E0B",
+  "#10B981",
+];
 
 export function DashboardSkeleton() {
   return (
@@ -91,9 +108,44 @@ export function DashboardView({
   isLoading,
   data,
   onValidatePending,
+  onPostponePending,
+  onCancelPending,
   onExportPdf,
   isExportingPdf = false,
 }: DashboardViewProps) {
+  const [validatingTx, setValidatingTx] = useState<Transaction | null>(null);
+
+  const categoryBreakdown = useMemo(() => {
+    if (!data) return [];
+    const categories = data.categories ?? [];
+    const totals: Record<
+      string,
+      { name: string; amount: number; color?: string | null }
+    > = {};
+
+    for (const tx of data.monthTransactions) {
+      if (tx.type !== "EXPENSE" || tx.deleted_at) continue;
+      const cat = categories.find((c) => c.id === tx.category_id);
+      const label = cat?.name || tx.category_name || "Sans catégorie";
+      if (!totals[label]) {
+        totals[label] = { name: label, amount: 0, color: cat?.color };
+      }
+      totals[label].amount += Math.abs(Number(tx.amount));
+    }
+
+    const sorted = Object.values(totals)
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+
+    const totalExp = sorted.reduce((sum, item) => sum + item.amount, 0) || 1;
+    return sorted.slice(0, 6).map((item, idx) => ({
+      ...item,
+      percent: Math.round((item.amount / totalExp) * 100),
+      barColor:
+        item.color || CATEGORY_BAR_COLORS[idx % CATEGORY_BAR_COLORS.length],
+    }));
+  }, [data]);
+
   if (isLoading || !data) {
     return <DashboardSkeleton />;
   }
@@ -391,12 +443,12 @@ export function DashboardView({
         <Card data-testid="couple-wallets-section">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               <CardTitle>Portefeuilles du foyer (Mode Couple)</CardTitle>
             </div>
             <Link
               href="/settings/household"
-              className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+              className="text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
             >
               Gérer le foyer
             </Link>
@@ -423,8 +475,8 @@ export function DashboardView({
                   </div>
                 ))}
               {data.wallets.shared && (
-                <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
-                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
+                  <p className="text-xs font-medium text-violet-700 dark:text-violet-400">
                     Portefeuille commun
                   </p>
                   <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-zinc-50">
@@ -432,7 +484,9 @@ export function DashboardView({
                   </p>
                   <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                     Part / personne :{" "}
-                    <AmountDisplay amount={data.wallets.shared.split_per_person} />
+                    <AmountDisplay
+                      amount={data.wallets.shared.split_per_person}
+                    />
                   </p>
                 </div>
               )}
@@ -440,6 +494,73 @@ export function DashboardView({
           </CardContent>
         </Card>
       )}
+
+      {/* CashFlow Sankey & Expense Breakdown by Category */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <CashFlowSankey
+            transactions={data.monthTransactions}
+            categories={data.categories ?? []}
+          />
+        </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <CardTitle>Dépenses par catégorie</CardTitle>
+            </div>
+            <Link
+              href="/categories"
+              className="text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
+            >
+              Gérer →
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {categoryBreakdown.length === 0 ? (
+              <EmptyState
+                icon={<PieChart className="h-5 w-5" />}
+                title="Aucune dépense ce mois"
+                description="Vos postes de dépenses apparaîtront ici dès que des opérations seront saisies."
+              />
+            ) : (
+              <div className="space-y-3.5">
+                {categoryBreakdown.map((item) => (
+                  <div key={item.name} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-2 font-medium text-slate-800 dark:text-zinc-200">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: item.barColor }}
+                        />
+                        <span className="truncate">{item.name}</span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <AmountDisplay
+                          amount={item.amount}
+                          className="font-semibold text-slate-900 dark:text-zinc-100"
+                        />
+                        <span className="w-8 text-right font-mono text-[11px] text-slate-500 dark:text-zinc-400">
+                          {item.percent}%
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.max(4, item.percent)}%`,
+                          backgroundColor: item.barColor,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Pending Validations & Recent Transactions */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -481,7 +602,7 @@ export function DashboardView({
                         {tx.account_name ? ` · ${tx.account_name}` : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <AmountDisplay
                         amount={
                           tx.type === "EXPENSE"
@@ -493,15 +614,26 @@ export function DashboardView({
                         className="text-sm font-semibold"
                       />
                       {onValidatePending && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => onValidatePending(tx.id)}
-                          aria-label={`Valider ${tx.description}`}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          Valider
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => onValidatePending(tx.id)}
+                            aria-label={`Valider ${tx.description}`}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Valider
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setValidatingTx(tx)}
+                            aria-label={`Ajuster ou reporter ${tx.description}`}
+                            title="Ajuster le montant ou reporter"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -517,7 +649,7 @@ export function DashboardView({
             <CardTitle>Opérations récentes du mois</CardTitle>
             <Link
               href="/timeline"
-              className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+              className="text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
             >
               Ouvrir la timeline →
             </Link>
@@ -571,6 +703,17 @@ export function DashboardView({
           </CardContent>
         </Card>
       </div>
+
+      {/* Validation / Adjust / Postpone Modal */}
+      {onValidatePending && (
+        <ValidationModal
+          transaction={validatingTx}
+          onClose={() => setValidatingTx(null)}
+          onValidate={onValidatePending}
+          onPostpone={onPostponePending}
+          onCancelTransaction={onCancelPending}
+        />
+      )}
     </div>
   );
 }

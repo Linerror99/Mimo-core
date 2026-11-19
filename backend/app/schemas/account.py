@@ -27,10 +27,9 @@ class AccountCreate(AccountBase):
 
 
 class AccountUpdate(BaseModel):
-    """Schema for updating an account"""
+    """Schema for updating an account (initial_balance is immutable after creation)"""
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     type: Optional[AccountType] = None
-    initial_balance: Optional[Decimal] = None
     is_active: Optional[bool] = None
     logo_url: Optional[str] = None
 

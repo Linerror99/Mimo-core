@@ -3,6 +3,15 @@ import { authService } from "@/services/auth-service";
 import { setStoredAccessToken } from "@/lib/api-client";
 import type { User } from "@/types/auth";
 
+function setSessionCookieFlag(active: boolean): void {
+  if (typeof document === "undefined") return;
+  if (active) {
+    document.cookie = "mimo_session=1; Path=/; SameSite=Lax; Max-Age=604800";
+  } else {
+    document.cookie = "mimo_session=; Path=/; SameSite=Lax; Max-Age=0";
+  }
+}
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -34,6 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authService.login({ email, password });
       const user = await authService.getMe();
+      setSessionCookieFlag(true);
       set({
         user,
         isAuthenticated: true,
@@ -43,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
     } catch (err) {
       setStoredAccessToken(null);
+      setSessionCookieFlag(false);
       const msg =
         err instanceof Error
           ? err.message
@@ -69,6 +80,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       await authService.login({ email, password });
       const user = await authService.getMe();
+      setSessionCookieFlag(true);
       set({
         user,
         isAuthenticated: true,
@@ -90,6 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authService.logout();
     } finally {
+      setSessionCookieFlag(false);
       set({
         user: null,
         isAuthenticated: false,
@@ -103,20 +116,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshUser: async () => {
     try {
       const user = await authService.getMe();
+      setSessionCookieFlag(true);
       set({ user, isAuthenticated: true, isInitialized: true, error: null });
       return user;
     } catch {
+      setSessionCookieFlag(false);
       set({ user: null, isAuthenticated: false, isInitialized: true });
       return null;
     }
   },
 
-  setUser: (user) =>
+  setUser: (user) => {
+    setSessionCookieFlag(Boolean(user));
     set({
       user,
       isAuthenticated: Boolean(user),
       isInitialized: true,
-    }),
+    });
+  },
 
   clearError: () => set({ error: null }),
 }));

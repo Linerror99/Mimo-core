@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -231,6 +232,10 @@ export function ProjectsView({
   const [itemAccountId, setItemAccountId] = useState(accounts[0]?.id || "");
   const [itemCategoryId, setItemCategoryId] = useState("");
   const [itemNotes, setItemNotes] = useState("");
+
+  // Destructive delete confirmation
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deletingProject, setDeletingProject] = useState(false);
 
   if (isLoading) return <ProjectsSkeleton />;
 
@@ -467,7 +472,7 @@ export function ProjectsView({
                   <Button
                     size="icon"
                     variant="danger-outline"
-                    onClick={() => onDeleteProject(selectedProject.id)}
+                    onClick={() => setProjectToDelete(selectedProject)}
                     aria-label="Supprimer le projet"
                     title="Supprimer"
                   >
@@ -528,6 +533,69 @@ export function ProjectsView({
                   </div>
                 );
               })()}
+
+              {/* Double barre d'avancement des décaissements (projets engagés) */}
+              {selectedProject.status === "COMMITTED" &&
+                selectedProject.items.length > 0 &&
+                (() => {
+                  const todayIso = getTodayIso();
+                  const totalPlanned = selectedProject.items.reduce(
+                    (sum, it) => sum + Math.abs(Number(it.amount)),
+                    0
+                  );
+                  const disbursed = selectedProject.items
+                    .filter((it) => it.planned_date.slice(0, 10) <= todayIso)
+                    .reduce((sum, it) => sum + Math.abs(Number(it.amount)), 0);
+                  const remaining = Math.max(0, totalPlanned - disbursed);
+                  const disbursedPct =
+                    totalPlanned > 0
+                      ? Math.min(100, Math.round((disbursed / totalPlanned) * 100))
+                      : 0;
+                  const remainingPct = Math.max(0, 100 - disbursedPct);
+
+                  return (
+                    <div
+                      data-testid="project-disbursement-progress"
+                      className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] p-4 dark:bg-emerald-500/[0.07]"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-slate-800 dark:text-zinc-100">
+                          Avancement des décaissements
+                        </span>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Déjà décaissé :{" "}
+                            <AmountDisplay
+                              amount={disbursed}
+                              className="font-semibold"
+                            />{" "}
+                            ({disbursedPct}%)
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 text-violet-700 dark:text-violet-300">
+                            <span className="h-2 w-2 rounded-full bg-violet-500" />
+                            Restant à décaisser :{" "}
+                            <AmountDisplay
+                              amount={remaining}
+                              className="font-semibold"
+                            />{" "}
+                            ({remainingPct}%)
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-zinc-800">
+                        <div
+                          className="h-full bg-emerald-500 transition-all"
+                          style={{ width: `${disbursedPct}%` }}
+                        />
+                        <div
+                          className="h-full bg-violet-500/75 transition-all"
+                          style={{ width: `${remainingPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
               {/* Onglets internes du projet : Dépenses prévues / Simulation What-If */}
               <div className="flex items-center gap-2 border-b border-slate-200 dark:border-zinc-800">
@@ -1236,6 +1304,29 @@ export function ProjectsView({
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(projectToDelete)}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={async () => {
+          if (!projectToDelete) return;
+          setDeletingProject(true);
+          try {
+            await onDeleteProject(projectToDelete.id);
+            setProjectToDelete(null);
+          } finally {
+            setDeletingProject(false);
+          }
+        }}
+        loading={deletingProject}
+        title="Supprimer ce projet ?"
+        description={
+          projectToDelete
+            ? `Le projet « ${projectToDelete.name} » et tous ses postes planifiés seront supprimés.`
+            : ""
+        }
+        confirmLabel="Supprimer le projet"
+      />
     </div>
   );
 }

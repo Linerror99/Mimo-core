@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,6 +109,8 @@ export function GoalsView({
   const [txDescription, setTxDescription] = useState("");
   const [txAccountId, setTxAccountId] = useState("");
   const [txDestAccountId, setTxDestAccountId] = useState("");
+  const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null);
+  const [deletingGoal, setDeletingGoal] = useState(false);
 
   if (isLoading) return <GoalsSkeleton />;
 
@@ -168,13 +171,21 @@ export function GoalsView({
     if (!name.trim()) return;
 
     const currentVal = Number.parseFloat(currentAmount || "0") || 0;
-    const targetVal =
+    const parsedTarget =
       hasTargetAmount && targetAmount
         ? Number.parseFloat(targetAmount)
         : undefined;
-    const monthlyVal = monthlyContribution
+    const targetVal =
+      parsedTarget !== undefined && !Number.isNaN(parsedTarget) && parsedTarget > 0
+        ? parsedTarget
+        : undefined;
+    const parsedMonthly = monthlyContribution
       ? Number.parseFloat(monthlyContribution)
       : undefined;
+    const monthlyVal =
+      parsedMonthly !== undefined && !Number.isNaN(parsedMonthly) && parsedMonthly > 0
+        ? parsedMonthly
+        : undefined;
 
     if (editingGoal) {
       await onUpdateGoal(
@@ -553,6 +564,7 @@ export function GoalsView({
               <input
                 id="goal-date"
                 type="date"
+                min={editingGoal ? undefined : getTodayIso()}
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
                 className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
@@ -663,10 +675,10 @@ export function GoalsView({
                 <Button
                   size="sm"
                   variant="danger-outline"
-                  onClick={async () => {
-                    const id = detailGoal.id;
+                  onClick={() => {
+                    const g = detailGoal;
                     closeDetailModal();
-                    await onDeleteGoal(id);
+                    setGoalToDelete(g);
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -846,6 +858,29 @@ export function GoalsView({
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(goalToDelete)}
+        onClose={() => setGoalToDelete(null)}
+        onConfirm={async () => {
+          if (!goalToDelete) return;
+          setDeletingGoal(true);
+          try {
+            await onDeleteGoal(goalToDelete.id);
+            setGoalToDelete(null);
+          } finally {
+            setDeletingGoal(false);
+          }
+        }}
+        loading={deletingGoal}
+        title="Supprimer cet objectif ?"
+        description={
+          goalToDelete
+            ? `L'objectif « ${goalToDelete.name} » et ses échéances prévisionnelles futures seront supprimés.`
+            : ""
+        }
+        confirmLabel="Supprimer l'objectif"
+      />
     </div>
   );
 }

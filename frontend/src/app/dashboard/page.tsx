@@ -9,6 +9,7 @@ import {
   type DashboardData,
 } from "@/components/features/dashboard/dashboard-view";
 import { accountService } from "@/services/account-service";
+import { categoryService } from "@/services/category-service";
 import { transactionService } from "@/services/transaction-service";
 import { projectionService } from "@/services/projection-service";
 import { householdService } from "@/services/household-service";
@@ -35,6 +36,7 @@ export default function DashboardPage() {
       const [
         totalBalanceRes,
         accounts,
+        categories,
         monthTransactions,
         pendingTransactions,
         safeToSpend,
@@ -47,6 +49,7 @@ export default function DashboardPage() {
           accounts: [],
         })),
         accountService.list().catch(() => []),
+        categoryService.list().catch(() => []),
         transactionService
           .list({ start_date: startDate, end_date: endDate })
           .catch(() => []),
@@ -66,6 +69,7 @@ export default function DashboardPage() {
       return {
         totalBalance: totalBalanceRes.total_balance,
         accounts,
+        categories,
         monthTransactions,
         pendingTransactions,
         safeToSpend,
@@ -75,14 +79,50 @@ export default function DashboardPage() {
     },
   });
 
-  const handleValidatePending = async (id: string) => {
+  const refreshDashboard = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+    ]);
+  };
+
+  const handleValidatePending = async (id: string, newAmount?: number) => {
     try {
-      await transactionService.validate(id);
-      toast.success("Transaction validée");
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      await transactionService.validate(id, newAmount);
+      toast.success(
+        newAmount !== undefined
+          ? "Transaction validée avec le montant ajusté"
+          : "Transaction validée"
+      );
+      await refreshDashboard();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Impossible de valider l'opération"
+      );
+    }
+  };
+
+  const handlePostponePending = async (id: string, newDate: string) => {
+    try {
+      await transactionService.postpone(id, newDate);
+      toast.success("Transaction reportée");
+      await refreshDashboard();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Impossible de reporter l'opération"
+      );
+    }
+  };
+
+  const handleCancelPending = async (id: string) => {
+    try {
+      await transactionService.cancel(id);
+      toast.success("Échéance annulée");
+      await refreshDashboard();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Impossible d'annuler l'opération"
       );
     }
   };
@@ -110,6 +150,8 @@ export default function DashboardPage() {
         isLoading={isLoading}
         data={data ?? null}
         onValidatePending={handleValidatePending}
+        onPostponePending={handlePostponePending}
+        onCancelPending={handleCancelPending}
         onExportPdf={handleExportPdf}
         isExportingPdf={isExportingPdf}
       />

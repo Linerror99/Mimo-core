@@ -39,9 +39,6 @@ until curl -sf http://localhost:8000/health >/dev/null 2>&1; do
     sleep 2
 done
 
-# Compatibilité schéma local : garantit la colonne accounts.logo_url (manquante dans les migrations Alembic actuelles)
-docker exec mimo-postgres psql -U duoflow -d duoflow -c "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);" >/dev/null
-
 if [ "${1:-}" = "--seed" ] && [ -f "test_data.sql" ]; then
     echo "🌱 Chargement des données de test (test_data.sql) dans PostgreSQL..."
     docker exec -i mimo-postgres psql -v ON_ERROR_STOP=1 -U duoflow -d duoflow < test_data.sql

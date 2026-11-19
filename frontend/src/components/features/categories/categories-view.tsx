@@ -5,6 +5,7 @@ import { Edit3, Plus, Tag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,6 +57,8 @@ export function CategoriesView({
   const [color, setColor] = useState<string>(CATEGORY_COLOR_SWATCHES[1]);
   const [parentId, setParentId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [catToDelete, setCatToDelete] = useState<Category | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = useMemo(
     () => categories.filter((c) => c.type === activeTab),
@@ -204,7 +207,7 @@ export function CategoriesView({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDelete(cat.id)}
+                      onClick={() => setCatToDelete(cat)}
                       aria-label={`Supprimer ${cat.name}`}
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-zinc-400"
                     >
@@ -303,6 +306,29 @@ export function CategoriesView({
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(catToDelete)}
+        onClose={() => setCatToDelete(null)}
+        onConfirm={async () => {
+          if (!catToDelete) return;
+          setDeleting(true);
+          try {
+            await onDelete(catToDelete.id);
+            setCatToDelete(null);
+          } finally {
+            setDeleting(false);
+          }
+        }}
+        loading={deleting}
+        title="Supprimer cette catégorie ?"
+        description={
+          catToDelete
+            ? `La catégorie « ${catToDelete.name} » sera supprimée. Les transactions existantes resteront intactes.`
+            : ""
+        }
+        confirmLabel="Supprimer"
+      />
     </div>
   );
 }

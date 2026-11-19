@@ -218,6 +218,26 @@ export function AppShell({
     };
   }, [user, refreshUser]);
 
+  // Poll unread notifications count every 30 seconds while tab is visible
+  useEffect(() => {
+    if (!authReady) return;
+    let cancelled = false;
+    const poll = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      notificationService
+        .getUnreadCount()
+        .then((count) => {
+          if (!cancelled) setUnreadCount(count);
+        })
+        .catch(() => {});
+    };
+    const intervalId = window.setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [authReady]);
+
   // Close profile dropdown on outside click
   useEffect(() => {
     if (!isProfileMenuOpen) return;

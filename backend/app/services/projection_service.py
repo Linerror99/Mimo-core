@@ -619,11 +619,12 @@ class ProjectionService:
             next_income_amount = float(next_income_tx.amount)
             days_until_next_income = (horizon_date - today).days
 
-            # Charges STRICTEMENT AVANT le jour du prochain revenu (car le jour du revenu est autofinancé par ce revenu)
+            # Charges non encore réalisées STRICTEMENT AVANT le jour du prochain revenu
             committed_tx_res = await db.execute(
                 select(Transaction).where(
                     Transaction.household_id == household_id,
                     Transaction.type.in_(["EXPENSE", "TRANSFER"]),
+                    Transaction.state.in_(["PROJECTED", "PENDING"]),
                     Transaction.transaction_date >= today,
                     Transaction.transaction_date < horizon_date,
                     Transaction.deleted_at.is_(None)
@@ -639,14 +640,33 @@ class ProjectionService:
                 select(Transaction).where(
                     Transaction.household_id == household_id,
                     Transaction.type.in_(["EXPENSE", "TRANSFER"]),
+                    Transaction.state.in_(["PROJECTED", "PENDING"]),
                     Transaction.transaction_date >= today,
                     Transaction.transaction_date <= horizon_date,
                     Transaction.deleted_at.is_(None)
                 )
             )
 
+        active_account_ids = {acc.id for acc in accounts}
+        savings_account_ids = {
+            acc.id for acc in accounts
+            if hasattr(acc, 'type') and str(getattr(acc.type, 'value', acc.type)) in ["SAVINGS", "INVESTMENT"]
+        }
+
         committed_txs = list(committed_tx_res.scalars().all())
-        committed_expenses = sum(float(abs(tx.amount)) for tx in committed_txs)
+        committed_expenses = 0.0
+        for tx in committed_txs:
+            tx_type_val = tx.type.value if hasattr(tx.type, 'value') else str(tx.type)
+            if tx_type_val == "TRANSFER":
+                # Exclure les virements internes neutres entre comptes courants actifs du foyer
+                # (on conserve uniquement les virements vers épargne/objectif ou compte externe)
+                if (
+                    tx.destination_account_id in active_account_ids
+                    and tx.destination_account_id not in savings_account_ids
+                    and not tx.goal_id
+                ):
+                    continue
+            committed_expenses += float(abs(tx.amount))
 
         # 4. Reste à vivre réel = Solde actuel - Dépenses engagées avant revenu
         safe_to_spend = current_balance - committed_expenses

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import {
@@ -13,6 +13,7 @@ import { accountService } from "@/services/account-service";
 import type { PurchaseSimulationPayload } from "@/types/projection";
 
 export default function ProjectionPage() {
+  const queryClient = useQueryClient();
   const [horizonMonths, setHorizonMonths] =
     useState<ProjectionHorizonMonths>(12);
 
@@ -43,6 +44,26 @@ export default function ProjectionPage() {
     }
   };
 
+  const handleCommitSimulation = async (payload: PurchaseSimulationPayload) => {
+    try {
+      await projectionService.commitSimulation(payload);
+      toast.success("Simulation validée et planifiée dans votre timeline");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["projections"] }),
+        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["goals"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Impossible de planifier la simulation"
+      );
+      throw err;
+    }
+  };
+
   return (
     <AppShell activePath="/projection">
       <ProjectionView
@@ -52,6 +73,7 @@ export default function ProjectionPage() {
         projections={projections}
         accounts={accounts}
         onSimulatePurchase={handleSimulatePurchase}
+        onCommitSimulation={handleCommitSimulation}
       />
     </AppShell>
   );

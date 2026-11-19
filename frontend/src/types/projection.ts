@@ -32,12 +32,14 @@ export interface SafeToSpendData {
   horizon_date: string;
 }
 
+export type SimulationPaymentType = "DIRECT" | "INSTALLMENTS" | "RECURRING";
+
 export interface PurchaseSimulationPayload {
   name: string;
   is_saving: boolean;
   total_amount?: number;
   monthly_amount?: number;
-  payment_type: string;
+  payment_type: SimulationPaymentType;
   installments_count?: number;
   start_date: string;
   account_id?: string;
@@ -46,11 +48,38 @@ export interface PurchaseSimulationPayload {
   create_goal?: boolean;
 }
 
+export interface SimulationScheduleItem {
+  date: string;
+  amount: number;
+  label: string;
+}
+
+export interface SimulationMonthlyComparison {
+  month: number;
+  year: number;
+  month_label: string;
+  base_balance: number;
+  simulated_balance: number;
+  sim_cost: number;
+}
+
 export interface PurchaseSimulationResult {
+  name?: string;
+  is_saving?: boolean;
+  payment_type?: SimulationPaymentType;
+  total_amount?: number;
+  monthly_amount?: number;
+  duration_months?: number;
+  schedule?: SimulationScheduleItem[];
+  feasibility_status?: "SUCCESS" | "WARNING" | "DANGER";
+  feasibility_message?: string;
+  min_projected_balance?: number;
+  lowest_balance_month?: string;
+  monthly_comparisons?: SimulationMonthlyComparison[];
+  // Legacy aliases kept for backwards compatibility in tests
   is_feasible?: boolean;
   status?: string;
   message?: string;
   min_balance_after?: number;
   impact_summary?: string;
-  [key: string]: unknown;
 }

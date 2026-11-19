@@ -12,7 +12,10 @@ import { transactionService } from "@/services/transaction-service";
 import { recurringService } from "@/services/recurring-service";
 import { exportService } from "@/services/export-service";
 import { getMonthDateRange } from "@/lib/utils";
-import type { RecurringTemplateCreate } from "@/types/recurring-template";
+import type {
+  RecurringTemplateCreate,
+  RecurringTemplateUpdate,
+} from "@/types/recurring-template";
 import type {
   RecurringTransactionCreate,
   TransactionCreate,
@@ -54,6 +57,7 @@ function TimelineContent() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["accounts"] }),
       queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["projections"] }),
       queryClient.invalidateQueries({ queryKey: ["recurring-templates"] }),
     ]);
   };
@@ -102,13 +106,37 @@ function TimelineContent() {
     }
   };
 
-  const handleValidateTransaction = async (id: string) => {
+  const handleValidateTransaction = async (id: string, newAmount?: number) => {
     try {
-      await transactionService.validate(id);
-      toast.success("Transaction validée");
+      await transactionService.validate(id, newAmount);
+      toast.success(
+        newAmount !== undefined
+          ? "Transaction validée avec le montant ajusté"
+          : "Transaction validée"
+      );
       await invalidateAll();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Validation impossible");
+    }
+  };
+
+  const handlePostponeTransaction = async (id: string, newDate: string) => {
+    try {
+      await transactionService.postpone(id, newDate);
+      toast.success("Transaction reportée");
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Report impossible");
+    }
+  };
+
+  const handleCancelTransaction = async (id: string) => {
+    try {
+      await transactionService.cancel(id);
+      toast.success("Échéance annulée");
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Annulation impossible");
     }
   };
 
@@ -119,6 +147,48 @@ function TimelineContent() {
       await invalidateAll();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Création impossible");
+      throw err;
+    }
+  };
+
+  const handleUpdateTemplate = async (
+    id: string,
+    payload: RecurringTemplateUpdate
+  ) => {
+    try {
+      await recurringService.update(id, payload);
+      toast.success("Modèle récurrent mis à jour");
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
+      throw err;
+    }
+  };
+
+  const handleBulkUpdateTemplate = async (
+    id: string,
+    payload: { start_date: string; end_date: string; amount: number }
+  ) => {
+    try {
+      const res = await recurringService.bulkUpdate(id, payload);
+      toast.success(`${res.updated_count} occurrence(s) mise(s) à jour`);
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
+      throw err;
+    }
+  };
+
+  const handleBulkCancelTemplate = async (
+    id: string,
+    payload: { start_date: string; end_date: string }
+  ) => {
+    try {
+      const res = await recurringService.bulkCancel(id, payload);
+      toast.success(`${res.deleted_count} occurrence(s) annulée(s)`);
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Annulation impossible");
       throw err;
     }
   };
@@ -160,7 +230,12 @@ function TimelineContent() {
         onUpdateTransaction={handleUpdateTransaction}
         onDeleteTransaction={handleDeleteTransaction}
         onValidateTransaction={handleValidateTransaction}
+        onPostponeTransaction={handlePostponeTransaction}
+        onCancelTransaction={handleCancelTransaction}
         onCreateTemplate={handleCreateTemplate}
+        onUpdateTemplate={handleUpdateTemplate}
+        onBulkUpdateTemplate={handleBulkUpdateTemplate}
+        onBulkCancelTemplate={handleBulkCancelTemplate}
         onDeleteTemplate={handleDeleteTemplate}
         onExportPdf={handleExportPdf}
         defaultOpenCreate={searchParams.get("new") === "1"}

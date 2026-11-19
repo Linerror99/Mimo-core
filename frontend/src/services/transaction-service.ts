@@ -90,4 +90,11 @@ export const transactionService = {
       { method: "PATCH" }
     );
   },
+
+  async cancel(id: string, reason?: string): Promise<Transaction> {
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+    return apiRequest<Transaction>(`/transactions/${id}/cancel${qs}`, {
+      method: "PATCH",
+    });
+  },
 };

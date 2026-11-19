@@ -10,18 +10,22 @@ import {
   Copy,
   Download,
   Edit3,
+  Layers,
   Plus,
   Repeat,
   Search,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AmountDisplay } from "@/components/shared/amount-display";
+import { ValidationModal } from "@/components/features/timeline/validation-modal";
 import {
   cn,
   formatDateFr,
@@ -34,6 +38,7 @@ import {
   TEMPLATE_FREQUENCY_LABELS,
   type RecurringTemplate,
   type RecurringTemplateCreate,
+  type RecurringTemplateUpdate,
   type TemplateFrequency,
 } from "@/types/recurring-template";
 import {
@@ -67,12 +72,42 @@ interface TimelineViewProps {
     payload: TransactionUpdate
   ) => Promise<void> | void;
   onDeleteTransaction: (id: string) => Promise<void> | void;
-  onValidateTransaction: (id: string) => Promise<void> | void;
+  onValidateTransaction: (
+    id: string,
+    newAmount?: number
+  ) => Promise<void> | void;
+  onPostponeTransaction?: (
+    id: string,
+    newDate: string
+  ) => Promise<void> | void;
+  onCancelTransaction?: (id: string) => Promise<void> | void;
   onCreateTemplate: (payload: RecurringTemplateCreate) => Promise<void> | void;
+  onUpdateTemplate?: (
+    id: string,
+    payload: RecurringTemplateUpdate
+  ) => Promise<void> | void;
+  onBulkUpdateTemplate?: (
+    id: string,
+    payload: { start_date: string; end_date: string; amount: number }
+  ) => Promise<void> | void;
+  onBulkCancelTemplate?: (
+    id: string,
+    payload: { start_date: string; end_date: string }
+  ) => Promise<void> | void;
   onDeleteTemplate: (id: string) => Promise<void> | void;
   onExportPdf?: () => Promise<void> | void;
   defaultOpenCreate?: boolean;
 }
+
+const WEEKDAYS = [
+  { value: 0, label: "Lundi" },
+  { value: 1, label: "Mardi" },
+  { value: 2, label: "Mercredi" },
+  { value: 3, label: "Jeudi" },
+  { value: 4, label: "Vendredi" },
+  { value: 5, label: "Samedi" },
+  { value: 6, label: "Dimanche" },
+];
 
 export function TimelineSkeleton() {
   return (
@@ -104,7 +139,12 @@ export function TimelineView({
   onUpdateTransaction,
   onDeleteTransaction,
   onValidateTransaction,
+  onPostponeTransaction,
+  onCancelTransaction,
   onCreateTemplate,
+  onUpdateTemplate,
+  onBulkUpdateTemplate,
+  onBulkCancelTemplate,
   onDeleteTemplate,
   onExportPdf,
   defaultOpenCreate = false,
@@ -134,15 +174,43 @@ export function TimelineView({
   const [recurrenceEnd, setRecurrenceEnd] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Template Modal
+  // Template Modal (Create & Edit)
   const [tplModalOpen, setTplModalOpen] = useState(false);
+  const [editingTpl, setEditingTpl] = useState<RecurringTemplate | null>(null);
   const [tplName, setTplName] = useState("");
   const [tplAmount, setTplAmount] = useState("");
   const [tplType, setTplType] = useState<TransactionType>("EXPENSE");
   const [tplFreq, setTplFreq] = useState<TemplateFrequency>("MONTHLY");
   const [tplStart, setTplStart] = useState(getTodayIso());
+  const [tplDayOfMonth, setTplDayOfMonth] = useState(
+    String(new Date().getDate())
+  );
+  const [tplDayOfWeek, setTplDayOfWeek] = useState("0");
+  const [tplCustomDays, setTplCustomDays] = useState("14");
   const [tplAccountId, setTplAccountId] = useState(accounts[0]?.id || "");
+  const [tplDestAccountId, setTplDestAccountId] = useState("");
   const [tplCategoryId, setTplCategoryId] = useState("");
+
+  // Validation / Postpone Modal
+  const [validatingTx, setValidatingTx] = useState<Transaction | null>(null);
+
+  // Bulk Action Modal on Recurring Template
+  const [bulkTpl, setBulkTpl] = useState<RecurringTemplate | null>(null);
+  const [bulkMode, setBulkMode] = useState<"update" | "cancel">("update");
+  const [bulkStart, setBulkStart] = useState(getTodayIso());
+  const [bulkEnd, setBulkEnd] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 6);
+    return d.toISOString().slice(0, 10);
+  });
+  const [bulkAmount, setBulkAmount] = useState("");
+
+  // Confirm Delete Dialogs
+  const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
+  const [tplToDelete, setTplToDelete] = useState<RecurringTemplate | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
 
   const filteredTransactions = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -235,12 +303,16 @@ export function TimelineView({
     e.preventDefault();
     const numericAmount = Number.parseFloat(amount);
     if (!description.trim() || !accountId || Number.isNaN(numericAmount)) return;
+    const signedTxAmount =
+      txType === "EXPENSE"
+        ? -Math.abs(numericAmount)
+        : Math.abs(numericAmount);
     setSubmitting(true);
     try {
       if (editingTx) {
         await onUpdateTransaction(editingTx.id, {
           description: description.trim(),
-          amount: numericAmount,
+          amount: signedTxAmount,
           transaction_date: txDate,
           type: txType,
           account_id: accountId,
@@ -253,7 +325,7 @@ export function TimelineView({
         await onCreateTransaction(
           {
             description: description.trim(),
-            amount: numericAmount,
+            amount: signedTxAmount,
             transaction_date: txDate,
             type: txType,
             account_id: accountId,
@@ -270,7 +342,7 @@ export function TimelineView({
         await onCreateTransaction(
           {
             description: description.trim(),
-            amount: numericAmount,
+            amount: signedTxAmount,
             transaction_date: txDate,
             type: txType,
             account_id: accountId,
@@ -288,30 +360,161 @@ export function TimelineView({
     }
   };
 
+  const openCreateTemplate = () => {
+    setEditingTpl(null);
+    setTplName("");
+    setTplAmount("");
+    setTplType("EXPENSE");
+    setTplFreq("MONTHLY");
+    const today = getTodayIso();
+    setTplStart(today);
+    setTplDayOfMonth(String(new Date(today).getDate()));
+    setTplDayOfWeek("0");
+    setTplCustomDays("14");
+    setTplAccountId(accounts[0]?.id || "");
+    setTplDestAccountId("");
+    setTplCategoryId("");
+    setTplModalOpen(true);
+  };
+
+  const openEditTemplate = (tpl: RecurringTemplate) => {
+    setEditingTpl(tpl);
+    setTplName(tpl.name);
+    setTplAmount(String(Math.abs(Number(tpl.amount))));
+    setTplType(tpl.type);
+    setTplFreq(tpl.frequency);
+    setTplStart(tpl.start_date.slice(0, 10));
+    setTplDayOfMonth(String(tpl.day_of_month ?? new Date(tpl.start_date).getDate()));
+    setTplDayOfWeek(String(tpl.day_of_week ?? 0));
+    setTplCustomDays(String(tpl.custom_days ?? 14));
+    setTplAccountId(tpl.account_id);
+    setTplDestAccountId(tpl.destination_account_id || "");
+    setTplCategoryId(tpl.category_id || "");
+    setTplModalOpen(true);
+  };
+
+  const openBulkModal = (tpl: RecurringTemplate) => {
+    setBulkTpl(tpl);
+    setBulkMode("update");
+    setBulkStart(getTodayIso());
+    setBulkAmount(String(Math.abs(Number(tpl.amount))));
+  };
+
   const handleSubmitTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numericAmount = Number.parseFloat(tplAmount);
+    const numericAmount = Math.abs(Number.parseFloat(tplAmount));
     const selectedAccount = tplAccountId || accounts[0]?.id;
-    if (!tplName.trim() || !selectedAccount || Number.isNaN(numericAmount)) {
+    if (!tplName.trim() || !selectedAccount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+      return;
+    }
+    if (!editingTpl && tplType === "TRANSFER" && !tplDestAccountId) {
       return;
     }
     setSubmitting(true);
     try {
-      await onCreateTemplate({
-        name: tplName.trim(),
-        amount: numericAmount,
-        type: tplType,
-        frequency: tplFreq,
-        start_date: tplStart,
-        day_of_month: new Date(tplStart).getDate(),
-        account_id: selectedAccount,
-        category_id: tplCategoryId || null,
-      });
+      const parsedDayOfMonth = Math.min(
+        31,
+        Math.max(1, Number.parseInt(tplDayOfMonth, 10) || new Date(tplStart).getDate())
+      );
+      const parsedDayOfWeek = Math.min(
+        6,
+        Math.max(0, Number.parseInt(tplDayOfWeek, 10) || 0)
+      );
+      const parsedCustomDays = Math.max(
+        1,
+        Number.parseInt(tplCustomDays, 10) || 14
+      );
+
+      if (editingTpl && onUpdateTemplate) {
+        await onUpdateTemplate(editingTpl.id, {
+          name: tplName.trim(),
+          amount: numericAmount,
+          day_of_month:
+            tplFreq === "MONTHLY" ||
+            tplFreq === "QUARTERLY" ||
+            tplFreq === "YEARLY"
+              ? parsedDayOfMonth
+              : null,
+          day_of_week: tplFreq === "WEEKLY" ? parsedDayOfWeek : null,
+          custom_days: tplFreq === "CUSTOM" ? parsedCustomDays : null,
+          category_id: tplType === "TRANSFER" ? null : tplCategoryId || null,
+        });
+      } else {
+        await onCreateTemplate({
+          name: tplName.trim(),
+          amount: numericAmount,
+          type: tplType,
+          frequency: tplFreq,
+          start_date: tplStart,
+          day_of_month:
+            tplFreq === "MONTHLY" ||
+            tplFreq === "QUARTERLY" ||
+            tplFreq === "YEARLY"
+              ? parsedDayOfMonth
+              : null,
+          day_of_week: tplFreq === "WEEKLY" ? parsedDayOfWeek : null,
+          custom_days: tplFreq === "CUSTOM" ? parsedCustomDays : null,
+          account_id: selectedAccount,
+          destination_account_id:
+            tplType === "TRANSFER" ? tplDestAccountId : null,
+          category_id: tplType === "TRANSFER" ? null : tplCategoryId || null,
+        });
+      }
       setTplModalOpen(false);
+      setEditingTpl(null);
       setTplName("");
       setTplAmount("");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmitBulk = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkTpl) return;
+    setSubmitting(true);
+    try {
+      if (bulkMode === "update" && onBulkUpdateTemplate) {
+        const parsed = Number.parseFloat(bulkAmount);
+        if (Number.isNaN(parsed) || parsed <= 0) return;
+        const signedBulkAmount =
+          bulkTpl.type === "EXPENSE" ? -Math.abs(parsed) : Math.abs(parsed);
+        await onBulkUpdateTemplate(bulkTpl.id, {
+          start_date: bulkStart,
+          end_date: bulkEnd,
+          amount: signedBulkAmount,
+        });
+      } else if (bulkMode === "cancel" && onBulkCancelTemplate) {
+        await onBulkCancelTemplate(bulkTpl.id, {
+          start_date: bulkStart,
+          end_date: bulkEnd,
+        });
+      }
+      setBulkTpl(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmDeleteTx = async () => {
+    if (!txToDelete) return;
+    setDeleting(true);
+    try {
+      await onDeleteTransaction(txToDelete.id);
+      setTxToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleConfirmDeleteTpl = async () => {
+    if (!tplToDelete) return;
+    setDeleting(true);
+    try {
+      await onDeleteTemplate(tplToDelete.id);
+      setTplToDelete(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -355,7 +558,7 @@ export function TimelineView({
           <Button
             onClick={() =>
               viewMode === "templates"
-                ? setTplModalOpen(true)
+                ? openCreateTemplate()
                 : openCreateTx()
             }
           >
@@ -659,16 +862,27 @@ export function TimelineView({
                           <td className="whitespace-nowrap px-4 py-3 text-right">
                             <div className="inline-flex items-center gap-1">
                               {isPending && (
-                                <button
-                                  type="button"
-                                  onClick={() => onValidateTransaction(tx.id)}
-                                  aria-label={`Valider ${tx.description}`}
-                                  title="Valider l'opération"
-                                  className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                  Valider
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => onValidateTransaction(tx.id)}
+                                    aria-label={`Valider ${tx.description}`}
+                                    title="Valider l'opération"
+                                    className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Valider
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setValidatingTx(tx)}
+                                    aria-label={`Ajuster ou reporter ${tx.description}`}
+                                    title="Ajuster le montant ou reporter"
+                                    className="flex h-7 w-7 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
+                                  >
+                                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
                               )}
                               <button
                                 type="button"
@@ -690,7 +904,7 @@ export function TimelineView({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => onDeleteTransaction(tx.id)}
+                                onClick={() => setTxToDelete(tx)}
                                 aria-label={`Supprimer ${tx.description}`}
                                 title="Supprimer"
                                 className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-zinc-400"
@@ -717,7 +931,7 @@ export function TimelineView({
               title="Aucun modèle récurrent"
               description="Automatisez votre loyer, salaire et abonnements pour alimenter vos projections 5 ans."
               action={
-                <Button onClick={() => setTplModalOpen(true)}>
+                <Button onClick={openCreateTemplate}>
                   <Plus className="h-4 w-4" />
                   Créer une récurrence
                 </Button>
@@ -740,9 +954,15 @@ export function TimelineView({
                       <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
                         Début : {formatDateFr(tpl.start_date)}
                         {tpl.day_of_month ? ` · Jour ${tpl.day_of_month}` : ""}
+                        {tpl.frequency === "WEEKLY" && tpl.day_of_week !== null
+                          ? ` · ${WEEKDAYS[tpl.day_of_week]?.label ?? ""}`
+                          : ""}
+                        {tpl.frequency === "CUSTOM" && tpl.custom_days
+                          ? ` · Tous les ${tpl.custom_days} j`
+                          : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
                       <AmountDisplay
                         amount={
                           tpl.type === "EXPENSE"
@@ -751,12 +971,35 @@ export function TimelineView({
                         }
                         signed
                         colored
-                        className="text-sm font-semibold"
+                        className="mr-1.5 text-sm font-semibold"
                       />
+                      {onUpdateTemplate && (
+                        <button
+                          type="button"
+                          onClick={() => openEditTemplate(tpl)}
+                          aria-label={`Modifier le modèle ${tpl.name}`}
+                          title="Modifier le modèle"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {(onBulkUpdateTemplate || onBulkCancelTemplate) && (
+                        <button
+                          type="button"
+                          onClick={() => openBulkModal(tpl)}
+                          aria-label={`Actions en masse ${tpl.name}`}
+                          title="Modifier / annuler les occurrences futures"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-violet-500/10 hover:text-violet-600 dark:text-zinc-400"
+                        >
+                          <Layers className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => onDeleteTemplate(tpl.id)}
+                        onClick={() => setTplToDelete(tpl)}
                         aria-label={`Supprimer le modèle ${tpl.name}`}
+                        title="Supprimer le modèle"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-600"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1010,11 +1253,18 @@ export function TimelineView({
         </form>
       </Modal>
 
-      {/* Create Recurring Template Modal */}
+      {/* Create / Edit Recurring Template Modal */}
       <Modal
         open={tplModalOpen}
-        onClose={() => setTplModalOpen(false)}
-        title="Nouveau modèle récurrent"
+        onClose={() => {
+          setTplModalOpen(false);
+          setEditingTpl(null);
+        }}
+        title={
+          editingTpl
+            ? "Modifier le modèle récurrent"
+            : "Nouveau modèle récurrent"
+        }
         description="Alimente automatiquement vos projections mensuelles jusqu'à 5 ans."
       >
         <form onSubmit={handleSubmitTemplate} className="space-y-4">
@@ -1046,8 +1296,9 @@ export function TimelineView({
               <select
                 id="tpl-type"
                 value={tplType}
+                disabled={Boolean(editingTpl)}
                 onChange={(e) => setTplType(e.target.value as TransactionType)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 dark:border-zinc-800 dark:bg-[#121215]"
               >
                 <option value="EXPENSE">Dépense</option>
                 <option value="INCOME">Revenu</option>
@@ -1065,6 +1316,7 @@ export function TimelineView({
                 id="tpl-amount"
                 type="number"
                 step="0.01"
+                min="0.01"
                 required
                 value={tplAmount}
                 onChange={(e) => setTplAmount(e.target.value)}
@@ -1083,10 +1335,11 @@ export function TimelineView({
               <select
                 id="tpl-freq"
                 value={tplFreq}
+                disabled={Boolean(editingTpl)}
                 onChange={(e) =>
                   setTplFreq(e.target.value as TemplateFrequency)
                 }
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 dark:border-zinc-800 dark:bg-[#121215]"
               >
                 {(
                   Object.keys(TEMPLATE_FREQUENCY_LABELS) as TemplateFrequency[]
@@ -1108,26 +1361,97 @@ export function TimelineView({
                 id="tpl-start"
                 type="date"
                 required
+                disabled={Boolean(editingTpl)}
                 value={tplStart}
-                onChange={(e) => setTplStart(e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                onChange={(e) => {
+                  setTplStart(e.target.value);
+                  const d = new Date(e.target.value);
+                  if (!Number.isNaN(d.getTime())) {
+                    setTplDayOfMonth(String(d.getDate()));
+                  }
+                }}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 dark:border-zinc-800 dark:bg-[#121215]"
               />
             </div>
           </div>
+
+          {/* Conditional Recurrence Parameter */}
+          {tplFreq === "WEEKLY" ? (
+            <div>
+              <label
+                htmlFor="tpl-weekday"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Jour de la semaine
+              </label>
+              <select
+                id="tpl-weekday"
+                value={tplDayOfWeek}
+                onChange={(e) => setTplDayOfWeek(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              >
+                {WEEKDAYS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : tplFreq === "CUSTOM" ? (
+            <div>
+              <label
+                htmlFor="tpl-custom-days"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Intervalle personnalisé (en jours)
+              </label>
+              <input
+                id="tpl-custom-days"
+                type="number"
+                min="1"
+                max="365"
+                required
+                value={tplCustomDays}
+                onChange={(e) => setTplCustomDays(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+            </div>
+          ) : (
+            <div>
+              <label
+                htmlFor="tpl-day-of-month"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Jour du mois (1 à 31)
+              </label>
+              <input
+                id="tpl-day-of-month"
+                type="number"
+                min="1"
+                max="31"
+                required
+                value={tplDayOfMonth}
+                onChange={(e) => setTplDayOfMonth(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label
                 htmlFor="tpl-account"
                 className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
               >
-                Compte
+                Compte source
               </label>
               <select
                 id="tpl-account"
                 required
+                disabled={Boolean(editingTpl)}
                 value={tplAccountId || accounts[0]?.id || ""}
                 onChange={(e) => setTplAccountId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 dark:border-zinc-800 dark:bg-[#121215]"
               >
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -1136,42 +1460,226 @@ export function TimelineView({
                 ))}
               </select>
             </div>
-            <div>
-              <label
-                htmlFor="tpl-category"
-                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
-              >
-                Catégorie
-              </label>
-              <select
-                id="tpl-category"
-                value={tplCategoryId}
-                onChange={(e) => setTplCategoryId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
-              >
-                <option value="">Sans catégorie</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {tplType === "TRANSFER" ? (
+              <div>
+                <label
+                  htmlFor="tpl-dest-account"
+                  className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+                >
+                  Compte destinataire
+                </label>
+                <select
+                  id="tpl-dest-account"
+                  required
+                  disabled={Boolean(editingTpl)}
+                  value={tplDestAccountId}
+                  onChange={(e) => setTplDestAccountId(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm disabled:opacity-60 dark:border-zinc-800 dark:bg-[#121215]"
+                >
+                  <option value="">Choisir la destination</option>
+                  {accounts
+                    .filter((a) => a.id !== (tplAccountId || accounts[0]?.id))
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label
+                  htmlFor="tpl-category"
+                  className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+                >
+                  Catégorie
+                </label>
+                <select
+                  id="tpl-category"
+                  value={tplCategoryId}
+                  onChange={(e) => setTplCategoryId(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                >
+                  <option value="">Sans catégorie</option>
+                  {categories
+                    .filter((c) => c.type === tplType)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setTplModalOpen(false)}
+              onClick={() => {
+                setTplModalOpen(false);
+                setEditingTpl(null);
+              }}
             >
               Annuler
             </Button>
             <Button type="submit" disabled={submitting}>
-              Créer la récurrence
+              {editingTpl ? "Enregistrer" : "Créer la récurrence"}
             </Button>
           </div>
         </form>
       </Modal>
+
+      {/* Bulk Update / Cancel Occurrences Modal */}
+      <Modal
+        open={Boolean(bulkTpl)}
+        onClose={() => setBulkTpl(null)}
+        title={`Actions en masse — ${bulkTpl?.name ?? ""}`}
+        description="Modifiez le montant ou annulez temporairement les occurrences futures sur une période."
+        maxWidthClass="max-w-md"
+      >
+        <form onSubmit={handleSubmitBulk} className="space-y-4">
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs font-medium dark:border-zinc-800 dark:bg-zinc-900">
+            <button
+              type="button"
+              onClick={() => setBulkMode("update")}
+              className={cn(
+                "rounded-md py-1.5 transition-colors",
+                bulkMode === "update"
+                  ? "bg-white font-semibold text-violet-600 shadow-xs dark:bg-zinc-800 dark:text-violet-400"
+                  : "text-slate-600 dark:text-zinc-400"
+              )}
+            >
+              Ajuster le montant
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkMode("cancel")}
+              className={cn(
+                "rounded-md py-1.5 transition-colors",
+                bulkMode === "cancel"
+                  ? "bg-white font-semibold text-rose-600 shadow-xs dark:bg-zinc-800 dark:text-rose-400"
+                  : "text-slate-600 dark:text-zinc-400"
+              )}
+            >
+              Annuler la période
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="bulk-start"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Du
+              </label>
+              <input
+                id="bulk-start"
+                type="date"
+                required
+                value={bulkStart}
+                onChange={(e) => setBulkStart(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="bulk-end"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Au
+              </label>
+              <input
+                id="bulk-end"
+                type="date"
+                required
+                value={bulkEnd}
+                onChange={(e) => setBulkEnd(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+            </div>
+          </div>
+
+          {bulkMode === "update" && (
+            <div>
+              <label
+                htmlFor="bulk-amount"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Nouveau montant (€)
+              </label>
+              <input
+                id="bulk-amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={bulkAmount}
+                onChange={(e) => setBulkAmount(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setBulkTpl(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              variant={bulkMode === "cancel" ? "danger" : "primary"}
+              disabled={submitting}
+            >
+              {bulkMode === "cancel"
+                ? "Annuler les occurrences"
+                : "Appliquer le montant"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Validation / Adjust / Postpone Modal */}
+      <ValidationModal
+        transaction={validatingTx}
+        onClose={() => setValidatingTx(null)}
+        onValidate={onValidateTransaction}
+        onPostpone={onPostponeTransaction}
+        onCancelTransaction={onCancelTransaction}
+      />
+
+      {/* Delete Confirmations */}
+      <ConfirmDialog
+        open={Boolean(txToDelete)}
+        onClose={() => setTxToDelete(null)}
+        onConfirm={handleConfirmDeleteTx}
+        loading={deleting}
+        title="Supprimer cette transaction ?"
+        description={
+          txToDelete
+            ? `La transaction « ${txToDelete.description} » sera déplacée vers la corbeille.`
+            : ""
+        }
+        confirmLabel="Déplacer vers la corbeille"
+      />
+
+      <ConfirmDialog
+        open={Boolean(tplToDelete)}
+        onClose={() => setTplToDelete(null)}
+        onConfirm={handleConfirmDeleteTpl}
+        loading={deleting}
+        title="Supprimer ce modèle récurrent ?"
+        description={
+          tplToDelete
+            ? `Le modèle « ${tplToDelete.name} » et ses occurrences futures non réalisées seront supprimés.`
+            : ""
+        }
+        confirmLabel="Supprimer le modèle"
+      />
     </div>
   );
 }
