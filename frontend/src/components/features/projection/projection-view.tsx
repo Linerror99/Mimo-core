@@ -281,12 +281,12 @@ export function ProjectionView({
                       <linearGradient id="mimoPat" x1="0" y1="0" x2="0" y2="1">
                         <stop
                           offset="5%"
-                          stopColor="#2563EB"
-                          stopOpacity={0.25}
+                          stopColor="#7C3AED"
+                          stopOpacity={0.28}
                         />
                         <stop
                           offset="95%"
-                          stopColor="#2563EB"
+                          stopColor="#7C3AED"
                           stopOpacity={0}
                         />
                       </linearGradient>
@@ -319,7 +319,7 @@ export function ProjectionView({
                     <Area
                       type="monotone"
                       dataKey="Patrimoine"
-                      stroke="#2563EB"
+                      stroke="#7C3AED"
                       strokeWidth={2}
                       fill="url(#mimoPat)"
                     />

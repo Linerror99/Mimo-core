@@ -247,7 +247,7 @@ export function DashboardView({
             </div>
             <Link
               href="/projection"
-              className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+              className="text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
             >
               Voir 5 ans →
             </Link>

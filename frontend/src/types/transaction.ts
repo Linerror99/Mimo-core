@@ -43,6 +43,7 @@ export interface TransactionCreate {
   account_id: string;
   category_id?: string | null;
   destination_account_id?: string | null;
+  goal_id?: string | null;
   notes?: string | null;
 }
 

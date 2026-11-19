@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import {
+  AlertCircle,
   CalendarClock,
   Check,
   ChevronLeft,
@@ -317,7 +318,17 @@ export function TimelineView({
   const stateBadgeVariant = (state: TransactionState) => {
     if (state === "REALIZED") return "success";
     if (state === "PENDING") return "warning";
-    return "info";
+    return "neutral";
+  };
+
+  const pendingInMonth = filteredTransactions.filter(
+    (t) => t.state === "PENDING"
+  );
+
+  const handleValidateAllPending = async () => {
+    for (const tx of pendingInMonth) {
+      await onValidateTransaction(tx.id);
+    }
   };
 
   return (
@@ -453,6 +464,35 @@ export function TimelineView({
             </Card>
           </div>
 
+          {/* Pending Validation Banner */}
+          {pendingInMonth.length > 0 && (
+            <div
+              data-testid="pending-alert-banner"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3"
+            >
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                    {pendingInMonth.length} opération(s) à valider
+                  </p>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                    Ces opérations sont arrivées à échéance et attendent votre
+                    confirmation.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleValidateAllPending}
+              >
+                <Check className="h-3.5 w-3.5" />
+                Tout valider
+              </Button>
+            </div>
+          )}
+
           {/* Filter Bar */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1">
@@ -547,17 +587,37 @@ export function TimelineView({
                         tx.category_name ||
                         categories.find((c) => c.id === tx.category_id)?.name;
 
+                      const isProjected = tx.state === "PROJECTED";
+                      const isPending = tx.state === "PENDING";
+
                       return (
                         <tr
                           key={tx.id}
-                          className="hover:bg-slate-50/80 dark:hover:bg-zinc-900/40"
+                          data-state={tx.state}
+                          className={cn(
+                            "transition-colors",
+                            isPending &&
+                              "border-l-[3px] border-l-amber-500 bg-amber-50/90 hover:bg-amber-50 dark:bg-amber-500/10 dark:hover:bg-amber-500/15",
+                            isProjected &&
+                              "bg-slate-50/60 opacity-60 hover:opacity-85 dark:bg-zinc-900/40",
+                            !isPending &&
+                              !isProjected &&
+                              "hover:bg-slate-50/80 dark:hover:bg-zinc-900/40"
+                          )}
                         >
                           <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-500 tabular-money dark:text-zinc-400">
                             {formatDateFr(tx.transaction_date)}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-slate-900 dark:text-zinc-100">
+                              <span
+                                className={cn(
+                                  "font-medium",
+                                  isProjected
+                                    ? "italic text-slate-500 dark:text-zinc-400"
+                                    : "text-slate-900 dark:text-zinc-100"
+                                )}
+                              >
                                 {tx.description}
                               </span>
                               {(tx.recurring_template_id ||
@@ -578,7 +638,10 @@ export function TimelineView({
                             {accLabel}
                           </td>
                           <td className="whitespace-nowrap px-4 py-3">
-                            <Badge variant={stateBadgeVariant(tx.state)}>
+                            <Badge
+                              variant={stateBadgeVariant(tx.state)}
+                              className={cn(isProjected && "border-dashed")}
+                            >
                               {TRANSACTION_STATE_LABELS[tx.state]}
                             </Badge>
                           </td>
@@ -586,20 +649,25 @@ export function TimelineView({
                             <AmountDisplay
                               amount={signedAmount}
                               signed={tx.type !== "TRANSFER"}
-                              colored={tx.type !== "TRANSFER"}
+                              colored={tx.type !== "TRANSFER" && !isProjected}
+                              className={cn(
+                                isProjected &&
+                                  "text-slate-500 dark:text-zinc-400"
+                              )}
                             />
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-right">
                             <div className="inline-flex items-center gap-1">
-                              {tx.state === "PENDING" && (
+                              {isPending && (
                                 <button
                                   type="button"
                                   onClick={() => onValidateTransaction(tx.id)}
                                   aria-label={`Valider ${tx.description}`}
-                                  title="Valider"
-                                  className="flex h-7 w-7 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-500/10"
+                                  title="Valider l'opération"
+                                  className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
                                 >
                                   <Check className="h-3.5 w-3.5" />
+                                  Valider
                                 </button>
                               )}
                               <button

@@ -43,9 +43,12 @@ export default function LandingPage() {
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-[#121215]/90">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F172A] text-xs font-bold text-white dark:bg-[#F8FAFC] dark:text-[#09090B]">
-              MF
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/mimo-logo.jpg"
+              alt="Logo Mimo Finance"
+              className="h-8 w-8 rounded-lg border border-violet-500/20 object-cover"
+            />
             <span className="text-sm font-semibold tracking-tight">
               Mimo Finance
             </span>
@@ -59,7 +62,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/register"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0F172A] px-3.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-[#F8FAFC] dark:text-[#09090B] dark:hover:bg-zinc-200"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-violet-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-violet-700 dark:hover:bg-violet-500"
             >
               Créer un compte
               <ArrowRight className="h-3.5 w-3.5" />
@@ -86,7 +89,7 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/register"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0F172A] px-5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-[#F8FAFC] dark:text-[#09090B] dark:hover:bg-zinc-200"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-violet-600 px-5 text-sm font-medium text-white shadow-sm hover:bg-violet-700 dark:hover:bg-violet-500"
             >
               Démarrer gratuitement
               <ArrowRight className="h-4 w-4" />

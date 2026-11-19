@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ProjectsView } from "@/components/features/projects/projects-view";
 import { projectService } from "@/services/project-service";
-import { goalService } from "@/services/goal-service";
 import { accountService } from "@/services/account-service";
-import { useAuthStore } from "@/stores/auth-store";
-import type { GoalCreate } from "@/types/goal";
-import type { ProjectCreate, ProjectItemCreate } from "@/types/project";
+import { categoryService } from "@/services/category-service";
+import type {
+  ProjectCreate,
+  ProjectItemCreate,
+  ProjectItemUpdate,
+  ProjectUpdate,
+} from "@/types/project";
 
 export function ProjectsPageClient({
   initialProjectId,
@@ -20,24 +23,14 @@ export function ProjectsPageClient({
 }) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const user = useAuthStore((s) => s.user);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialProjectId ?? null
   );
-
-  const initialTab =
-    searchParams.get("tab") === "goals" ? "goals" : "projects";
 
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
     queryKey: ["projects"],
     queryFn: () => projectService.list(),
   });
-
-  useEffect(() => {
-    if (!selectedId && projects.length > 0) {
-      setSelectedId(projects[0].id);
-    }
-  }, [selectedId, projects]);
 
   const { data: selectedProject = null } = useQuery({
     queryKey: ["project-detail", selectedId],
@@ -51,14 +44,14 @@ export function ProjectsPageClient({
     enabled: Boolean(selectedId),
   });
 
-  const { data: goals = [], isLoading: loadingGoals } = useQuery({
-    queryKey: ["goals"],
-    queryFn: () => goalService.list(),
-  });
-
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => accountService.list(),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => categoryService.list(),
   });
 
   const refreshProjects = async () => {
@@ -73,10 +66,20 @@ export function ProjectsPageClient({
     try {
       const created = await projectService.create(payload);
       setSelectedId(created.id);
-      toast.success("Projet créé");
+      toast.success(`Projet « ${created.name} » créé`);
       await refreshProjects();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Création impossible");
+    }
+  };
+
+  const handleUpdateProject = async (id: string, payload: ProjectUpdate) => {
+    try {
+      await projectService.update(id, payload);
+      toast.success("Projet mis à jour");
+      await refreshProjects();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
     }
   };
 
@@ -108,17 +111,31 @@ export function ProjectsPageClient({
   ) => {
     try {
       await projectService.addItem(projectId, item);
-      toast.success("Poste ajouté");
+      toast.success("Dépense ajoutée et simulation recalculée");
       await refreshProjects();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ajout impossible");
     }
   };
 
+  const handleUpdateProjectItem = async (
+    projectId: string,
+    itemId: string,
+    item: ProjectItemUpdate
+  ) => {
+    try {
+      await projectService.updateItem(projectId, itemId, item);
+      toast.success("Dépense mise à jour");
+      await refreshProjects();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
+    }
+  };
+
   const handleDeleteProjectItem = async (projectId: string, itemId: string) => {
     try {
       await projectService.removeItem(projectId, itemId);
-      toast.success("Poste supprimé");
+      toast.success("Dépense retirée du projet");
       await refreshProjects();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Suppression impossible");
@@ -128,7 +145,7 @@ export function ProjectsPageClient({
   const handleCommitProject = async (projectId: string) => {
     try {
       const res = await projectService.commit(projectId);
-      toast.success(res.message || "Projet injecté dans la timeline");
+      toast.success(res.message || "Projet intégré à votre timeline");
       await refreshProjects();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Validation impossible");
@@ -145,62 +162,25 @@ export function ProjectsPageClient({
     }
   };
 
-  const handleCreateGoal = async (payload: GoalCreate) => {
-    if (!user) return;
-    try {
-      await goalService.create(payload, {
-        userId: user.id,
-        householdId: user.household_id,
-      });
-      toast.success("Objectif créé");
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Création impossible");
-    }
-  };
-
-  const handleAddGoalContribution = async (goalId: string, amount: number) => {
-    try {
-      await goalService.addContribution(goalId, amount);
-      toast.success("Contribution enregistrée");
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
-    }
-  };
-
-  const handleDeleteGoal = async (goalId: string) => {
-    try {
-      await goalService.remove(goalId);
-      toast.success("Objectif supprimé");
-      await queryClient.invalidateQueries({ queryKey: ["goals"] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Suppression impossible");
-    }
-  };
-
   return (
     <AppShell activePath="/projects">
       <ProjectsView
-        isLoading={loadingProjects || loadingGoals}
-        initialTab={initialTab}
+        isLoading={loadingProjects}
         projects={projects}
         selectedProject={selectedProject}
         simulation={simulation}
-        goals={goals}
         accounts={accounts}
-        isInCouple={Boolean(user?.is_in_couple)}
+        categories={categories}
         onSelectProject={setSelectedId}
         onCreateProject={handleCreateProject}
+        onUpdateProject={handleUpdateProject}
         onDeleteProject={handleDeleteProject}
         onDuplicateProject={handleDuplicateProject}
         onAddProjectItem={handleAddProjectItem}
+        onUpdateProjectItem={handleUpdateProjectItem}
         onDeleteProjectItem={handleDeleteProjectItem}
         onCommitProject={handleCommitProject}
         onRollbackProject={handleRollbackProject}
-        onCreateGoal={handleCreateGoal}
-        onAddGoalContribution={handleAddGoalContribution}
-        onDeleteGoal={handleDeleteGoal}
         defaultOpenCreate={searchParams.get("new") === "1"}
       />
     </AppShell>

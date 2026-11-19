@@ -110,14 +110,13 @@ export function AccountsView({
     if (!name.trim()) return;
     setSubmitting(true);
     try {
-      const parsedBalance = Number.parseFloat(initialBalance) || 0;
       if (editing) {
         await onUpdate(editing.id, {
           name: name.trim(),
           type,
-          initial_balance: parsedBalance,
         });
       } else {
+        const parsedBalance = Number.parseFloat(initialBalance) || 0;
         await onCreate({
           name: name.trim(),
           type,
@@ -338,16 +337,25 @@ export function AccountsView({
                 htmlFor="acc-balance"
                 className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
               >
-                Solde initial (€)
+                {editing ? "Solde actuel (verrouillé)" : "Solde initial (€)"}
               </label>
               <input
                 id="acc-balance"
                 type="number"
                 step="0.01"
-                value={initialBalance}
+                disabled={Boolean(editing)}
+                value={
+                  editing ? String(editing.current_balance) : initialBalance
+                }
                 onChange={(e) => setInitialBalance(e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm dark:border-zinc-800 dark:bg-[#121215]"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-zinc-800 dark:bg-[#121215] dark:disabled:bg-zinc-900 dark:disabled:text-zinc-500"
               />
+              {editing && (
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                  Le solde d&apos;un compte existant évolue uniquement via vos
+                  transactions.
+                </p>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

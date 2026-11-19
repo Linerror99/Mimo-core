@@ -17,3 +17,18 @@
     font-feature-settings: "tnum" 1;
   }
 }
+
+/* ==========================================================================
+   Mode Discret (Privacy Mode) — Floutage CSS des montants (révélation au survol)
+   ========================================================================== */
+body.privacy-mode [data-privacy="amount"],
+body.privacy-mode .recharts-cartesian-axis-tick-value,
+body.privacy-mode .recharts-tooltip-wrapper {
+  filter: blur(8px);
+  user-select: none;
+  transition: filter 0.2s ease-in-out;
+}
+
+body.privacy-mode [data-privacy="amount"]:hover {
+  filter: blur(0px);
+}

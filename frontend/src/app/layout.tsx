@@ -20,7 +20,11 @@ export const metadata: Metadata = {
   description:
     "Timeline financière unifiée, projections 5 ans, simulation What-If et gestion collaborative en couple.",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 
@@ -49,9 +53,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="icon" href="/favicon.png" type="image/png" />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-screen bg-[#F8FAFC] font-sans text-sm text-[#0F172A] antialiased dark:bg-[#09090B] dark:text-[#FAFAFA]">
+      <body
+        suppressHydrationWarning
+        className="min-h-screen bg-[#F8FAFC] font-sans text-sm text-[#0F172A] antialiased dark:bg-[#09090B] dark:text-[#FAFAFA]"
+      >
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

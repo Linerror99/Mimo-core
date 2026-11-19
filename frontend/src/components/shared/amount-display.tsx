@@ -30,8 +30,16 @@ export function AmountDisplay({
     : "";
 
   return (
-    <span className={cn("font-mono tabular-money", colorClass, className)}>
-      {isPrivate ? "•••• €" : formatCurrencyEur(amount, { signed, decimals })}
+    <span
+      data-privacy="amount"
+      className={cn(
+        "font-mono tabular-money transition-[filter] duration-200",
+        colorClass,
+        isPrivate && "blur-[7px] select-none hover:blur-0",
+        className
+      )}
+    >
+      {formatCurrencyEur(amount, { signed, decimals })}
     </span>
   );
 }

@@ -118,14 +118,18 @@ export async function apiRequest<T>(
         ? body
         : JSON.stringify(body);
 
+  const initialToken = getStoredAccessToken();
   let resp = await fetch(url, {
     ...rest,
     credentials: "include",
-    headers: buildHeaders(getStoredAccessToken()),
+    headers: buildHeaders(initialToken),
     body: serializedBody,
   });
 
-  if (resp.status === 401 && !skipAuthRefresh) {
+  if (
+    (resp.status === 401 || (resp.status === 403 && !initialToken)) &&
+    !skipAuthRefresh
+  ) {
     const newToken = await attemptSilentRefresh();
     if (newToken) {
       resp = await fetch(url, {

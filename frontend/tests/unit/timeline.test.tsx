@@ -115,6 +115,11 @@ describe("TimelineView — Filtres, États & Création", () => {
 
     expect(screen.getByText("Courses Biocoop")).toBeInTheDocument();
     expect(screen.getByText("Abonnement Fibre")).toBeInTheDocument();
+    expect(screen.getByTestId("pending-alert-banner")).toBeInTheDocument();
+
+    const pendingRow = screen.getByText("Abonnement Fibre").closest("tr");
+    expect(pendingRow).toHaveAttribute("data-state", "PENDING");
+    expect(pendingRow?.className).toContain("border-l-amber-500");
 
     await user.type(
       screen.getByPlaceholderText(/rechercher par libellé/i),

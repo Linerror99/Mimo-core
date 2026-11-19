@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   CalendarClock,
+  ChevronDown,
   Command,
+  Compass,
   Eye,
   EyeOff,
-  FolderKanban,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -21,8 +22,10 @@ import {
   Settings,
   Sun,
   Tag,
+  Target,
   Trash2,
   TrendingUp,
+  User,
   Users,
   Wallet,
   X,
@@ -72,9 +75,15 @@ export const MIMO_NAV_ITEMS: NavItem[] = [
     section: "planification",
   },
   {
-    label: "Projets & Objectifs",
+    label: "Projets",
     href: "/projects",
-    icon: FolderKanban,
+    icon: Compass,
+    section: "planification",
+  },
+  {
+    label: "Objectifs",
+    href: "/goals",
+    icon: Target,
     section: "planification",
   },
   {
@@ -106,6 +115,14 @@ export const MIMO_NAV_ITEMS: NavItem[] = [
 const THEME_STORAGE_KEY = "mimo_theme";
 const SIDEBAR_STORAGE_KEY = "mimo_sidebar_collapsed";
 
+function resolveAvatarSrc(avatarUrl?: string | null): string | null {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith("http") || avatarUrl.startsWith("/")) {
+    return avatarUrl;
+  }
+  return `/${avatarUrl}`;
+}
+
 interface AppShellProps {
   children: React.ReactNode;
   activePath?: string;
@@ -124,7 +141,6 @@ export function AppShell({
   const resolvedPath = activePath ?? pathname ?? "/dashboard";
 
   const activeNavItem = useMemo(() => {
-    // Match longest href first so /settings/household doesn't match /settings
     return [...MIMO_NAV_ITEMS]
       .sort((a, b) => b.href.length - a.href.length)
       .find(
@@ -141,6 +157,7 @@ export function AppShell({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const [cmdQuery, setCmdQuery] = useState("");
   const [totalBalance, setTotalBalance] = useState<number | null>(
@@ -151,7 +168,8 @@ export function AppShell({
     process.env.NODE_ENV === "test"
   );
 
-  // 1. Hydrate theme, sidebar state, auth guard, and sidebar live KPIs
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -180,7 +198,6 @@ export function AppShell({
       }
       setAuthReady(true);
 
-      // Load live balance + unread notifications count non-blockingly
       accountService
         .getTotalBalance()
         .then((res) => {
@@ -201,7 +218,22 @@ export function AppShell({
     };
   }, [user, refreshUser]);
 
-  // 2. Keyboard shortcuts: Ctrl+K (Command Palette), Ctrl+B (Sidebar), Escape
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [isProfileMenuOpen]);
+
+  // Keyboard shortcuts: Ctrl+K (Command Palette), Ctrl+B (Sidebar), Escape
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -217,6 +249,7 @@ export function AppShell({
       } else if (e.key === "Escape") {
         setIsCommandOpen(false);
         setIsMobileDrawerOpen(false);
+        setIsProfileMenuOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -241,15 +274,19 @@ export function AppShell({
   };
 
   const handleLogout = async () => {
+    setIsProfileMenuOpen(false);
     await logout();
     router.push("/login");
   };
+
+  const avatarSrc = resolveAvatarSrc(user?.avatar_url);
 
   const quickActions = useMemo(
     () => [
       { label: "Nouvelle transaction", href: "/timeline?new=1", badge: "Action" },
       { label: "Nouveau compte bancaire", href: "/accounts?new=1", badge: "Action" },
-      { label: "Simuler un projet What-If", href: "/projects?new=1", badge: "Action" },
+      { label: "Nouveau projet What-If", href: "/projects?new=1", badge: "Action" },
+      { label: "Nouvel objectif d'épargne", href: "/goals?new=1", badge: "Action" },
       ...MIMO_NAV_ITEMS.map((item) => ({
         label: item.label,
         href: item.href,
@@ -293,7 +330,7 @@ export function AppShell({
               className={cn(
                 "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] font-medium transition-colors",
                 isActive
-                  ? "bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+                  ? "bg-violet-600 text-white shadow-sm dark:bg-violet-600 dark:text-white"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100",
                 collapsed && "justify-center px-0"
               )}
@@ -333,7 +370,7 @@ export function AppShell({
           isSidebarCollapsed ? "w-[64px]" : "w-[244px]"
         )}
       >
-        {/* Brand Header */}
+        {/* Brand Header with Mimo Logo */}
         <div className="flex h-14 items-center justify-between border-b border-slate-200 px-3 dark:border-zinc-800">
           <Link
             href="/dashboard"
@@ -342,9 +379,12 @@ export function AppShell({
               isSidebarCollapsed && "mx-auto"
             )}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0F172A] text-xs font-bold tracking-tight text-white dark:bg-[#F8FAFC] dark:text-[#09090B]">
-              MF
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/mimo-logo.jpg"
+              alt="Logo Mimo Finance"
+              className="h-8 w-8 shrink-0 rounded-lg border border-violet-500/20 object-cover"
+            />
             {!isSidebarCollapsed && (
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold tracking-tight text-slate-900 dark:text-zinc-100">
@@ -358,10 +398,10 @@ export function AppShell({
           </Link>
         </div>
 
-        {/* Balance Pill in Sidebar */}
+        {/* Balance Pill in Sidebar (flouté en mode discret) */}
         {!isSidebarCollapsed && (
           <div className="border-b border-slate-100 p-3 dark:border-zinc-800/80">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/70">
+            <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] px-3 py-2.5 dark:border-violet-500/20 dark:bg-violet-500/[0.08]">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                   Patrimoine net
@@ -369,20 +409,20 @@ export function AppShell({
                 <Link
                   href="/timeline?new=1"
                   aria-label="Ajouter une transaction rapide"
-                  className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white hover:bg-slate-700 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-300"
+                  className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-600 text-white hover:bg-violet-700 dark:hover:bg-violet-500"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </Link>
               </div>
               <p
                 data-testid="sidebar-total-balance"
-                className="mt-1 font-mono text-base font-semibold tracking-tight text-slate-900 tabular-money dark:text-zinc-50"
+                data-privacy="amount"
+                className={cn(
+                  "mt-1 font-mono text-base font-semibold tracking-tight text-slate-900 tabular-money transition-[filter] duration-200 dark:text-zinc-50",
+                  isPrivate && "blur-[7px] select-none hover:blur-0"
+                )}
               >
-                {totalBalance === null
-                  ? "—"
-                  : isPrivate
-                    ? "•••• €"
-                    : formatCurrencyEur(totalBalance)}
+                {totalBalance === null ? "—" : formatCurrencyEur(totalBalance)}
               </p>
             </div>
           </div>
@@ -398,54 +438,35 @@ export function AppShell({
           {renderNavSection("Système", "systeme", isSidebarCollapsed)}
         </nav>
 
-        {/* Sidebar Footer */}
+        {/* Sidebar Collapse Footer */}
         <div className="border-t border-slate-200 p-2.5 dark:border-zinc-800">
-          <div className="flex items-center justify-between gap-2">
-            {!isSidebarCollapsed && (
-              <Link
-                href="/settings"
-                className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800/80"
-              >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-800 dark:bg-zinc-800 dark:text-zinc-200">
-                  {getInitials(user?.first_name, user?.last_name)}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-slate-900 dark:text-zinc-100">
-                    {user
-                      ? `${user.first_name} ${user.last_name}`
-                      : "Compte Mimo"}
-                  </p>
-                  <p className="truncate text-[11px] text-slate-500 dark:text-zinc-400">
-                    {user?.email ?? ""}
-                  </p>
-                </div>
-              </Link>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={
+              isSidebarCollapsed
+                ? "Étendre la barre latérale"
+                : "Réduire la barre latérale"
+            }
+            title={
+              isSidebarCollapsed
+                ? "Étendre la barre latérale (Ctrl+B)"
+                : "Réduire la barre latérale (Ctrl+B)"
+            }
+            className={cn(
+              "flex h-8 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+              isSidebarCollapsed && "justify-center px-0"
             )}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              aria-label={
-                isSidebarCollapsed
-                  ? "Étendre la barre latérale"
-                  : "Réduire la barre latérale"
-              }
-              title={
-                isSidebarCollapsed
-                  ? "Étendre la barre latérale (Ctrl+B)"
-                  : "Réduire la barre latérale (Ctrl+B)"
-              }
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
-                isSidebarCollapsed && "mx-auto"
-              )}
-            >
-              {isSidebarCollapsed ? (
-                <PanelLeftOpen className="h-4 w-4" />
-              ) : (
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <>
                 <PanelLeftClose className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+                <span>Réduire le menu</span>
+              </>
+            )}
+          </button>
         </div>
       </aside>
 
@@ -493,7 +514,7 @@ export function AppShell({
               </kbd>
             </button>
 
-            {/* Privacy Toggle */}
+            {/* Privacy Toggle (floutage) */}
             <button
               type="button"
               onClick={togglePrivacy}
@@ -501,9 +522,16 @@ export function AppShell({
                 isPrivate ? "Afficher les montants" : "Masquer les montants"
               }
               title={
-                isPrivate ? "Afficher les montants" : "Masquer les montants"
+                isPrivate
+                  ? "Mode discret actif (touche H)"
+                  : "Flouter les montants (touche H)"
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+                isPrivate
+                  ? "border-violet-500/40 bg-violet-500/15 text-violet-600 dark:text-violet-300"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800"
+              )}
             >
               {isPrivate ? (
                 <EyeOff className="h-4 w-4" />
@@ -542,16 +570,87 @@ export function AppShell({
               )}
             </Link>
 
-            {/* Logout */}
-            <button
-              type="button"
-              onClick={handleLogout}
-              aria-label="Se déconnecter"
-              title="Se déconnecter"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:text-rose-400"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+            {/* Header Right: User Avatar & Profile Dropdown */}
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                aria-label="Menu profil utilisateur"
+                aria-expanded={isProfileMenuOpen}
+                className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white pl-1.5 pr-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {avatarSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarSrc}
+                    alt={user ? `${user.first_name} ${user.last_name}` : "Profil"}
+                    className="h-6 w-6 rounded-full object-cover ring-1 ring-violet-500/30"
+                  />
+                ) : (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-[11px] font-semibold text-white">
+                    {getInitials(user?.first_name, user?.last_name)}
+                  </span>
+                )}
+                <span className="hidden max-w-[100px] truncate sm:inline">
+                  {user?.first_name || "Profil"}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+
+              {isProfileMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-[#18181B]"
+                >
+                  <div className="border-b border-slate-100 px-2.5 py-2 dark:border-zinc-800">
+                    <p className="truncate text-xs font-semibold text-slate-900 dark:text-zinc-100">
+                      {user
+                        ? `${user.first_name} ${user.last_name}`
+                        : "Compte Mimo"}
+                    </p>
+                    <p className="truncate text-[11px] text-slate-500 dark:text-zinc-400">
+                      {user?.email || ""}
+                    </p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      href="/settings"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      <User className="h-3.5 w-3.5 text-violet-500" />
+                      Mon profil & sécurité
+                    </Link>
+                    <Link
+                      href="/settings/household"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      <Users className="h-3.5 w-3.5 text-violet-500" />
+                      Foyer & Mode Couple
+                    </Link>
+                    <Link
+                      href="/trash"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-slate-400" />
+                      Corbeille
+                    </Link>
+                  </div>
+                  <div className="border-t border-slate-100 pt-1 dark:border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      Se déconnecter
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -574,9 +673,12 @@ export function AppShell({
           <div className="relative z-10 flex h-full w-[280px] max-w-[85vw] flex-col border-r border-slate-200 bg-white dark:border-zinc-800 dark:bg-[#121215]">
             <div className="flex h-14 items-center justify-between border-b border-slate-200 px-4 dark:border-zinc-800">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F172A] text-xs font-bold text-white dark:bg-[#F8FAFC] dark:text-[#09090B]">
-                  MF
-                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/mimo-logo.jpg"
+                  alt="Logo Mimo Finance"
+                  className="h-8 w-8 rounded-lg border border-violet-500/20 object-cover"
+                />
                 <span className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
                   Mimo Finance
                 </span>
@@ -650,7 +752,7 @@ export function AppShell({
                       setCmdQuery("");
                       router.push(cmd.href);
                     }}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-violet-500/10 hover:text-violet-700 dark:text-zinc-200 dark:hover:text-violet-300"
                   >
                     <span>{cmd.label}</span>
                     <span className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-zinc-700 dark:text-zinc-400">

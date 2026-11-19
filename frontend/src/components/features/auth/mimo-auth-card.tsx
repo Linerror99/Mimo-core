@@ -94,9 +94,12 @@ export function MimoAuthCard({
       <div className="mb-6">
         <div className="mb-4 flex items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F172A] text-xs font-bold text-white dark:bg-[#F8FAFC] dark:text-[#09090B]">
-              MF
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/mimo-logo.jpg"
+              alt="Logo Mimo Finance"
+              className="h-8 w-8 rounded-lg border border-violet-500/20 object-cover"
+            />
             <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-zinc-100">
               Mimo Finance
             </span>
