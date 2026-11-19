@@ -90,8 +90,9 @@ describe("Audit Fixes — Contrats, ValidationModal, ConfirmDialog & Simulateur"
 
     // Suppression -> ConfirmDialog doit bloquer la suppression immédiate
     await user.click(
-      screen.getByRole("button", { name: /supprimer facture électricité/i })
+      screen.getByRole("button", { name: /actions pour facture électricité/i })
     );
+    await user.click(screen.getByRole("menuitem", { name: /supprimer/i }));
     expect(onDelete).not.toHaveBeenCalled();
     expect(
       screen.getByText(/supprimer cette transaction/i)
@@ -217,8 +218,9 @@ describe("Audit Fixes — Contrats, ValidationModal, ConfirmDialog & Simulateur"
     );
 
     await user.click(
-      screen.getByRole("button", { name: /supprimer boursobank courant/i })
+      screen.getByRole("button", { name: /actions pour boursobank courant/i })
     );
+    await user.click(screen.getByRole("menuitem", { name: /supprimer/i }));
     expect(onDelete).not.toHaveBeenCalled();
     expect(screen.getByText(/clôturer ce compte/i)).toBeInTheDocument();
 

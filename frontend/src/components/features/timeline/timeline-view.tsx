@@ -20,6 +20,7 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1418,55 +1419,50 @@ export function TimelineView({
                           <td className="whitespace-nowrap px-4 py-3 text-right">
                             <div className="inline-flex items-center gap-1">
                               {isPending && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => onValidateTransaction(tx.id)}
-                                    aria-label={`Valider ${tx.description}`}
-                                    title="Valider l'opération"
-                                    className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                    Valider
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setValidatingTx(tx)}
-                                    aria-label={`Ajuster ou reporter ${tx.description}`}
-                                    title="Ajuster le montant ou reporter"
-                                    className="flex h-7 w-7 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
-                                  >
-                                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                                  </button>
-                                </>
+                                <button
+                                  type="button"
+                                  onClick={() => onValidateTransaction(tx.id)}
+                                  aria-label={`Valider ${tx.description}`}
+                                  title="Valider l'opération"
+                                  className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  Valider
+                                </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => openEditTx(tx)}
-                                aria-label={`Modifier ${tx.description}`}
-                                title="Modifier"
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                              >
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openCreateTx(tx)}
-                                aria-label={`Dupliquer ${tx.description}`}
-                                title="Dupliquer"
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setTxToDelete(tx)}
-                                aria-label={`Supprimer ${tx.description}`}
-                                title="Supprimer"
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-zinc-400"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              <ActionMenu
+                                ariaLabel={`Actions pour ${tx.description}`}
+                                items={[
+                                  ...(isPending
+                                    ? [
+                                        {
+                                          label: "Ajuster / Reporter",
+                                          icon: (
+                                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                                          ),
+                                          onClick: () => setValidatingTx(tx),
+                                        },
+                                      ]
+                                    : []),
+                                  {
+                                    label: "Modifier",
+                                    icon: <Edit3 className="h-3.5 w-3.5" />,
+                                    onClick: () => openEditTx(tx),
+                                  },
+                                  {
+                                    label: "Dupliquer",
+                                    icon: <Copy className="h-3.5 w-3.5" />,
+                                    onClick: () => openCreateTx(tx),
+                                  },
+                                  {
+                                    label: "Supprimer",
+                                    icon: <Trash2 className="h-3.5 w-3.5" />,
+                                    variant: "danger",
+                                    dividerBefore: true,
+                                    onClick: () => setTxToDelete(tx),
+                                  },
+                                ]}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -1529,37 +1525,36 @@ export function TimelineView({
                         colored
                         className="mr-1.5 text-sm font-semibold"
                       />
-                      {onUpdateTemplate && (
-                        <button
-                          type="button"
-                          onClick={() => openEditTemplate(tpl)}
-                          aria-label={`Modifier le modèle ${tpl.name}`}
-                          title="Modifier le modèle"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {(onBulkUpdateTemplate || onBulkCancelTemplate) && (
-                        <button
-                          type="button"
-                          onClick={() => openBulkModal(tpl)}
-                          aria-label={`Actions en masse ${tpl.name}`}
-                          title="Modifier / annuler les occurrences futures"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-violet-500/10 hover:text-violet-600 dark:text-zinc-400"
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setTplToDelete(tpl)}
-                        aria-label={`Supprimer le modèle ${tpl.name}`}
-                        title="Supprimer le modèle"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-600"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <ActionMenu
+                        ariaLabel={`Actions pour ${tpl.name}`}
+                        items={[
+                          ...(onUpdateTemplate
+                            ? [
+                                {
+                                  label: "Modifier le modèle",
+                                  icon: <Edit3 className="h-3.5 w-3.5" />,
+                                  onClick: () => openEditTemplate(tpl),
+                                },
+                              ]
+                            : []),
+                          ...(onBulkUpdateTemplate || onBulkCancelTemplate
+                            ? [
+                                {
+                                  label: "Actions en masse",
+                                  icon: <Layers className="h-3.5 w-3.5" />,
+                                  onClick: () => openBulkModal(tpl),
+                                },
+                              ]
+                            : []),
+                          {
+                            label: "Supprimer le modèle",
+                            icon: <Trash2 className="h-3.5 w-3.5" />,
+                            variant: "danger",
+                            dividerBefore: true,
+                            onClick: () => setTplToDelete(tpl),
+                          },
+                        ]}
+                      />
                     </div>
                   </CardContent>
                 </Card>

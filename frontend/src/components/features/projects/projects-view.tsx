@@ -28,6 +28,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -439,7 +440,7 @@ export function ProjectsView({
                   </div>
                 </div>
 
-                {/* Actions Validation / Rollback / Edit / Duplicate / Delete */}
+                {/* Actions Validation / Rollback + Menu ⋯ */}
                 <div className="flex flex-wrap items-center gap-2">
                   {selectedProject.status === "DRAFT" ? (
                     <Button
@@ -461,44 +462,37 @@ export function ProjectsView({
                       Repasser en simulation
                     </Button>
                   )}
-                  {onShiftProjectDates && selectedProject.items.length > 0 && (
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      onClick={() => setShiftOpen(true)}
-                      aria-label="Décaler les dates du projet"
-                    >
-                      <Calendar className="h-4 w-4" />
-                      Décaler les dates
-                    </Button>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={() => openEditProject(selectedProject)}
-                    aria-label="Modifier le projet"
-                    title="Modifier le projet"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={() => onDuplicateProject(selectedProject.id)}
-                    aria-label="Dupliquer le projet"
-                    title="Dupliquer"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="danger-outline"
-                    onClick={() => setProjectToDelete(selectedProject)}
-                    aria-label="Supprimer le projet"
-                    title="Supprimer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <ActionMenu
+                    ariaLabel="Actions du projet"
+                    items={[
+                      ...(onShiftProjectDates && selectedProject.items.length > 0
+                        ? [
+                            {
+                              label: "Décaler les dates",
+                              icon: <Calendar className="h-3.5 w-3.5" />,
+                              onClick: () => setShiftOpen(true),
+                            },
+                          ]
+                        : []),
+                      {
+                        label: "Modifier le projet",
+                        icon: <Edit3 className="h-3.5 w-3.5" />,
+                        onClick: () => openEditProject(selectedProject),
+                      },
+                      {
+                        label: "Dupliquer le projet",
+                        icon: <Copy className="h-3.5 w-3.5" />,
+                        onClick: () => onDuplicateProject(selectedProject.id),
+                      },
+                      {
+                        label: "Supprimer le projet",
+                        icon: <Trash2 className="h-3.5 w-3.5" />,
+                        variant: "danger",
+                        dividerBefore: true,
+                        onClick: () => setProjectToDelete(selectedProject),
+                      },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -705,26 +699,29 @@ export function ProjectsView({
                           <div className="flex items-center gap-2">
                             <AmountDisplay
                               amount={Number(item.amount)}
-                              className="mr-2 text-sm font-semibold text-slate-900 dark:text-zinc-100"
+                              className="mr-1 text-sm font-semibold text-slate-900 dark:text-zinc-100"
                             />
-                            <button
-                              type="button"
-                              onClick={() => openEditItem(item)}
-                              aria-label={`Modifier ${item.name}`}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                            >
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onDeleteProjectItem(selectedProject.id, item.id)
-                              }
-                              aria-label={`Supprimer ${item.name}`}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-rose-500/10 hover:text-rose-600"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <ActionMenu
+                              ariaLabel={`Actions pour ${item.name}`}
+                              items={[
+                                {
+                                  label: "Modifier",
+                                  icon: <Edit3 className="h-3.5 w-3.5" />,
+                                  onClick: () => openEditItem(item),
+                                },
+                                {
+                                  label: "Supprimer",
+                                  icon: <Trash2 className="h-3.5 w-3.5" />,
+                                  variant: "danger",
+                                  dividerBefore: true,
+                                  onClick: () =>
+                                    onDeleteProjectItem(
+                                      selectedProject.id,
+                                      item.id
+                                    ),
+                                },
+                              ]}
+                            />
                           </div>
                         </div>
                       ))}
@@ -936,34 +933,29 @@ export function ProjectsView({
                             </div>
                           </div>
 
-                          <div
-                            className="flex items-center gap-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => openEditProject(proj)}
-                              aria-label={`Modifier ${proj.name}`}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                            >
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onDuplicateProject(proj.id)}
-                              aria-label={`Dupliquer ${proj.name}`}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteProject(proj.id)}
-                              aria-label={`Supprimer ${proj.name}`}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-rose-500/10 hover:text-rose-600"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <ActionMenu
+                              ariaLabel={`Actions pour ${proj.name}`}
+                              items={[
+                                {
+                                  label: "Modifier",
+                                  icon: <Edit3 className="h-3.5 w-3.5" />,
+                                  onClick: () => openEditProject(proj),
+                                },
+                                {
+                                  label: "Dupliquer",
+                                  icon: <Copy className="h-3.5 w-3.5" />,
+                                  onClick: () => onDuplicateProject(proj.id),
+                                },
+                                {
+                                  label: "Supprimer",
+                                  icon: <Trash2 className="h-3.5 w-3.5" />,
+                                  variant: "danger",
+                                  dividerBefore: true,
+                                  onClick: () => setProjectToDelete(proj),
+                                },
+                              ]}
+                            />
                           </div>
                         </div>
 

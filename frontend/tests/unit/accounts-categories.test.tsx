@@ -76,7 +76,8 @@ describe("AccountsView & CategoriesView", () => {
     );
 
     // Modification d'un compte existant : le solde est verrouillé (disabled)
-    await user.click(screen.getByRole("button", { name: /modifier livret a/i }));
+    await user.click(screen.getByRole("button", { name: /actions pour livret a/i }));
+    await user.click(screen.getByRole("menuitem", { name: /modifier/i }));
     expect(screen.getByLabelText(/solde actuel \(verrouillé\)/i)).toBeDisabled();
     await user.clear(screen.getByLabelText(/nom du compte/i));
     await user.type(screen.getByLabelText(/nom du compte/i), "Livret A Plus");

@@ -13,6 +13,7 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -300,37 +301,46 @@ export function AccountsView({
                       </div>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(acc)}
-                      aria-label={`Modifier ${acc.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onUpdate(acc.id, { is_active: !acc.is_active })
-                      }
-                      aria-label={
-                        acc.is_active
-                          ? `Clôturer ${acc.name}`
-                          : `Réactiver ${acc.name}`
-                      }
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                    >
-                      <Power className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAccountToDelete(acc)}
-                      aria-label={`Supprimer ${acc.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                  <div className="shrink-0">
+                    <ActionMenu
+                      ariaLabel={`Actions pour ${acc.name}`}
+                      items={[
+                        {
+                          label: "Modifier",
+                          icon: <Edit3 className="h-3.5 w-3.5" />,
+                          onClick: () => openEditModal(acc),
+                        },
+                        ...(acc.is_active && onReconcileBalance
+                          ? [
+                              {
+                                label: "Rapprocher le solde",
+                                icon: <Scale className="h-3.5 w-3.5" />,
+                                onClick: () => {
+                                  setReconcileAccount(acc);
+                                  setRealBalanceInput(
+                                    String(
+                                      Number(acc.current_balance).toFixed(2)
+                                    )
+                                  );
+                                },
+                              },
+                            ]
+                          : []),
+                        {
+                          label: acc.is_active ? "Clôturer" : "Réactiver",
+                          icon: <Power className="h-3.5 w-3.5" />,
+                          onClick: () =>
+                            onUpdate(acc.id, { is_active: !acc.is_active }),
+                        },
+                        {
+                          label: "Supprimer",
+                          icon: <Trash2 className="h-3.5 w-3.5" />,
+                          variant: "danger",
+                          dividerBefore: true,
+                          onClick: () => setAccountToDelete(acc),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
 

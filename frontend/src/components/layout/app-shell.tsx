@@ -806,17 +806,19 @@ export function AppShell({
         </div>
       )}
 
-      {/* Floating Quick Transaction FAB (bottom-right, purple accent) */}
+      {/* Floating Quick Transaction FAB (bottom-right, purple circle expanding on hover) */}
       <button
         type="button"
         data-testid="quick-transaction-fab"
         onClick={() => setIsQuickTxOpen(true)}
         aria-label="Ajouter une transaction rapide"
         title="Transaction rapide (touche N)"
-        className="fixed bottom-6 right-6 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-violet-600 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-all hover:scale-[1.03] hover:bg-violet-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#09090B]"
+        className="group fixed bottom-6 right-6 z-40 inline-flex h-12 min-w-12 items-center justify-center rounded-full bg-violet-600 px-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-all duration-200 hover:bg-violet-700 hover:pr-4 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#09090B]"
       >
-        <Plus className="h-5 w-5" />
-        <span className="hidden sm:inline">Transaction</span>
+        <Plus className="h-5 w-5 shrink-0" />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-[110px] group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-[110px] group-focus-visible:opacity-100">
+          Transaction
+        </span>
       </button>
 
       {isQuickTxOpen && (

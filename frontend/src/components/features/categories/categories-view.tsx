@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
 import { ArrowRight, Edit3, Plus, Tag, Trash2 } from "lucide-react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -197,32 +197,28 @@ export function CategoriesView({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Link
-                      href={`/timeline?category_id=${cat.id}`}
-                      aria-label={`Voir les opérations de ${cat.name}`}
-                      title="Voir les opérations dans la timeline"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-violet-500/10 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-400"
-                    >
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(cat)}
-                      aria-label={`Modifier ${cat.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCatToDelete(cat)}
-                      aria-label={`Supprimer ${cat.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-600 dark:text-zinc-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <ActionMenu
+                    ariaLabel={`Actions pour ${cat.name}`}
+                    items={[
+                      {
+                        label: "Voir les opérations",
+                        icon: <ArrowRight className="h-3.5 w-3.5" />,
+                        href: `/timeline?category_id=${cat.id}`,
+                      },
+                      {
+                        label: "Modifier",
+                        icon: <Edit3 className="h-3.5 w-3.5" />,
+                        onClick: () => openEdit(cat),
+                      },
+                      {
+                        label: "Supprimer",
+                        icon: <Trash2 className="h-3.5 w-3.5" />,
+                        variant: "danger",
+                        dividerBefore: true,
+                        onClick: () => setCatToDelete(cat),
+                      },
+                    ]}
+                  />
                 </CardContent>
               </Card>
             );

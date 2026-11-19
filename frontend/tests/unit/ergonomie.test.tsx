@@ -222,7 +222,10 @@ describe("Ergonomie & Rapidité — Rapprochement, Filtres URL, Actions groupée
     );
 
     await user.click(
-      screen.getByRole("button", { name: /décaler les dates du projet/i })
+      screen.getByRole("button", { name: /actions du projet/i })
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: /décaler les dates/i })
     );
     await user.click(screen.getByRole("button", { name: /\+ 1 semaine/i }));
 
