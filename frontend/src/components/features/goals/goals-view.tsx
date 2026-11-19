@@ -11,6 +11,7 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -349,14 +350,37 @@ export function GoalsView({
               >
                 <CardContent className="flex h-full flex-col justify-between p-5">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <Badge variant={goal.user_id ? "neutral" : "info"}>
                         {goal.user_id ? "Personnel" : "Foyer"}
                       </Badge>
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400">
-                        Détails
-                        <ArrowRight className="h-3 w-3" />
-                      </span>
+                      <div
+                        className="flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ActionMenu
+                          ariaLabel={`Actions pour ${goal.name}`}
+                          items={[
+                            {
+                              label: "Voir les détails",
+                              icon: <ArrowRight className="h-3.5 w-3.5" />,
+                              onClick: () => openDetailModal(goal),
+                            },
+                            {
+                              label: "Modifier",
+                              icon: <Edit3 className="h-3.5 w-3.5" />,
+                              onClick: () => openEditDialog(goal),
+                            },
+                            {
+                              label: "Supprimer",
+                              icon: <Trash2 className="h-3.5 w-3.5" />,
+                              variant: "danger",
+                              dividerBefore: true,
+                              onClick: () => setGoalToDelete(goal),
+                            },
+                          ]}
+                        />
+                      </div>
                     </div>
 
                     <h2 className="mt-3 text-[15px] font-semibold text-slate-900 dark:text-zinc-100">

@@ -194,7 +194,7 @@ export function DashboardView({
             flux du mois.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onExportPdf && (
             <Button
               variant="secondary"
@@ -442,7 +442,7 @@ export function DashboardView({
       {data.wallets && data.wallets.household_type === "COUPLE" && (
         <Card data-testid="couple-wallets-section">
           <CardHeader>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               <CardTitle>Portefeuilles du foyer (Mode Couple)</CardTitle>
             </div>
@@ -505,7 +505,7 @@ export function DashboardView({
         </div>
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <PieChart className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               <CardTitle>Dépenses par catégorie</CardTitle>
             </div>
@@ -567,7 +567,7 @@ export function DashboardView({
         {/* Pending Validations */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
               <CardTitle>En attente de validation</CardTitle>
             </div>
@@ -602,7 +602,7 @@ export function DashboardView({
                         {tx.account_name ? ` · ${tx.account_name}` : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <AmountDisplay
                         amount={
                           tx.type === "EXPENSE"

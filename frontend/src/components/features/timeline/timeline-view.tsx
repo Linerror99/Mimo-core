@@ -895,7 +895,7 @@ export function TimelineView({
           {/* Global Search & Advanced Filter Bar */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[240px] flex-1">
+              <div className="relative w-full min-w-[200px] flex-1 sm:w-auto">
                 <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input
                   type="text"

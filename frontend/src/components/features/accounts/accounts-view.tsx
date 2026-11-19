@@ -197,7 +197,7 @@ export function AccountsView({
             prêts.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 dark:border-zinc-800 dark:bg-[#121215] dark:text-zinc-300">
             <input
               type="checkbox"
@@ -283,7 +283,7 @@ export function AccountsView({
                       size="md"
                     />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h2 className="truncate text-[15px] font-semibold text-slate-900 dark:text-zinc-100">
                           {acc.name}
                         </h2>

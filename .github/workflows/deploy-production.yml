@@ -1,9 +1,6 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
@@ -64,7 +61,7 @@ jobs:
             --format='value(status.url)')
 
           docker build \
-            --build-arg NEXT_PUBLIC_API_URL="${BACKEND_URL}/api/v1" \
+            --build-arg NEXT_PUBLIC_API_URL="/api/v1" \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:${{ github.sha }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:latest \
             -f frontend/Dockerfile.prod \

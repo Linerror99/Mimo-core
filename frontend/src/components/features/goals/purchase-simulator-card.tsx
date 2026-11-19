@@ -218,11 +218,11 @@ export function PurchaseSimulatorCard({
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs font-medium dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[11px] font-medium dark:border-zinc-800 dark:bg-zinc-900 sm:text-xs">
                 {(
                   [
                     { id: "DIRECT", label: "Comptant" },
-                    { id: "INSTALLMENTS", label: "En plusieurs fois" },
+                    { id: "INSTALLMENTS", label: "Plusieurs fois" },
                     { id: "RECURRING", label: "Mensuel" },
                   ] as const
                 ).map((opt) => (
@@ -234,7 +234,7 @@ export function PurchaseSimulatorCard({
                       setResult(null);
                     }}
                     className={cn(
-                      "rounded-md py-1.5 transition-colors",
+                      "rounded-md px-1 py-1.5 text-center transition-colors",
                       paymentType === opt.id
                         ? "bg-white font-semibold text-violet-600 shadow-xs dark:bg-zinc-800 dark:text-violet-400"
                         : "text-slate-600 dark:text-zinc-400"

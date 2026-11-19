@@ -513,39 +513,39 @@ export function AppShell({
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Header (56px) */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-zinc-800 dark:bg-[#121215]/95 lg:px-6">
-          <div className="flex items-center gap-3">
-            {/* Mobile Burger (40x40px — Loi de Fitts) */}
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur dark:border-zinc-800 dark:bg-[#121215]/95 sm:gap-3 sm:px-4 lg:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            {/* Mobile Burger (36x36 / 40x40px — Loi de Fitts) */}
             <button
               type="button"
               onClick={() => setIsMobileDrawerOpen(true)}
               aria-label="Ouvrir le menu de navigation"
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-200 dark:hover:bg-zinc-800 lg:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-200 dark:hover:bg-zinc-800 sm:h-10 sm:w-10 lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
 
             {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="hidden text-slate-400 dark:text-zinc-500 sm:inline">
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <span className="hidden shrink-0 text-slate-400 dark:text-zinc-500 sm:inline">
                 Mimo
               </span>
-              <span className="hidden text-slate-300 dark:text-zinc-700 sm:inline">
+              <span className="hidden shrink-0 text-slate-300 dark:text-zinc-700 sm:inline">
                 /
               </span>
-              <span className="font-semibold tracking-tight text-slate-900 dark:text-zinc-100">
+              <span className="truncate font-semibold tracking-tight text-slate-900 dark:text-zinc-100">
                 {currentSectionLabel}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {/* Command Palette Trigger */}
             <button
               type="button"
               onClick={() => setIsCommandOpen(true)}
               aria-label="Recherche et actions rapides"
-              className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              className="flex h-8 w-8 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 sm:h-9 sm:w-auto sm:px-3"
             >
               <Search className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Rechercher...</span>
@@ -567,7 +567,7 @@ export function AppShell({
                   : "Flouter les montants (touche H)"
               }
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+                "flex h-8 w-8 items-center justify-center rounded-lg border transition-colors sm:h-9 sm:w-9",
                 isPrivate
                   ? "border-violet-500/40 bg-violet-500/15 text-violet-600 dark:text-violet-300"
                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -587,7 +587,7 @@ export function AppShell({
               aria-label={
                 isDark ? "Passer en mode clair" : "Passer en mode sombre"
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800 sm:h-9 sm:w-9"
             >
               {isDark ? (
                 <Sun className="h-4 w-4" />
@@ -600,7 +600,7 @@ export function AppShell({
             <Link
               href="/notifications"
               aria-label="Voir les notifications"
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-300 dark:hover:bg-zinc-800 sm:h-9 sm:w-9"
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
@@ -617,7 +617,7 @@ export function AppShell({
                 onClick={() => setIsProfileMenuOpen((prev) => !prev)}
                 aria-label="Menu profil utilisateur"
                 aria-expanded={isProfileMenuOpen}
-                className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white pl-1.5 pr-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white pl-1 pr-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-zinc-800 dark:bg-[#18181B] dark:text-zinc-200 dark:hover:bg-zinc-800 sm:h-9 sm:gap-2 sm:pl-1.5 sm:pr-2.5"
               >
                 {avatarSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -695,7 +695,7 @@ export function AppShell({
         </header>
 
         {/* Page Content */}
-        <main className="mx-auto w-full max-w-[1360px] flex-1 p-4 lg:p-6">
+        <main className="mx-auto w-full max-w-[1360px] flex-1 p-4 pb-24 lg:p-6 lg:pb-24">
           {children}
         </main>
       </div>
@@ -731,6 +731,22 @@ export function AppShell({
               >
                 <X className="h-5 w-5" />
               </button>
+            </div>
+            <div className="border-b border-slate-100 p-3 dark:border-zinc-800/80">
+              <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] px-3 py-2.5 dark:border-violet-500/20 dark:bg-violet-500/[0.08]">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Patrimoine net
+                </span>
+                <p
+                  data-privacy="amount"
+                  className={cn(
+                    "mt-1 font-mono text-base font-semibold tracking-tight text-slate-900 tabular-money transition-[filter] duration-200 dark:text-zinc-50",
+                    isPrivate && "blur-[7px] select-none hover:blur-0"
+                  )}
+                >
+                  {totalBalance === null ? "—" : formatCurrencyEur(totalBalance)}
+                </p>
+              </div>
             </div>
             <nav className="flex-1 overflow-y-auto px-3 py-2">
               {renderNavSection("Finances", "principal", false, () =>
@@ -813,7 +829,7 @@ export function AppShell({
         onClick={() => setIsQuickTxOpen(true)}
         aria-label="Ajouter une transaction rapide"
         title="Transaction rapide (touche N)"
-        className="group fixed bottom-6 right-6 z-40 inline-flex h-12 min-w-12 items-center justify-center rounded-full bg-violet-600 px-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-all duration-200 hover:bg-violet-700 hover:pr-4 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#09090B]"
+        className="group fixed bottom-4 right-4 z-40 inline-flex h-12 min-w-12 items-center justify-center rounded-full bg-violet-600 px-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-all duration-200 hover:bg-violet-700 hover:pr-4 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#09090B] sm:bottom-6 sm:right-6"
       >
         <Plus className="h-5 w-5 shrink-0" />
         <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-[110px] group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-[110px] group-focus-visible:opacity-100">

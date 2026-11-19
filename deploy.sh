@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Mimo Finance — Script de déploiement manuel Cloud Run
-# Aligné sur .github/workflows/deploy-production.yml (Docker + Artifact Registry)
+# Mimo Finance — Script de déploiement direct Cloud Run (Option B)
+# Docker + Artifact Registry + Cloud Run + Smoke Tests
 # Usage : ./deploy.sh [frontend|backend|all]
 # ==============================================================================
 set -euo pipefail
@@ -16,13 +16,21 @@ TAG="${TAG:-$(git rev-parse --short HEAD 2>/dev/null || echo latest)}"
 
 TARGET="${1:-all}"
 
+for cmd in docker gcloud curl; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+        echo "❌ Erreur : '${cmd}' est introuvable dans le PATH." >&2
+        exit 1
+    fi
+done
+
 echo "========================================="
 echo "   Mimo Deploy Script (Target: ${TARGET})"
-echo "   Tag: ${TAG}"
+echo "   Project: ${PROJECT_ID} (${REGION})"
+echo "   Tag:     ${TAG}"
 echo "========================================="
 
 deploy_backend() {
-    echo ">> [1/2] Building and pushing Backend image..."
+    echo ">> [1/2] Building and pushing Backend image (linux/amd64)..."
     docker build \
         --platform linux/amd64 \
         -t "${IMAGE_REPO}/backend:${TAG}" \
@@ -38,11 +46,17 @@ deploy_backend() {
         --region="${REGION}" \
         --platform=managed \
         --quiet
-    echo "Backend deployed successfully!"
+
+    BACKEND_URL="$(gcloud run services describe "${BACKEND_SERVICE}" \
+        --region="${REGION}" \
+        --format='value(status.url)')"
+    echo ">> Smoke test Backend: ${BACKEND_URL}/health"
+    curl -sf "${BACKEND_URL}/health" && echo ""
+    echo "✅ Backend deployed successfully: ${BACKEND_URL}"
 }
 
 deploy_frontend() {
-    echo ">> [1/2] Building and pushing Frontend image (Next.js Standalone)..."
+    echo ">> [1/2] Building and pushing Frontend image (Next.js Standalone, linux/amd64)..."
     BACKEND_URL="$(gcloud run services describe "${BACKEND_SERVICE}" \
         --region="${REGION}" \
         --format='value(status.url)')"
@@ -64,7 +78,13 @@ deploy_frontend() {
         --platform=managed \
         --update-env-vars="INTERNAL_API_URL=${BACKEND_URL}/api/v1,NEXT_PUBLIC_API_URL=/api/v1" \
         --quiet
-    echo "Frontend deployed successfully!"
+
+    FRONTEND_URL="$(gcloud run services describe "${FRONTEND_SERVICE}" \
+        --region="${REGION}" \
+        --format='value(status.url)')"
+    echo ">> Smoke test Frontend: ${FRONTEND_URL}"
+    curl -sf "${FRONTEND_URL}" >/dev/null
+    echo "✅ Frontend deployed successfully: ${FRONTEND_URL}"
 }
 
 case "${TARGET}" in
@@ -85,5 +105,5 @@ case "${TARGET}" in
 esac
 
 echo "========================================="
-echo "   Deployment completed successfully!    "
+echo "   🎉 Deployment completed successfully! "
 echo "========================================="

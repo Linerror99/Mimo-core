@@ -128,7 +128,7 @@ export function SettingsHouseholdView({
               onSubmit={handleSend}
               className="flex flex-wrap items-end gap-2 pt-2"
             >
-              <div className="min-w-[240px] flex-1">
+              <div className="w-full min-w-[200px] flex-1 sm:w-auto">
                 <label
                   htmlFor="invite-email"
                   className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
