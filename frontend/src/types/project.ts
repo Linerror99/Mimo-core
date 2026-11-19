@@ -1,4 +1,4 @@
-export type ProjectStatus = 'DRAFT' | 'COMMITTED' | 'COMPLETED' | 'CANCELLED';
+export type ProjectStatus = "DRAFT" | "COMMITTED" | "COMPLETED" | "CANCELLED";
 
 export interface ProjectItem {
   id: string;
@@ -84,7 +84,7 @@ export interface ProjectUpdate {
 
 export interface SimulationWarning {
   type: string;
-  severity: 'CRITICAL' | 'WARNING';
+  severity: "CRITICAL" | "WARNING";
   account_id?: string | null;
   account_name?: string | null;
   date: string;
@@ -103,7 +103,7 @@ export interface SimulationTimelinePoint {
 export interface ProjectSimulation {
   project_id: string;
   project_name: string;
-  is_viable: bool;
+  is_viable: boolean;
   status: ProjectStatus;
   total_cost: number;
   current_balance: number;
@@ -122,3 +122,10 @@ export interface ProjectCommitResult {
   transactions_created: number;
   message: string;
 }
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  DRAFT: "Simulation",
+  COMMITTED: "Validé dans la timeline",
+  COMPLETED: "Terminé",
+  CANCELLED: "Annulé",
+};
