@@ -3,7 +3,9 @@ Transaction Service
 
 Business logic for transaction operations
 """
+import re
 from datetime import date, datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import and_, delete, select, update
@@ -12,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.account import Account
 from app.models.household import Household
+from app.models.project import ProjectItem
 from app.models.transaction import RecurrenceFrequency, Transaction, TransactionState, TransactionType
 from app.schemas.transaction import RecurringTransactionCreate, TransactionCreate, TransactionUpdate
 from app.services.notification_service import NotificationService
@@ -259,6 +262,27 @@ class TransactionService:
 
         return list(result.scalars().all())
 
+    async def _sync_linked_project_item(self, transaction: Transaction) -> None:
+        """Synchroniser une transaction modifiée dans la timeline avec son ProjectItem lié."""
+        result = await self.db.execute(
+            select(ProjectItem).where(ProjectItem.transaction_id == transaction.id)
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            return
+
+        item.amount = abs(Decimal(str(transaction.amount)))
+        if transaction.transaction_date:
+            item.planned_date = transaction.transaction_date
+        if transaction.account_id:
+            item.account_id = transaction.account_id
+        item.category_id = transaction.category_id
+        item.notes = transaction.notes
+        if transaction.description:
+            cleaned_name = re.sub(r"^\[[^\]]+\]\s*", "", transaction.description).strip()
+            if cleaned_name:
+                item.name = cleaned_name
+
     async def update_transaction(
         self,
         transaction_id: str,
@@ -266,7 +290,7 @@ class TransactionService:
         transaction_data: TransactionUpdate
     ) -> Optional[Transaction]:
         """
-        Mettre à jour une transaction
+        Mettre à jour une transaction (y compris une seule occurrence d'une récurrence).
 
         Args:
             transaction_id: ID de la transaction
@@ -281,18 +305,21 @@ class TransactionService:
         if not transaction:
             return None
 
-        # Mise à jour des champs fournis
+        # Mise à jour des champs fournis (ne touche jamais au RecurringTemplate parent)
         update_data = transaction_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(transaction, field, value)
 
-        # Si la date a été modifiée ou est dans le futur et que l'état n'a pas été explicitement forcé
+        # Recalculer l'état si la date a changé et que la transaction n'est pas encore réalisée
         if "state" not in update_data and transaction.transaction_date:
             today = date.today()
             if transaction.transaction_date > today:
                 transaction.state = TransactionState.PROJECTED
-            elif transaction.transaction_date == today and transaction.state == TransactionState.PROJECTED:
+            elif transaction.transaction_date <= today and transaction.state == TransactionState.PROJECTED:
                 transaction.state = TransactionState.PENDING
+
+        # Synchronisation bidirectionnelle vers le projet si cette transaction est liée à un ProjectItem
+        await self._sync_linked_project_item(transaction)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -493,6 +520,9 @@ class TransactionService:
         transaction.state = TransactionState.REALIZED
         transaction.updated_at = datetime.utcnow()
 
+        # Synchroniser vers le projet lié si le montant a été ajusté à la validation
+        await self._sync_linked_project_item(transaction)
+
         await self.db.commit()
         await self.db.refresh(transaction)
 
@@ -532,6 +562,9 @@ class TransactionService:
             transaction.state = TransactionState.PROJECTED
 
         transaction.updated_at = datetime.utcnow()
+
+        # Synchroniser vers le projet lié si la date a été reportée
+        await self._sync_linked_project_item(transaction)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -605,6 +638,9 @@ class TransactionService:
             transaction.notes = reason
 
         transaction.updated_at = datetime.utcnow()
+
+        # Synchroniser vers le projet lié si la date a été reportée
+        await self._sync_linked_project_item(transaction)
 
         await self.db.commit()
         await self.db.refresh(transaction)

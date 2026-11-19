@@ -386,7 +386,7 @@ export function AppShell({
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-150 dark:border-zinc-800 dark:bg-[#121215] lg:flex",
+          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-150 dark:border-zinc-800 dark:bg-[#121215] lg:flex",
           isSidebarCollapsed ? "w-[64px]" : "w-[244px]"
         )}
       >

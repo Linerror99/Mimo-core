@@ -59,6 +59,10 @@ export function ProjectsPageClient({
       queryClient.invalidateQueries({ queryKey: ["projects"] }),
       queryClient.invalidateQueries({ queryKey: ["project-detail"] }),
       queryClient.invalidateQueries({ queryKey: ["project-simulation"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["projections"] }),
+      queryClient.invalidateQueries({ queryKey: ["accounts"] }),
     ]);
   };
 

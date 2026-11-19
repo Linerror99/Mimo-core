@@ -237,3 +237,143 @@ class TestAuditBackendFixes:
             JWT_SECRET_KEY="a-very-strong-production-secret-key-at-least-32-chars",
         )
         assert prod_ok.DEBUG is False
+
+    async def test_project_timeline_bidirectional_sync_and_rollback_keeps_edits(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """Edits in Project <-> Timeline stay in sync, and rollback removes tx while keeping edits in Project."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        account = Account(
+            household_id=test_user_household_id,
+            name="Courant Sync Projet",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("5000.00"),
+        )
+        db_session.add(account)
+        await db_session.commit()
+        await db_session.refresh(account)
+
+        orig_date = (date.today() + timedelta(days=10)).isoformat()
+        proj_res = await client.post(
+            "/api/v1/projects",
+            json={
+                "name": "Vacances Japon",
+                "items": [
+                    {
+                        "name": "Billets avion",
+                        "amount": 1200.0,
+                        "planned_date": orig_date,
+                        "account_id": account.id,
+                    }
+                ],
+            },
+            headers=headers,
+        )
+        assert proj_res.status_code == 201
+        project_id = proj_res.json()["id"]
+        item_id = proj_res.json()["items"][0]["id"]
+
+        # 1. Commit project -> creates linked transaction
+        commit_res = await client.post(f"/api/v1/projects/{project_id}/commit", headers=headers)
+        assert commit_res.status_code == 200
+        detail_after_commit = (await client.get(f"/api/v1/projects/{project_id}", headers=headers)).json()
+        tx_id = detail_after_commit["items"][0]["transaction_id"]
+        assert tx_id is not None
+
+        # 2. Edit from Project -> synced to Timeline transaction
+        proj_edit_date = (date.today() + timedelta(days=15)).isoformat()
+        upd_item_res = await client.put(
+            f"/api/v1/projects/{project_id}/items/{item_id}",
+            json={"amount": 1350.0, "planned_date": proj_edit_date},
+            headers=headers,
+        )
+        assert upd_item_res.status_code == 200
+        tx_after_proj_edit = (await client.get(f"/api/v1/transactions/{tx_id}", headers=headers)).json()
+        assert float(tx_after_proj_edit["amount"]) == -1350.0
+        assert tx_after_proj_edit["transaction_date"] == proj_edit_date
+
+        # 3. Edit from Timeline -> synced back to Project item
+        tl_edit_date = (date.today() + timedelta(days=20)).isoformat()
+        upd_tx_res = await client.patch(
+            f"/api/v1/transactions/{tx_id}",
+            json={"amount": -1490.0, "transaction_date": tl_edit_date},
+            headers=headers,
+        )
+        assert upd_tx_res.status_code == 200
+        detail_after_tl_edit = (await client.get(f"/api/v1/projects/{project_id}", headers=headers)).json()
+        assert float(detail_after_tl_edit["items"][0]["amount"]) == 1490.0
+        assert detail_after_tl_edit["items"][0]["planned_date"] == tl_edit_date
+
+        # 4. Rollback to simulation -> removes transaction, preserves latest edits in ProjectItem
+        rb_res = await client.post(f"/api/v1/projects/{project_id}/rollback", headers=headers)
+        assert rb_res.status_code == 200
+        tx_after_rb = await client.get(f"/api/v1/transactions/{tx_id}", headers=headers)
+        assert tx_after_rb.status_code == 404
+        detail_after_rb = (await client.get(f"/api/v1/projects/{project_id}", headers=headers)).json()
+        assert detail_after_rb["status"] == "DRAFT"
+        assert detail_after_rb["items"][0]["transaction_id"] is None
+        assert float(detail_after_rb["items"][0]["amount"]) == 1490.0
+        assert detail_after_rb["items"][0]["planned_date"] == tl_edit_date
+
+    async def test_edit_single_unvalidated_recurring_occurrence_only(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """Editing amount/date of one PROJECTED recurring occurrence must not alter sibling occurrences."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        account = Account(
+            household_id=test_user_household_id,
+            name="Courant Récurrence",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("2000.00"),
+        )
+        db_session.add(account)
+        await db_session.commit()
+        await db_session.refresh(account)
+
+        d1 = date.today() + timedelta(days=5)
+        d2 = date.today() + timedelta(days=35)
+        tx1 = Transaction(
+            household_id=test_user_household_id,
+            account_id=account.id,
+            description="Loyer",
+            amount=Decimal("-800.00"),
+            transaction_date=d1,
+            type=TransactionType.EXPENSE,
+            state=TransactionState.PROJECTED,
+        )
+        tx2 = Transaction(
+            household_id=test_user_household_id,
+            account_id=account.id,
+            description="Loyer",
+            amount=Decimal("-800.00"),
+            transaction_date=d2,
+            type=TransactionType.EXPENSE,
+            state=TransactionState.PROJECTED,
+        )
+        db_session.add_all([tx1, tx2])
+        await db_session.commit()
+        await db_session.refresh(tx1)
+        await db_session.refresh(tx2)
+
+        new_date = (date.today() + timedelta(days=8)).isoformat()
+        res = await client.patch(
+            f"/api/v1/transactions/{tx1.id}",
+            json={"amount": -850.0, "transaction_date": new_date},
+            headers=headers,
+        )
+        assert res.status_code == 200
+        assert float(res.json()["amount"]) == -850.0
+        assert res.json()["transaction_date"] == new_date
+
+        # Second occurrence must remain untouched
+        tx2_after = (await client.get(f"/api/v1/transactions/{tx2.id}", headers=headers)).json()
+        assert float(tx2_after["amount"]) == -800.0
+        assert tx2_after["transaction_date"] == d2.isoformat()

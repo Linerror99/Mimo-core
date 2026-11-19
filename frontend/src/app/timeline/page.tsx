@@ -59,6 +59,9 @@ function TimelineContent() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       queryClient.invalidateQueries({ queryKey: ["projections"] }),
       queryClient.invalidateQueries({ queryKey: ["recurring-templates"] }),
+      queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      queryClient.invalidateQueries({ queryKey: ["project-detail"] }),
+      queryClient.invalidateQueries({ queryKey: ["project-simulation"] }),
     ]);
   };
 

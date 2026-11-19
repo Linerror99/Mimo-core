@@ -339,6 +339,36 @@ class ProjectService:
             notes=item_in.notes,
         )
         db.add(item)
+        await db.flush()
+
+        # Si le projet est déjà engagé (COMMITTED), créer immédiatement la transaction liée dans la timeline
+        if project.status == ProjectStatus.COMMITTED:
+            today = date.today()
+            if item.planned_date < today:
+                tx_state = TransactionState.REALIZED
+            elif item.planned_date == today:
+                tx_state = TransactionState.PENDING
+            else:
+                tx_state = TransactionState.PROJECTED
+
+            tx = Transaction(
+                household_id=household_id,
+                account_id=item.account_id,
+                category_id=item.category_id,
+                amount=-abs(Decimal(str(item.amount))),
+                transaction_date=item.planned_date,
+                type=TransactionType.EXPENSE,
+                state=tx_state,
+                description=f"[{project.name}] {item.name}",
+                notes=item.notes,
+                project_id=project.id,
+                owner_user_id=item.owner_user_id or project.created_by,
+                owner_type=TransactionOwnerType.PERSONAL if item.owner_user_id else TransactionOwnerType.SHARED,
+            )
+            db.add(tx)
+            await db.flush()
+            item.transaction_id = tx.id
+
         await db.commit()
         await db.refresh(item)
 
@@ -398,20 +428,30 @@ class ProjectService:
         for field, value in update_dict.items():
             setattr(item, field, value)
 
-        # Si l'item avait déjà été validé et a une transaction projetée, on la synchronise
+        # Synchroniser la transaction liée dans la timeline quel que soit son état (PROJECTED, PENDING ou REALIZED)
         if item.transaction_id:
             tx = await db.get(Transaction, item.transaction_id)
-            if tx and tx.state == TransactionState.PROJECTED:
+            if tx and tx.deleted_at is None:
                 if "amount" in update_dict:
-                    tx.amount = -abs(item.amount)
+                    tx.amount = -abs(Decimal(str(item.amount)))
                 if "planned_date" in update_dict:
                     tx.transaction_date = item.planned_date
+                    if tx.state != TransactionState.REALIZED:
+                        today = date.today()
+                        if item.planned_date > today:
+                            tx.state = TransactionState.PROJECTED
+                        elif item.planned_date == today:
+                            tx.state = TransactionState.PENDING
+                        else:
+                            tx.state = TransactionState.PENDING
                 if "name" in update_dict:
                     tx.description = f"[{project.name}] {item.name}"
                 if "account_id" in update_dict:
                     tx.account_id = item.account_id
                 if "category_id" in update_dict:
                     tx.category_id = item.category_id
+                if "notes" in update_dict:
+                    tx.notes = item.notes
 
         await db.commit()
         await db.refresh(item)
@@ -456,7 +496,7 @@ class ProjectService:
 
         if item.transaction_id:
             tx = await db.get(Transaction, item.transaction_id)
-            if tx and tx.state == TransactionState.PROJECTED:
+            if tx and tx.state in (TransactionState.PROJECTED, TransactionState.PENDING):
                 await db.delete(tx)
 
         await db.delete(item)
@@ -752,27 +792,31 @@ class ProjectService:
         if not project or project.household_id != household_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projet introuvable")
 
-        # Supprimer les transactions projetées liées
+        # Supprimer les transactions non réalisées liées (PROJECTED et PENDING)
+        # Les modifications effectuées sur le montant/date ont déjà été synchronisées dans ProjectItem
         tx_query = select(Transaction).where(
             Transaction.project_id == project_id,
-            Transaction.state == TransactionState.PROJECTED
+            Transaction.state.in_([TransactionState.PROJECTED, TransactionState.PENDING])
         )
         tx_res = await db.execute(tx_query)
         cancelled_txs = list(tx_res.scalars().all())
+        cancelled_ids = {tx.id for tx in cancelled_txs}
         count = len(cancelled_txs)
 
         for tx in cancelled_txs:
             await db.delete(tx)
 
-        # Reset item transaction_id
+        # Détacher transaction_id sur les items dont la transaction vient d'être retirée
         items_query = select(ProjectItem).where(ProjectItem.project_id == project_id)
         items_res = await db.execute(items_query)
         for item in items_res.scalars().all():
             if item.transaction_id:
-                # Vérifier si la transaction associée a été supprimée
-                tx = await db.get(Transaction, item.transaction_id)
-                if not tx or tx.state == TransactionState.PROJECTED:
+                if item.transaction_id in cancelled_ids:
                     item.transaction_id = None
+                else:
+                    tx = await db.get(Transaction, item.transaction_id)
+                    if not tx:
+                        item.transaction_id = None
 
         project.status = ProjectStatus.DRAFT
         await db.commit()

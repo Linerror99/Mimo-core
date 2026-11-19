@@ -1022,6 +1022,18 @@ export function TimelineView({
         }
       >
         <form onSubmit={handleSubmitTx} className="space-y-4">
+          {editingTx &&
+            (editingTx.recurring_template_id ||
+              editingTx.recurrence_frequency !== "NONE") && (
+              <div className="flex items-start gap-2 rounded-lg border border-violet-300/60 bg-violet-50/70 px-3 py-2 text-xs text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300">
+                <Repeat className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <strong>Occurrence récurrente :</strong> la modification du
+                  montant ou de la date s&apos;appliquera uniquement à cette
+                  occurrence sans modifier le modèle récurrent.
+                </span>
+              </div>
+            )}
           <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-slate-200 bg-slate-100 p-1 dark:border-zinc-800 dark:bg-zinc-900">
             {(["EXPENSE", "INCOME", "TRANSFER"] as TransactionType[]).map(
               (t) => (
