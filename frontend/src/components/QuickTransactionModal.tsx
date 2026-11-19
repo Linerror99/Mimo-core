@@ -26,6 +26,8 @@ import {
 import { Account } from '../types/account';
 import { Category } from '../types/category';
 import { useFeedback } from '../context/FeedbackContext';
+import { invalidateFinancialData } from '../lib/invalidation';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import '../styles/QuickTransactionModal.css';
 
 interface QuickTransactionModalProps {
@@ -39,6 +41,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  useBodyScrollLock(isOpen);
   const { showFeedback } = useFeedback();
 
   // Data sources
@@ -236,10 +239,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
         type: 'success'
       });
 
-      // Dispatch event to inform other active pages (Timeline, Dashboard, Accounts)
-      window.dispatchEvent(new CustomEvent('mimo-transaction-created', {
-        detail: { description, amount: numAmount, type, date: transactionDate }
-      }));
+      // Invalidate queries across all views (Dashboard, Timeline, Accounts, Projects)
+      invalidateFinancialData();
 
       if (onSuccess) {
         onSuccess();

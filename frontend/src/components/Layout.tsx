@@ -43,11 +43,9 @@ const menuItems = [
   { id: 'dashboard' as Page, label: 'Dashboard', icon: Home },
   { id: 'timeline' as Page, label: 'Timeline', icon: List },
   { id: 'projection' as Page, label: 'Projection', icon: TrendingUp },
-  { id: 'projects' as Page, label: 'Projets', icon: Compass },
+  { id: 'projects' as Page, label: 'Projets & Objectifs', icon: Target },
   { id: 'accounts' as Page, label: 'Comptes', icon: CreditCard },
-  { id: 'goals' as Page, label: 'Objectifs', icon: Target },
   { id: 'categories' as Page, label: 'Catégories', icon: Folder },
-  { id: 'trash' as Page, label: 'Corbeille', icon: Trash2 },
 ]
 
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
@@ -229,6 +227,10 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
               <DropdownMenuItem onClick={() => handleNavClick('settings-invitations')}>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Invitations
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavClick('trash')}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Corbeille
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLogout}>

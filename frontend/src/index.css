@@ -20,6 +20,22 @@
     margin: 0;
     padding: 0;
   }
+
+  /* Prevent background scrolling when a modal or notification is open */
+  html.modal-open,
+  body.modal-open {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+
+  body.modal-open .mimo-main,
+  body.modal-open .mimo-layout,
+  body[data-scroll-locked] .mimo-main,
+  body:has(.feedback-overlay) .mimo-main,
+  body:has(.quick-tx-overlay) .mimo-main {
+    overflow: hidden !important;
+    touch-action: none !important;
+  }
   
   .font-mono-amounts {
     font-family: 'JetBrains Mono', monospace;

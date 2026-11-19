@@ -17,6 +17,8 @@ import { BankLogo } from "@/components/BankLogo";
 import { BankLogoPicker } from "@/components/BankLogoPicker";
 import { AccountsSkeleton } from "@/components/skeletons/AccountsSkeleton";
 import { useFeedback } from "@/context/FeedbackContext";
+import { invalidateFinancialData } from "@/lib/invalidation";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import "../styles/Accounts.css";
 
 type Page =
@@ -42,6 +44,8 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [showInactive, setShowInactive] = useState(true);
   const { showFeedback } = useFeedback();
+
+  useBodyScrollLock(showModal);
 
   // Form state
   const [formData, setFormData] = useState<AccountCreate>({
@@ -132,28 +136,42 @@ export function AccountsPage({ navigate, onLogout }: AccountsPageProps) {
         });
       }
       await loadAccounts();
+      invalidateFinancialData();
       handleCloseModal();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la sauvegarde");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Voulez-vous fermer ce compte ?\n\nLe compte sera désactivé mais l'historique des transactions sera conservé.")) {
-      return;
-    }
-
-    try {
-      await accountService.deleteAccount(id);
-      showFeedback({
-        title: "Compte fermé",
-        message: "Le compte a été désactivé.",
-        type: "delete",
-      });
-      await loadAccounts();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la fermeture du compte");
-    }
+  const handleDelete = (id: string) => {
+    showFeedback({
+      title: "Fermer ce compte ?",
+      message: "Voulez-vous fermer ce compte ? Le compte sera désactivé mais l'historique des transactions sera conservé.",
+      type: "delete",
+      showCancel: true,
+      confirmText: "Fermer le compte",
+      cancelText: "Annuler",
+      onConfirm: async () => {
+        try {
+          await accountService.deleteAccount(id);
+          showFeedback({
+            title: "Compte fermé",
+            message: "Le compte a été désactivé.",
+            type: "delete",
+          });
+          await loadAccounts();
+          invalidateFinancialData();
+        } catch (err: any) {
+          const msg = err.response?.data?.detail || "Erreur lors de la fermeture du compte";
+          setError(msg);
+          showFeedback({
+            title: "Erreur",
+            message: msg,
+            type: "warning",
+          });
+        }
+      },
+    });
   };
 
   const totalBalance = useMemo(() => {
