@@ -3,15 +3,19 @@ Transaction Service
 
 Business logic for transaction operations
 """
+import re
 from datetime import date, datetime
+from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.account import Account
+from app.models.goal import Goal
 from app.models.household import Household
+from app.models.project import ProjectItem
 from app.models.transaction import RecurrenceFrequency, Transaction, TransactionState, TransactionType
 from app.schemas.transaction import RecurringTransactionCreate, TransactionCreate, TransactionUpdate
 from app.services.notification_service import NotificationService
@@ -52,6 +56,7 @@ class TransactionService:
             account_id=transaction_data.account_id,
             category_id=transaction_data.category_id,
             destination_account_id=transaction_data.destination_account_id,
+            goal_id=transaction_data.goal_id,
             description=transaction_data.description,
             amount=transaction_data.amount,
             transaction_date=transaction_data.transaction_date,
@@ -62,6 +67,9 @@ class TransactionService:
         )
 
         self.db.add(transaction)
+        await self.db.flush()
+        if transaction.goal_id and transaction.state == TransactionState.REALIZED:
+            await self._sync_linked_goal_amount(transaction.goal_id)
         await self.db.commit()
         await self.db.refresh(transaction)
 
@@ -117,6 +125,7 @@ class TransactionService:
             account_id=transaction_data.account_id,
             category_id=transaction_data.category_id,
             destination_account_id=transaction_data.destination_account_id,
+            goal_id=transaction_data.goal_id,
             description=transaction_data.description,
             amount=transaction_data.amount,
             transaction_date=transaction_data.transaction_date,
@@ -128,6 +137,9 @@ class TransactionService:
         )
 
         self.db.add(transaction)
+        await self.db.flush()
+        if transaction.goal_id and transaction.state == TransactionState.REALIZED:
+            await self._sync_linked_goal_amount(transaction.goal_id)
         await self.db.commit()
         await self.db.refresh(transaction)
 
@@ -257,6 +269,54 @@ class TransactionService:
 
         return list(result.scalars().all())
 
+    async def _sync_linked_goal_amount(self, goal_id: Optional[str]) -> None:
+        """Recalculer automatiquement goal.current_amount d'après les transactions REALIZED liées."""
+        if not goal_id:
+            return
+        goal = await self.db.get(Goal, goal_id)
+        if not goal:
+            return
+
+        total_res = await self.db.execute(
+            select(func.coalesce(func.sum(func.abs(Transaction.amount)), 0)).where(
+                Transaction.goal_id == goal_id,
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.deleted_at.is_(None),
+            )
+        )
+        realized_total = Decimal(str(total_res.scalar_one() or 0))
+        goal.current_amount = realized_total
+
+    async def _delete_linked_project_item(self, transaction_id: str) -> None:
+        """Supprimer le ProjectItem lié lorsque sa transaction est supprimée depuis la timeline."""
+        result = await self.db.execute(
+            select(ProjectItem).where(ProjectItem.transaction_id == transaction_id)
+        )
+        item = result.scalar_one_or_none()
+        if item:
+            await self.db.delete(item)
+
+    async def _sync_linked_project_item(self, transaction: Transaction) -> None:
+        """Synchroniser une transaction modifiée dans la timeline avec son ProjectItem lié."""
+        result = await self.db.execute(
+            select(ProjectItem).where(ProjectItem.transaction_id == transaction.id)
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            return
+
+        item.amount = abs(Decimal(str(transaction.amount)))
+        if transaction.transaction_date:
+            item.planned_date = transaction.transaction_date
+        if transaction.account_id:
+            item.account_id = transaction.account_id
+        item.category_id = transaction.category_id
+        item.notes = transaction.notes
+        if transaction.description:
+            cleaned_name = re.sub(r"^\[[^\]]+\]\s*", "", transaction.description).strip()
+            if cleaned_name:
+                item.name = cleaned_name
+
     async def update_transaction(
         self,
         transaction_id: str,
@@ -264,7 +324,7 @@ class TransactionService:
         transaction_data: TransactionUpdate
     ) -> Optional[Transaction]:
         """
-        Mettre à jour une transaction
+        Mettre à jour une transaction (y compris une seule occurrence d'une récurrence).
 
         Args:
             transaction_id: ID de la transaction
@@ -279,18 +339,29 @@ class TransactionService:
         if not transaction:
             return None
 
-        # Mise à jour des champs fournis
+        previous_goal_id = transaction.goal_id
+
+        # Mise à jour des champs fournis (ne touche jamais au RecurringTemplate parent)
         update_data = transaction_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(transaction, field, value)
 
-        # Si la date a été modifiée ou est dans le futur et que l'état n'a pas été explicitement forcé
+        # Recalculer l'état si la date a changé et que la transaction n'est pas encore réalisée
         if "state" not in update_data and transaction.transaction_date:
             today = date.today()
             if transaction.transaction_date > today:
                 transaction.state = TransactionState.PROJECTED
-            elif transaction.transaction_date == today and transaction.state == TransactionState.PROJECTED:
+            elif transaction.transaction_date <= today and transaction.state == TransactionState.PROJECTED:
                 transaction.state = TransactionState.PENDING
+
+        await self.db.flush()
+
+        # Synchronisation bidirectionnelle vers le projet et les objectifs liés
+        await self._sync_linked_project_item(transaction)
+        if previous_goal_id and previous_goal_id != transaction.goal_id:
+            await self._sync_linked_goal_amount(previous_goal_id)
+        if transaction.goal_id:
+            await self._sync_linked_goal_amount(transaction.goal_id)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -318,6 +389,11 @@ class TransactionService:
             return None
 
         transaction.deleted_at = datetime.utcnow()
+        await self.db.flush()
+
+        await self._delete_linked_project_item(transaction.id)
+        if transaction.goal_id:
+            await self._sync_linked_goal_amount(transaction.goal_id)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -355,6 +431,10 @@ class TransactionService:
             return None
 
         transaction.deleted_at = None
+        await self.db.flush()
+
+        if transaction.goal_id:
+            await self._sync_linked_goal_amount(transaction.goal_id)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -391,7 +471,12 @@ class TransactionService:
         if not transaction:
             return False
 
+        await self._delete_linked_project_item(transaction.id)
+        goal_id = transaction.goal_id
         await self.db.delete(transaction)
+        await self.db.flush()
+        if goal_id:
+            await self._sync_linked_goal_amount(goal_id)
         await self.db.commit()
 
         return True
@@ -490,6 +575,12 @@ class TransactionService:
         # Marquer comme validée
         transaction.state = TransactionState.REALIZED
         transaction.updated_at = datetime.utcnow()
+        await self.db.flush()
+
+        # Synchroniser vers le projet lié et l'objectif lié
+        await self._sync_linked_project_item(transaction)
+        if transaction.goal_id:
+            await self._sync_linked_goal_amount(transaction.goal_id)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -530,6 +621,9 @@ class TransactionService:
             transaction.state = TransactionState.PROJECTED
 
         transaction.updated_at = datetime.utcnow()
+
+        # Synchroniser vers le projet lié si la date a été reportée
+        await self._sync_linked_project_item(transaction)
 
         await self.db.commit()
         await self.db.refresh(transaction)
@@ -603,6 +697,9 @@ class TransactionService:
             transaction.notes = reason
 
         transaction.updated_at = datetime.utcnow()
+
+        # Synchroniser vers le projet lié si la date a été reportée
+        await self._sync_linked_project_item(transaction)
 
         await self.db.commit()
         await self.db.refresh(transaction)

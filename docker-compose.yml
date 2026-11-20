@@ -48,7 +48,9 @@ services:
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - DEBUG=true
       - ENVIRONMENT=development
-      - CORS_ORIGINS=http://localhost:5000,http://localhost:5173,http://localhost:3000,http://127.0.0.1:5000,http://127.0.0.1:5173
+      - COOKIE_SECURE=false
+      - COOKIE_SAMESITE=lax
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5000,http://localhost:5173
     ports:
       - "8000:8000"
     volumes:
@@ -62,20 +64,25 @@ services:
       - mimo-network
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  # Frontend (React + Vite)
+  # Frontend (Next.js 15 App Router + BFF Proxy)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development
     container_name: mimo-frontend
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=/api/v1
+      - INTERNAL_API_URL=http://backend:8000/api/v1
+      - WATCHPACK_POLLING=true
     ports:
-      - "5000:5000"
+      - "3000:3000"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
-      - ./frontend/index.html:/app/index.html
+      - ./frontend/tests:/app/tests
+    depends_on:
+      - backend
     networks:
       - mimo-network
 

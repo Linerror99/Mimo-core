@@ -143,3 +143,8 @@ class ProjectCommitResponse(BaseModel):
     status: ProjectStatus
     transactions_created: int
     message: str
+
+
+class ProjectShiftDatesRequest(BaseModel):
+    days: int = Field(default=0, ge=-3650, le=3650, description="Nombre de jours de décalage (positif ou négatif)")
+    months: int = Field(default=0, ge=-120, le=120, description="Nombre de mois de décalage (positif ou négatif)")

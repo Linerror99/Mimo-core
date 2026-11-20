@@ -1,4 +1,4 @@
 """Services layer for business logic."""
-from .auth import AuthService, auth_service
+from .auth_service import AuthService
 
-__all__ = ["auth_service", "AuthService"]
+__all__ = ["AuthService"]

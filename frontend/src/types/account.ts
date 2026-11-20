@@ -1,15 +1,10 @@
-/**
- * Account Types
- */
-
-export enum AccountType {
-  CHECKING = "CHECKING",
-  SAVINGS = "SAVINGS",
-  INVESTMENT = "INVESTMENT",
-  LOAN = "LOAN",
-  CASH = "CASH",
-  OTHER = "OTHER",
-}
+export type AccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "INVESTMENT"
+  | "LOAN"
+  | "CASH"
+  | "OTHER";
 
 export interface Account {
   id: string;
@@ -43,11 +38,23 @@ export interface AccountUpdate {
   logo_url?: string | null;
 }
 
+export interface TotalBalanceResponse {
+  total_balance: number;
+  accounts_count: number;
+  accounts: Array<{
+    id: string;
+    name: string;
+    type: AccountType;
+    initial_balance: number;
+    current_balance: number;
+  }>;
+}
+
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  [AccountType.CHECKING]: "Compte Courant",
-  [AccountType.SAVINGS]: "Compte Épargne",
-  [AccountType.INVESTMENT]: "Investissement",
-  [AccountType.LOAN]: "Prêt",
-  [AccountType.CASH]: "Espèces",
-  [AccountType.OTHER]: "Autre",
+  CHECKING: "Compte courant",
+  SAVINGS: "Épargne",
+  INVESTMENT: "Investissement",
+  LOAN: "Prêt",
+  CASH: "Espèces",
+  OTHER: "Autre",
 };

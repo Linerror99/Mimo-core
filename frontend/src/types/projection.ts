@@ -1,13 +1,7 @@
-/**
- * Projection Types
- * 
- * Types pour les projections financières.
- */
-
-export interface Projection {
+export interface ProjectionEntry {
   template_id: string;
   template_name: string;
-  date: string; // ISO date
+  date: string;
   amount: number;
   type: "INCOME" | "EXPENSE" | "TRANSFER";
   account_id: string;
@@ -17,58 +11,75 @@ export interface Projection {
 }
 
 export interface MonthlyProjection {
-  month: number; // 1-12
+  month: number;
   year: number;
   income: number;
   expense: number;
   transfers?: number;
-  balance: number; // Patrimoine global (tous comptes)
-  treasury_balance?: number; // Trésorerie courante après épargne
-  projections: Projection[];
-}
-
-export interface ProjectionSummary {
-  month: string; // "YYYY-MM"
-  label: string; // "Jan 2026"
-  income: number;
-  expense: number;
   balance: number;
+  treasury_balance?: number;
+  projections: ProjectionEntry[];
 }
 
-// Helper function pour formater le mois
-export function formatMonth(month: number, year: number): string {
-  const date = new Date(year, month - 1);
-  return date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+export interface SafeToSpendData {
+  current_balance: number;
+  committed_expenses: number;
+  safe_to_spend: number;
+  next_income_date: string;
+  next_income_amount: number;
+  days_until_next_income: number;
+  status: "healthy" | "caution" | "danger";
+  horizon_date: string;
 }
 
-// Helper function pour générer les 12 prochains mois
-export function getNext12Months(): { month: number; year: number }[] {
-  const result: { month: number; year: number }[] = [];
-  const now = new Date();
-  
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    result.push({
-      month: date.getMonth() + 1,
-      year: date.getFullYear()
-    });
-  }
-  
-  return result;
+export type SimulationPaymentType = "DIRECT" | "INSTALLMENTS" | "RECURRING";
+
+export interface PurchaseSimulationPayload {
+  name: string;
+  is_saving: boolean;
+  total_amount?: number;
+  monthly_amount?: number;
+  payment_type: SimulationPaymentType;
+  installments_count?: number;
+  start_date: string;
+  account_id?: string;
+  destination_account_id?: string;
+  category_id?: string;
+  create_goal?: boolean;
 }
 
-// Helper function pour formatter un montant avec signe
-export function formatProjectionAmount(amount: number, type: string): string {
-  const formatted = new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(Math.abs(amount));
-  
-  if (type === "EXPENSE") {
-    return `- ${formatted}`;
-  } else if (type === "INCOME") {
-    return `+ ${formatted}`;
-  }
-  
-  return formatted;
+export interface SimulationScheduleItem {
+  date: string;
+  amount: number;
+  label: string;
+}
+
+export interface SimulationMonthlyComparison {
+  month: number;
+  year: number;
+  month_label: string;
+  base_balance: number;
+  simulated_balance: number;
+  sim_cost: number;
+}
+
+export interface PurchaseSimulationResult {
+  name?: string;
+  is_saving?: boolean;
+  payment_type?: SimulationPaymentType;
+  total_amount?: number;
+  monthly_amount?: number;
+  duration_months?: number;
+  schedule?: SimulationScheduleItem[];
+  feasibility_status?: "SUCCESS" | "WARNING" | "DANGER";
+  feasibility_message?: string;
+  min_projected_balance?: number;
+  lowest_balance_month?: string;
+  monthly_comparisons?: SimulationMonthlyComparison[];
+  // Legacy aliases kept for backwards compatibility in tests
+  is_feasible?: boolean;
+  status?: string;
+  message?: string;
+  min_balance_after?: number;
+  impact_summary?: string;
 }

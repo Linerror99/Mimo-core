@@ -5,13 +5,14 @@ Service pour gérer les templates de transactions récurrentes.
 Crée automatiquement toutes les transactions pour les 12 prochains mois.
 """
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Frequency, RecurringTemplate, Transaction, TransactionType
+from app.models import Frequency, RecurringTemplate, Transaction, TransactionState, TransactionType
 from app.services.projection_service import get_next_occurrence
 
 
@@ -211,10 +212,40 @@ class RecurringTemplateService:
         if not template:
             raise ValueError(f"Template {template_id} not found")
 
+        payload = dict(data)
+        apply_to_future = bool(payload.pop("apply_to_future", False))
+
         # Mettre à jour les champs fournis
-        for key, value in data.items():
+        for key, value in payload.items():
             if hasattr(template, key):
                 setattr(template, key, value)
+
+        # Optionnel : propager les changements aux occurrences futures déjà générées (PROJECTED)
+        if apply_to_future:
+            today = date.today()
+            future_res = await db.execute(
+                select(Transaction).where(
+                    Transaction.recurring_template_id == template.id,
+                    Transaction.household_id == household_id,
+                    Transaction.state == TransactionState.PROJECTED,
+                    Transaction.transaction_date >= today,
+                    Transaction.deleted_at.is_(None),
+                )
+            )
+            future_txs = list(future_res.scalars().all())
+            tx_type_val = template.type.value if hasattr(template.type, "value") else str(template.type)
+            signed_amount = (
+                -abs(Decimal(str(template.amount)))
+                if tx_type_val == "EXPENSE"
+                else abs(Decimal(str(template.amount)))
+            )
+            for tx in future_txs:
+                if "amount" in payload:
+                    tx.amount = signed_amount
+                if "name" in payload:
+                    tx.description = template.name
+                if "category_id" in payload:
+                    tx.category_id = template.category_id
 
         await db.commit()
         await db.refresh(template)

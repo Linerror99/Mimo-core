@@ -3,8 +3,11 @@
 from typing import List, Optional, Union
 import os
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_INSECURE_JWT_SECRET = "your-secret-key-change-in-production"
 
 
 class Settings(BaseSettings):
@@ -71,6 +74,21 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        """Enforce secure configuration when running in production."""
+        if self.ENVIRONMENT.lower() == "production":
+            self.DEBUG = False
+            if (
+                not self.JWT_SECRET_KEY
+                or self.JWT_SECRET_KEY == DEFAULT_INSECURE_JWT_SECRET
+                or len(self.JWT_SECRET_KEY) < 32
+            ):
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set to a strong secret (>= 32 chars) in production."
+                )
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

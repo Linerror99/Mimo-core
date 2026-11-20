@@ -20,11 +20,13 @@ class AccountService:
     async def create_account(
         db: AsyncSession,
         household_id: str,
-        account_data: AccountCreate
+        account_data: AccountCreate,
+        owner_user_id: Optional[str] = None
     ) -> Account:
         """Create a new account"""
         account = Account(
             household_id=household_id,
+            original_owner_user_id=owner_user_id,
             name=account_data.name,
             type=account_data.type,
             initial_balance=account_data.initial_balance,
@@ -153,3 +155,54 @@ class AccountService:
 
         # Balance = initial_balance + outgoing_and_incomes + incoming_transfers
         return account.initial_balance + Decimal(str(outgoing_and_incomes)) + Decimal(str(incoming_transfers))
+
+    @staticmethod
+    async def calculate_balances_batch(
+        db: AsyncSession,
+        accounts: List[Account]
+    ) -> dict[str, Decimal]:
+        """Calculate current balances for multiple accounts in 2 SQL queries (avoids N+1)."""
+        from datetime import date
+        from app.models.transaction import Transaction, TransactionState, TransactionType
+
+        if not accounts:
+            return {}
+
+        account_ids = [acc.id for acc in accounts]
+        today = date.today()
+
+        outgoing_res = await db.execute(
+            select(
+                Transaction.account_id,
+                func.coalesce(func.sum(Transaction.amount), 0)
+            )
+            .where(
+                Transaction.account_id.in_(account_ids),
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
+            )
+            .group_by(Transaction.account_id)
+        )
+        outgoing_map = {row[0]: Decimal(str(row[1])) for row in outgoing_res.all()}
+
+        incoming_res = await db.execute(
+            select(
+                Transaction.destination_account_id,
+                func.coalesce(func.sum(func.abs(Transaction.amount)), 0)
+            )
+            .where(
+                Transaction.destination_account_id.in_(account_ids),
+                Transaction.type == TransactionType.TRANSFER,
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
+            )
+            .group_by(Transaction.destination_account_id)
+        )
+        incoming_map = {row[0]: Decimal(str(row[1])) for row in incoming_res.all()}
+
+        return {
+            acc.id: acc.initial_balance + outgoing_map.get(acc.id, Decimal("0")) + incoming_map.get(acc.id, Decimal("0"))
+            for acc in accounts
+        }

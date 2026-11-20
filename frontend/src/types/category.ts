@@ -1,11 +1,4 @@
-/**
- * Category Types
- */
-
-export enum CategoryType {
-  INCOME = "INCOME",
-  EXPENSE = "EXPENSE",
-}
+export type CategoryType = "INCOME" | "EXPENSE";
 
 export interface Category {
   id: string;
@@ -19,44 +12,37 @@ export interface Category {
   updated_at: string;
 }
 
+export interface CategoryTree extends Category {
+  children: CategoryTree[];
+}
+
 export interface CategoryCreate {
   name: string;
   type: CategoryType;
   icon?: string;
   color?: string;
-  parent_id?: string;
+  parent_id?: string | null;
 }
 
 export interface CategoryUpdate {
   name?: string;
   icon?: string;
   color?: string;
-  parent_id?: string;
-}
-
-export interface CategoryTree extends Category {
-  children: CategoryTree[];
+  parent_id?: string | null;
 }
 
 export const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  [CategoryType.INCOME]: "Revenu",
-  [CategoryType.EXPENSE]: "Dépense",
+  INCOME: "Revenu",
+  EXPENSE: "Dépense",
 };
 
-export const DEFAULT_CATEGORY_COLORS = [
-  "#27AE60", // Green
-  "#E74C3C", // Red
-  "#3498DB", // Blue
-  "#F39C12", // Orange
-  "#9B59B6", // Purple
-  "#1ABC9C", // Turquoise
-  "#E67E22", // Dark Orange
-  "#34495E", // Dark Gray
-  "#16A085", // Dark Turquoise
-  "#C0392B", // Dark Red
-];
-
-export const DEFAULT_CATEGORY_ICONS = [
-  "home", "food", "transport", "gaming", "health", "education", "travel", "shopping",
-  "salary", "card", "phone", "energy", "entertainment", "sport", "art", "books",
-];
+export const CATEGORY_COLOR_SWATCHES = [
+  "#0F172A",
+  "#2563EB",
+  "#10B981",
+  "#F59E0B",
+  "#E11D48",
+  "#6366F1",
+  "#0D9488",
+  "#475569",
+] as const;

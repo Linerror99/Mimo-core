@@ -1,30 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
-# MIMO FINANCE - Hub interactif des outils et scripts
+# MIMO FINANCE - Hub interactif des outils et scripts (100 % Bash)
 # =============================================================================
 
-# Se positionner à la racine du projet
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-# Détecter docker compose vs docker-compose
 if docker compose version >/dev/null 2>&1; then
     COMPOSE_CMD="docker compose"
-elif command -v docker-compose >/dev/null 2>&1; then
-    COMPOSE_CMD="docker-compose"
 else
-    COMPOSE_CMD="docker compose"
+    COMPOSE_CMD="docker-compose"
 fi
 
-# Couleurs
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BOLD='\033[1m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 clear 2>/dev/null || true
 
@@ -34,49 +29,44 @@ while true; do
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e " ${BOLD}Gestion de l'application (Docker) :${NC}"
-    echo -e "   ${CYAN}1)${NC}  Démarrer l'application                 ($COMPOSE_CMD up -d)"
+    echo -e "   ${CYAN}1)${NC}  Démarrer l'application                 (./scripts/dev.sh)"
     echo -e "   ${CYAN}2)${NC}  Démarrer avec Rebuild complet          ($COMPOSE_CMD up -d --build)"
     echo -e "   ${CYAN}3)${NC}  Arrêter l'application                  ($COMPOSE_CMD down)"
     echo -e "   ${CYAN}4)${NC}  Redémarrer l'application               ($COMPOSE_CMD restart)"
     echo -e "   ${CYAN}5)${NC}  Voir les logs en direct                ($COMPOSE_CMD logs -f)"
     echo ""
-    echo -e " ${BOLD}Sécurité & Diagnostic :${NC}"
-    echo -e "   ${CYAN}6)${NC}  Lancer les tests de sécurité en direct (scripts/test-security.sh)"
-    echo -e "   ${CYAN}7)${NC}  Vérifier la santé des services locaux  (scripts/health-check.sh)"
-    echo " ${BOLD}Données de Test :${NC}"
-    echo -e "   ${CYAN}8)${NC}  Générer les données de test (SQL)      (python scripts/generate_test_data.py)"
-    echo -e "   ${CYAN}9)${NC}  Charger les données de test en Local"
-    echo -e "   ${CYAN}10)${NC} Charger les données de test (Cloud GCP)"
+    echo -e " ${BOLD}Tests TDD, Sécurité & Diagnostic :${NC}"
+    echo -e "   ${CYAN}6)${NC}  Tests TDD Frontend (Vitest + TSC)      (./scripts/test.sh frontend)"
+    echo -e "   ${CYAN}7)${NC}  Tests TDD Backend (Pytest)             (./scripts/test.sh backend)"
+    echo -e "   ${CYAN}8)${NC}  Tests de sécurité                      (./scripts/test-security.sh)"
+    echo -e "   ${CYAN}9)${NC}  Vérifier la santé des services         (./scripts/health-check.sh)"
     echo ""
-    echo -e " ${BOLD}Base de données :${NC}"
-    echo -e "   ${CYAN}11)${NC} Sauvegarder la base de données         (scripts/backup-db.sh)"
-    echo -e "   ${CYAN}12)${NC} Restaurer une sauvegarde               (scripts/restore-db.sh)"
-    echo -e "   ${CYAN}13)${NC} Appliquer les migrations Alembic       (scripts/run-migrations.sh)"
+    echo -e " ${BOLD}Données de Test & Base de données :${NC}"
+    echo -e "   ${CYAN}10)${NC} Générer données de test (SQL)          (python3 scripts/generate_test_data.py)"
+    echo -e "   ${CYAN}11)${NC} Charger données de test en Local       (test_data.sql -> Postgres)"
+    echo -e "   ${CYAN}12)${NC} Sauvegarder la base de données         (./scripts/backup-db.sh)"
+    echo -e "   ${CYAN}13)${NC} Restaurer une sauvegarde               (./scripts/restore-db.sh)"
+    echo -e "   ${CYAN}14)${NC} Appliquer les migrations Alembic       (./scripts/run-migrations.sh)"
     echo ""
     echo -e " ${BOLD}Déploiement GCP (Cloud Run) :${NC}"
-    echo -e "   ${CYAN}14)${NC} Déployer TOUT (Backend + Frontend)    (./deploy.sh all)"
-    echo -e "   ${CYAN}15)${NC} Déployer uniquement le Backend        (./deploy.sh backend)"
-    echo -e "   ${CYAN}16)${NC} Déployer uniquement le Frontend       (./deploy.sh frontend)"
+    echo -e "   ${CYAN}15)${NC} Déployer TOUT (Backend + Frontend)     (./deploy.sh all)"
+    echo -e "   ${CYAN}16)${NC} Déployer uniquement le Backend         (./deploy.sh backend)"
+    echo -e "   ${CYAN}17)${NC} Déployer uniquement le Frontend        (./deploy.sh frontend)"
     echo ""
     echo -e "   ${RED}q)${NC}  Quitter"
     echo ""
-    read -p "Sélectionnez une option [1-16 ou q] : " choice
+    read -r -p "Sélectionnez une option [1-17 ou q] : " choice
 
     echo ""
     case $choice in
         1)
-            echo -e "${YELLOW}>>> Démarrage de l'application Mimo Finance...${NC}"
-            $COMPOSE_CMD up -d
-            echo -e "${GREEN}>>> Application démarrée !${NC}"
-            echo -e "    Frontend : ${CYAN}http://localhost:5000${NC}"
-            echo -e "    Backend  : ${CYAN}http://localhost:8000${NC}"
-            echo -e "    API Docs : ${CYAN}http://localhost:8000/docs${NC}"
+            ./scripts/dev.sh
             ;;
         2)
             echo -e "${YELLOW}>>> Rebuild et démarrage de l'application...${NC}"
             $COMPOSE_CMD up -d --build
             echo -e "${GREEN}>>> Application reconstruite et démarrée !${NC}"
-            echo -e "    Frontend : ${CYAN}http://localhost:5000${NC}"
+            echo -e "    Frontend : ${CYAN}http://localhost:3000${NC}"
             echo -e "    Backend  : ${CYAN}http://localhost:8000${NC}"
             ;;
         3)
@@ -90,67 +80,53 @@ while true; do
             echo -e "${GREEN}>>> Services redémarrés.${NC}"
             ;;
         5)
-            echo -e "${YELLOW}>>> Affichage des logs (Ctrl+C pour quitter les logs)...${NC}"
+            echo -e "${YELLOW}>>> Affichage des logs (Ctrl+C pour quitter)...${NC}"
             $COMPOSE_CMD logs -f
             ;;
         6)
-            echo -e "${YELLOW}>>> Lancement des tests de sécurité...${NC}"
-            ./scripts/test-security.sh
+            ./scripts/test.sh frontend
             ;;
         7)
-            echo -e "${YELLOW}>>> Vérification de la santé des services...${NC}"
-            ./scripts/health-check.sh
+            ./scripts/test.sh backend
             ;;
         8)
-            echo -e "${YELLOW}>>> Génération du script de données de test (test_data.sql)...${NC}"
-            if command -v python &> /dev/null; then
-                python scripts/generate_test_data.py || echo -e "${RED}Erreur lors de l'exécution du script Python.${NC}"
-            elif command -v python3 &> /dev/null; then
-                python3 scripts/generate_test_data.py || echo -e "${RED}Erreur lors de l'exécution du script Python.${NC}"
-            else
-                echo -e "${RED}Python n'est pas installé ou n'est pas dans le PATH.${NC}"
-            fi
+            ./scripts/test-security.sh
             ;;
         9)
-            echo -e "${YELLOW}>>> Chargement des données de test en Local...${NC}"
+            ./scripts/health-check.sh
+            ;;
+        10)
+            echo -e "${YELLOW}>>> Génération de test_data.sql...${NC}"
+            python3 scripts/generate_test_data.py || echo -e "${RED}Erreur lors de la génération.${NC}"
+            ;;
+        11)
             if [ -f "test_data.sql" ]; then
                 docker exec -i mimo-postgres psql -U duoflow -d duoflow < test_data.sql
                 echo -e "${GREEN}>>> Données chargées en Local avec succès !${NC}"
-                echo ""
-                echo -e " ${BOLD}Comptes de test disponibles (Mot de passe: ${YELLOW}password123${NC}) :${NC}"
-                echo -e "   1. ${CYAN}alexandre@test.com${NC} - Salarié CDI (2600 €/m)"
-                echo -e "   2. ${CYAN}sophie@test.com${NC}    - Freelance Tech (3400 €/m)"
-                echo -e "   3. ${CYAN}lucas@test.com${NC}     - Étudiant / Alternant (950 €/m)"
+                echo -e "    Comptes de test (mot de passe: ${YELLOW}password123${NC}) :"
+                echo -e "      1. ${CYAN}alexandre@test.com${NC}"
+                echo -e "      2. ${CYAN}sophie@test.com${NC}"
+                echo -e "      3. ${CYAN}lucas@test.com${NC}"
             else
-                echo -e "${RED}Erreur : test_data.sql introuvable. Veuillez générer d'abord.${NC}"
+                echo -e "${RED}Erreur : test_data.sql introuvable.${NC}"
             fi
             ;;
-        10)
-            echo -e "${YELLOW}>>> Chargement des données de test sur le Cloud...${NC}"
-            ./scripts/load-test-data-cloud.sh
-            ;;
-        11)
-            echo -e "${YELLOW}>>> Sauvegarde de la base de données...${NC}"
+        12)
             ./scripts/backup-db.sh
             ;;
-        12)
-            echo -e "${YELLOW}>>> Restauration de la base de données...${NC}"
+        13)
             ./scripts/restore-db.sh
             ;;
-        13)
-            echo -e "${YELLOW}>>> Exécution des migrations...${NC}"
+        14)
             ./scripts/run-migrations.sh
             ;;
-        14)
-            echo -e "${YELLOW}>>> Déploiement complet en cours...${NC}"
+        15)
             ./deploy.sh all
             ;;
-        15)
-            echo -e "${YELLOW}>>> Déploiement du Backend...${NC}"
+        16)
             ./deploy.sh backend
             ;;
-        16)
-            echo -e "${YELLOW}>>> Déploiement du Frontend...${NC}"
+        17)
             ./deploy.sh frontend
             ;;
         q|Q)
@@ -163,6 +139,6 @@ while true; do
     esac
 
     echo ""
-    read -p "Appuyez sur Entrée pour revenir au menu..." dummy
+    read -r -p "Appuyez sur Entrée pour revenir au menu..." _
     clear 2>/dev/null || true
 done

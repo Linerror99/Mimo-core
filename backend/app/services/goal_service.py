@@ -505,54 +505,47 @@ class GoalService:
         """
         Calcule le solde disponible pour les objectifs
 
-        - Objectif personnel: somme des soldes des comptes de l'utilisateur uniquement
-        - Objectif foyer: somme des soldes des comptes du household (les deux partenaires)
-
-        Args:
-            user_id: ID de l'utilisateur
-            household_id: ID du foyer (optionnel)
-            is_household_goal: True si c'est un objectif foyer, False sinon
-
-        Returns:
-            Solde total disponible
+        - Objectif personnel: somme des soldes réels des comptes de l'utilisateur
+          (fallback sur les comptes actifs du foyer si original_owner_user_id n'est pas encore renseigné)
+        - Objectif foyer: somme des soldes réels des comptes actifs du household (les deux partenaires)
         """
-        from app.models.transaction import Transaction
+        from app.services.account_service import AccountService
 
         if is_household_goal and household_id:
-            # Objectif foyer: somme des comptes du household (couple)
+            # Objectif foyer: somme des comptes actifs du household (couple)
             accounts_result = await self.db.execute(
-                select(Account.id, Account.initial_balance)
-                .where(Account.household_id == household_id)
-            )
-            accounts = accounts_result.all()
-        else:
-            # Objectif personnel: somme des comptes de l'utilisateur uniquement
-            accounts_result = await self.db.execute(
-                select(Account.id, Account.initial_balance)
-                .where(Account.original_owner_user_id == user_id)
-            )
-            accounts = accounts_result.all()
-
-        # Calculer le solde pour chaque compte (initial_balance + transactions)
-        total_balance = Decimal("0")
-        for account in accounts:
-            account_id, initial_balance = account
-
-            # Somme des transactions pour ce compte
-            transactions_result = await self.db.execute(
-                select(func.coalesce(func.sum(Transaction.amount), 0))
-                .where(
-                    Transaction.account_id == account_id,
-                    Transaction.deleted_at.is_(None)
+                select(Account).where(
+                    Account.household_id == household_id,
+                    Account.is_active == "true"
                 )
             )
-            transactions_sum = transactions_result.scalar_one()
+            accounts = list(accounts_result.scalars().all())
+        else:
+            # Objectif personnel: comptes dont l'utilisateur est propriétaire
+            accounts_result = await self.db.execute(
+                select(Account).where(
+                    Account.original_owner_user_id == user_id,
+                    Account.is_active == "true"
+                )
+            )
+            accounts = list(accounts_result.scalars().all())
 
-            # Balance du compte = initial + transactions
-            account_balance = initial_balance + Decimal(str(transactions_sum))
-            total_balance += account_balance
+            # Fallback pour les comptes historiques créés avant le peuplement de original_owner_user_id
+            if not accounts and household_id:
+                fallback_result = await self.db.execute(
+                    select(Account).where(
+                        Account.household_id == household_id,
+                        Account.original_owner_user_id.is_(None),
+                        Account.is_active == "true"
+                    )
+                )
+                accounts = list(fallback_result.scalars().all())
 
-        return total_balance
+        if not accounts:
+            return Decimal("0")
+
+        balances = await AccountService.calculate_balances_batch(db=self.db, accounts=accounts)
+        return sum(balances.values(), Decimal("0"))
 
     async def get_allocated_amount(
         self,

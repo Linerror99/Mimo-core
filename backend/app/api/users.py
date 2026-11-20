@@ -15,22 +15,13 @@ from app.services.storage_service import StorageService
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(
-    current_user: CurrentUser,
-    db: Annotated[AsyncSession, Depends(get_db)]
-):
-    """
-    Get current authenticated user profile with is_in_couple status.
-
-    Requires: Bearer token in Authorization header
-    """
+async def _build_user_response(current_user: CurrentUser, db: AsyncSession) -> UserResponse:
+    """Build UserResponse with computed is_in_couple status."""
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
     from app.models import Household
 
-    # Calculate is_in_couple by loading household with members
     is_in_couple = False
     if current_user.household_id:
         stmt = select(Household).where(
@@ -41,7 +32,6 @@ async def get_current_user_profile(
         if household and len(household.members) >= 2:
             is_in_couple = True
 
-    # Return user with calculated field
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -53,6 +43,19 @@ async def get_current_user_profile(
         created_at=current_user.created_at,
         is_in_couple=is_in_couple
     )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Get current authenticated user profile with is_in_couple status.
+
+    Requires: Bearer token in Authorization header
+    """
+    return await _build_user_response(current_user, db)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -78,7 +81,7 @@ async def update_user_profile(
     await db.commit()
     await db.refresh(current_user)
 
-    return current_user
+    return await _build_user_response(current_user, db)
 
 
 @router.patch("/me/password")
@@ -141,7 +144,7 @@ async def upload_avatar(
         await db.commit()
         await db.refresh(current_user)
 
-        return current_user
+        return await _build_user_response(current_user, db)
 
     except HTTPException:
         raise
@@ -174,7 +177,7 @@ async def delete_avatar(
 
     try:
         # Supprimer le fichier
-        storage_service.delete_avatar(current_user.avatar_url)
+        await storage_service.delete_avatar(current_user.avatar_url)
 
         # Mettre à jour l'utilisateur
         current_user.avatar_url = None
