@@ -4,8 +4,7 @@
 
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import logger from '@/utils/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/config/api';
 
 /**
  * Retry configuration
@@ -70,6 +69,7 @@ async function axiosRetry<T>(
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
   timeout: 10000,
+  withCredentials: true, // Send and receive HttpOnly cookies cross-origin
   headers: {
     'Content-Type': 'application/json',
   },
@@ -95,30 +95,42 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If 401 and not already retried, try to refresh token
+    // If 401 and not already retried, try to refresh token via HttpOnly cookie or stored token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
-            refresh_token: refreshToken,
-          });
+        const storedRefreshToken = localStorage.getItem('refresh_token');
+        const response = await axios.post(
+          `${API_BASE_URL}/api/v1/auth/refresh`,
+          storedRefreshToken ? { refresh_token: storedRefreshToken } : {},
+          { withCredentials: true }
+        );
 
-          const { access_token } = response.data;
-          localStorage.setItem('access_token', access_token);
+        const { access_token } = response.data;
+        localStorage.setItem('access_token', access_token);
 
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
-          return apiClient(originalRequest);
+        // Synchroniser également Zustand authStore
+        try {
+          const { useAuthStore } = await import('@/stores/authStore');
+          useAuthStore.setState({ accessToken: access_token });
+        } catch (_) {}
+
+        // Retry original request with new token
+        originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        return apiClient(originalRequest);
+      } catch (refreshError: any) {
+        // Only clear tokens and redirect if the refresh request itself was rejected as Unauthorized (401/403)
+        // If it was a network error or 5xx server timeout, DO NOT log out the user!
+        const status = refreshError.response?.status;
+        if (status === 401 || status === 403) {
+          logger.error('Token refresh rejected (401/403), logging out', refreshError);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/login';
+        } else {
+          logger.warn('Token refresh encountered temporary network/server error, preserving tokens', refreshError);
         }
-      } catch (refreshError) {
-        // Refresh failed, clear tokens and redirect to login
-        logger.error('Token refresh failed', refreshError);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }

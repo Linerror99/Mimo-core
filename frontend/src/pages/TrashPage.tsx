@@ -8,6 +8,7 @@
  */
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { SettingsHeader } from "@/components/SettingsHeader";
 import { Trash2, RotateCcw, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Calendar, CreditCard, Tag } from "lucide-react";
 import { transactionService } from "../services/transactionService";
 import { accountService } from "../services/accountService";
@@ -82,42 +83,70 @@ export function Trash({ navigate, onLogout }: TrashPageProps) {
     }
   };
 
-  const handlePermanentDelete = async (id: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer définitivement cette transaction ?\n\nCette action est irréversible.")) {
-      return;
-    }
-
-    try {
-      await transactionService.permanentDelete(id);
-      await loadData();
-      showFeedback({
-        title: "Suppression définitive",
-        message: "La transaction a été définitivement supprimée.",
-        type: "delete"
-      });
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression définitive");
-    }
+  const handlePermanentDelete = (id: string) => {
+    showFeedback({
+      title: "Suppression définitive",
+      message: "Êtes-vous sûr de vouloir supprimer définitivement cette transaction ? Cette action est irréversible.",
+      type: "delete",
+      showCancel: true,
+      confirmText: "Supprimer définitivement",
+      cancelText: "Annuler",
+      onConfirm: async () => {
+        try {
+          await transactionService.permanentDelete(id);
+          await loadData();
+          showFeedback({
+            title: "Suppression définitive",
+            message: "La transaction a été définitivement supprimée.",
+            type: "delete"
+          });
+        } catch (err: any) {
+          const msg = err.response?.data?.detail || "Erreur lors de la suppression définitive";
+          setError(msg);
+          showFeedback({
+            title: "Erreur",
+            message: msg,
+            type: "warning"
+          });
+        }
+      }
+    });
   };
 
-  const handleEmptyTrash = async () => {
+  const handleEmptyTrash = () => {
     if (deletedTransactions.length === 0) return;
 
-    if (!window.confirm(`Êtes-vous sûr de vouloir vider la corbeille ?\n\n${deletedTransactions.length} transaction(s) seront supprimée(s) définitivement.\n\nCette action est irréversible.`)) {
-      return;
-    }
-
-    try {
-      await transactionService.emptyTrash();
-      await loadData();
-      showFeedback({
-        title: "Corbeille vidée",
-        message: "Toutes les transactions de la corbeille ont été définitivement supprimées.",
-        type: "delete"
-      });
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors du vidage de la corbeille");
-    }
+    showFeedback({
+      title: "Vider la corbeille ?",
+      message: `Êtes-vous sûr de vouloir vider la corbeille ? ${deletedTransactions.length} transaction(s) seront supprimée(s) définitivement. Cette action est irréversible.`,
+      type: "delete",
+      showCancel: true,
+      confirmText: "Vider la corbeille",
+      cancelText: "Annuler",
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const res = await transactionService.emptyTrash();
+          await loadData();
+          showFeedback({
+            title: "Corbeille vidée",
+            message: res.message || "Toutes les transactions de la corbeille ont été définitivement supprimées.",
+            type: "delete"
+          });
+        } catch (err: any) {
+          const msg = err.response?.data?.detail || "Erreur lors du vidage de la corbeille";
+          setError(msg);
+          showFeedback({
+            title: "Erreur",
+            message: msg,
+            type: "warning"
+          });
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -161,10 +190,17 @@ export function Trash({ navigate, onLogout }: TrashPageProps) {
 
   return (
     <Layout currentPage="trash" navigate={navigate} onLogout={onLogout}>
-      <div className="trash-page">
+      <div className="trash-page max-w-5xl mx-auto space-y-6">
+        <SettingsHeader
+          currentTab="trash"
+          navigate={navigate}
+          title="Paramètres & Données"
+          description="Gérez votre compte, votre foyer et l'historique de suppression."
+        />
+
         <div className="trash-header">
           <div>
-            <h1>Corbeille</h1>
+            <h2 className="text-xl font-bold text-foreground">Corbeille des transactions</h2>
             <p className="subtitle">
               {deletedTransactions.length > 0 
                 ? `${deletedTransactions.length} transaction(s) supprimée(s)`

@@ -657,7 +657,7 @@
   gap: 0.75rem;
 }
 
-.detail-item {
+.projection-details .detail-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -856,7 +856,7 @@
     padding: 1rem 1rem 1rem 2rem;
   }
 
-  .detail-item {
+  .projection-details .detail-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;

@@ -45,13 +45,15 @@ En V2, Mimo ne se contente plus d'enregistrer le passé : elle devient un **assi
   $$\text{Safe-to-Spend} = \text{Solde Actuel} - \sum \text{Charges à venir jusqu'au prochain salaire} - \text{Objectif d'Épargne}$$
 * **Affichage** : Jauge dynamique en haut du Dashboard et de la Timeline indiquant la somme réelle disponible par jour / par semaine sans risquer le découvert.
 
-### 2. Le « Simulateur d'Achat & Décision » (*Sandbox Mode / What-If*)
-* **Concept** : Tester un achat coup de cœur ou un gros projet avant de passer à l'acte.
+### 2. Le Module « Projets & Enveloppes » avec Simulateur What-If (✅ Implémenté en V2)
+* **Concept** : Planifier des projets majeurs (Vacances, Travaux, Véhicule, Événement) et tester la faisabilité financière avant d'engager les dépenses.
 * **Fonctionnement** :
-  1. L'utilisateur clique sur *« Simuler un achat »*.
-  2. Il entre le montant, la date (ou un paiement en 3x/4x/10x).
-  3. L'application calcule immédiatement l'impact sur la courbe de trésorerie des 12 prochains mois **sans modifier les vraies données**.
-  4. L'app délivre un verdict : *"Achat sans risque"* ou *"⚠️ Découvert de 120 € prévu le 15 du mois prochain si vous validez cet achat"*.
+  1. L'utilisateur crée un projet avec un budget cible, une couleur et une icône dédiée.
+  2. Il liste les dépenses prévues avec date d'échéance et compte bancaire débité.
+  3. Le moteur **What-If** génère instantanément la courbe d'évolution de trésorerie sur les comptes concernés sans altérer les vraies transactions.
+  4. L'app délivre un verdict de viabilité (aucun découvert ou alertes de solde négatif).
+  5. Bouton **« Valider le projet »** : injecte automatiquement les dépenses dans la Timeline officielle, avec possibilité de **Rollback** instantané.
+  6. Menu contextuel : modification, suppression et duplication complète en un clic.
 
 ### 3. Détecteur de « Fuites Financières » & Audit d'Abonnements
 * **Concept** : Isoler et surveiller les coûts fixes récurrents (Netflix, Spotify, assurances, abonnements oubliés).
@@ -66,11 +68,8 @@ En V2, Mimo ne se contente plus d'enregistrer le passé : elle devient un **assi
   * Vue dédiée "Qui doit combien à qui" sur les dépenses communes.
   * Bouton *"Régulariser par virement"* qui prépare la transaction de compensation.
 
-### 5. Enveloppes Virtuelles & Épargne Dédiée (*Sinking Funds*)
-* **Concept** : Découper son épargne en sous-poches virtuelles (Vacances, Taxe foncière, Réserve d'urgence, Cadeaux de Noël).
-* **Fonctionnement** :
-  * Définition d'un montant cible et d'une date d'échéance.
-  * Calcul automatique de l'effort mensuel nécessaire et intégration automatique dans les projections.
+### 5. Enveloppes Virtuelles & Épargne Dédiée (✅ Intégré dans le Module Projets)
+* **Concept** : Découper son budget en enveloppes dédiées avec suivi Dépenses prévues vs Budget fixé et jauges de consommation.
 
 ### 6. Import & Réconciliation de Relevés Bancaires (CSV / OFX)
 * **Concept** : Alimenter son historique rapidement sans dépendre d'un agrégateur bancaire payant.
@@ -90,11 +89,13 @@ En V2, Mimo ne se contente plus d'enregistrer le passé : elle devient un **assi
 │ • Nouveau Design System Slate    │ • Algorithme Safe-to-Spend          │
 │ • Typo Plus Jakarta Sans + tnum  │ • Module Fuites & Abonnements       │
 │ • Icônes Lucide Vectorielles     │ • Export & Reporting V2             │
+│ • Timeline Mobile Compacte (✅)  │                                     │
 ├──────────────────────────────────┼─────────────────────────────────────┤
-│ 🧪 SPRINT 3 : SIMULATEUR WHAT-IF │ 👥 SPRINT 4 : GESTION FOYER & CSV   │
-│ • Moteur Sandbox (projections)   │ • Équilibrage dépenses de couple    │
-│ • Paiements fractionnés (3x/4x)  │ • Import CSV / Relevés bancaires    │
-│ • Alertes d'impact trésorerie    │ • Mode PWA offline                  │
+│ 🧪 SPRINT 3 : PROJETS & WHAT-IF  │ 👥 SPRINT 4 : GESTION FOYER & CSV   │
+│ • Module Projets & Enveloppes(✅)│ • Équilibrage dépenses de couple    │
+│ • Moteur Sandbox What-If (✅)    │ • Import CSV / Relevés bancaires    │
+│ • Commit & Rollback Timeline (✅)│ • Mode PWA offline                  │
+│ • Range API 1 mois à 5 ans (✅)  │                                     │
 └──────────────────────────────────┴─────────────────────────────────────┘
 ```
 
@@ -102,9 +103,11 @@ En V2, Mimo ne se contente plus d'enregistrer le passé : elle devient un **assi
 
 ## 📌 Checklist de Lancement V2
 
-- [ ] **Étape 1 :** Mise en place du thème global `Fintech Dark/Light` et refonte des composants de base (boutons, cartes, tableaux).
-- [ ] **Étape 2 :** Remplacement systématique des emojis par la suite `lucide-react`.
-- [ ] **Étape 3 :** Intégration du widget **Safe-to-Spend** (Reste à vivre) sur le Dashboard et la Timeline.
-- [ ] **Étape 4 :** Création du modal **Simulateur d'Achat (What-If)** dans la Timeline et la Projection.
-- [ ] **Étape 5 :** Module d'équilibrage des dépenses pour les comptes Foyer.
-- [ ] **Étape 6 :** Module d'importation de relevés bancaires CSV.
+- [x] **Étape 1 :** Mise en place du thème global `Fintech Dark/Light` et refonte des composants de base (boutons, cartes, tableaux).
+- [x] **Étape 2 :** Remplacement systématique des emojis par la suite `lucide-react` et menu d'options `MoreVertical`.
+- [x] **Étape 3 :** Module complet **Projets & Enveloppes** avec simulateur What-If et injection Timeline (commit/rollback).
+- [x] **Étape 4 :** Moteur de **Projections multi-années** (1 mois à 5 ans) avec Range API optimisée sans N+1 requêtes.
+- [x] **Étape 5 :** Refonte responsive mobile de la Timeline (>300px verticaux libérés, cartes ultra-compactes).
+- [ ] **Étape 6 :** Intégration du widget **Safe-to-Spend** (Reste à vivre) sur le Dashboard.
+- [ ] **Étape 7 :** Module d'équilibrage des dépenses de couple (Foyer).
+- [ ] **Étape 8 :** Module d'importation de relevés bancaires CSV.

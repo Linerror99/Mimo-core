@@ -68,9 +68,34 @@ class ProjectionService {
   }
 
   /**
-   * Récupérer les projections pour une plage de mois personnalisée
+   * Récupérer les projections pour une plage de mois personnalisée (optimisé en 1 seule requête API)
    */
   async getRange(startYear: number, startMonth: number, endYear: number, endMonth: number): Promise<MonthlyProjection[]> {
+    const token = localStorage.getItem('access_token');
+    const url = `${API_URL}/api/v1/projections/range?start_year=${startYear}&start_month=${startMonth}&end_year=${endYear}&end_month=${endMonth}`;
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      // Si l'endpoint /range n'est pas disponible (404), fallback propre
+      if (response.status !== 404) {
+        throw new Error(`Failed to fetch projections range (HTTP ${response.status})`);
+      }
+    } catch (err: any) {
+      if (!err.message?.includes('404')) {
+        throw err;
+      }
+    }
+
+    // Fallback rétrocompatible
     const monthsToFetch: { year: number; month: number }[] = [];
     let curY = startYear;
     let curM = startMonth;

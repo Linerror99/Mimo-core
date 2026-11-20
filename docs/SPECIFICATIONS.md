@@ -1,4 +1,4 @@
-# DuoFlow Finance - Spécifications Techniques V1
+# Mimo Finance - Spécifications Techniques
 
 ## 📋 Table des Matières
 
@@ -14,8 +14,7 @@
 
 ## 🎯 Vue d'ensemble du projet
 
-**Nom du projet** : DuoFlow Finance  
-**Version** : 1.0 (MVP)  
+**Nom du projet** : Mimo Finance  
 **Type** : Application web de gestion financière personnelle et en couple  
 **Objectif** : Remplacer la gestion par Excel avec une timeline unifiée passé/présent/futur
 

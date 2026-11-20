@@ -65,6 +65,33 @@ async def get_monthly_projection(
     return projection
 
 
+@router.get("/range")
+async def get_projections_range(
+    start_year: int = Query(..., ge=2000, le=2100, description="Année de début"),
+    start_month: int = Query(..., ge=1, le=12, description="Mois de début"),
+    end_year: int = Query(..., ge=2000, le=2100, description="Année de fin"),
+    end_month: int = Query(..., ge=1, le=12, description="Mois de fin"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Calculer les projections pour une plage de mois en une seule requête optimisée.
+    """
+    if start_year > end_year or (start_year == end_year and start_month > end_month):
+        end_year, end_month = start_year, start_month
+
+    projections = await ProjectionService.calculate_range_projections(
+        db=db,
+        household_id=current_user.household_id,
+        start_year=start_year,
+        start_month=start_month,
+        end_year=end_year,
+        end_month=end_month
+    )
+
+    return projections
+
+
 @router.get("/12-months")
 async def get_12_months_projection(
     current_user: User = Depends(get_current_user),
@@ -199,17 +226,22 @@ async def commit_simulation(
         elif req.payment_type == "RECURRING" and req.installments_count:
             target_date = req.start_date + relativedelta(months=req.installments_count - 1)
 
+        monthly_contrib = req.monthly_amount
+        if req.payment_type == "INSTALLMENTS" and req.total_amount and req.installments_count:
+            monthly_contrib = round(float(req.total_amount) / int(req.installments_count), 2)
+
         goal_service = GoalService(db)
         goal = await goal_service.create_goal(
             created_by=current_user.id,
             name=req.name,
             target_amount=req.total_amount,
-            monthly_contribution=req.monthly_amount,
+            monthly_contribution=monthly_contrib,
             user_id=current_user.id,
             household_id=None,
             target_date=target_date,
             account_id=req.account_id,
-            destination_account_id=req.destination_account_id
+            destination_account_id=req.destination_account_id,
+            auto_sync_transactions=False
         )
 
     # 2. Déterminer les comptes par défaut si non spécifiés

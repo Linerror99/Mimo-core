@@ -19,88 +19,81 @@
 - ✅ États vides avec CTA
 
 ### 3. Timeline des Transactions
-- ✅ Liste chronologique groupée par date
-- ✅ Filtrage par mois avec navigation
-- ✅ Affichage du solde mensuel
-- ✅ Badges de statut (Réalisé, En attente, Projeté)
-- ✅ Actions CRUD complètes (Créer, Modifier, Supprimer)
-- ✅ Dialog de création/édition avec tous les champs
-- ✅ Support des attributions (Personnel, Partenaire, Commun)
-- ✅ Sélection de compte et catégorie
+- ✅ Liste chronologique groupée par date avec soldes journaliers
+- ✅ Filtrage par mois avec navigation et raccourci "Aujourd'hui"
+- ✅ Recherche instantanée globale et filtres multicritères (compte, type, catégorie, montants)
+- ✅ Affichage du solde mensuel et alertes de solde négatif
+- ✅ Badges de statut (Réalisé, En attente, Projeté, Récurrent)
+- ✅ Menu contextuel d'options (`MoreVertical`) : Modifier, Dupliquer, Supprimer
+- ✅ Validation rapide en un clic des transactions échues
+- ✅ Sélection multiple et suppression groupée
+- ✅ Optimisation responsive mobile ultra-compacte (gain >300px verticaux)
 
 ### 4. Projection Financière
-- ✅ Graphique de projection sur 12 mois
-- ✅ Table détaillée par mois
-- ✅ Indicateurs de revenus/dépenses
-- ✅ Alertes pour mois déficitaires
-- ✅ Calculs basés sur transactions récurrentes
-- ✅ Visualisation Recharts
+- ✅ Graphique de projection interactive de 1 mois à 5 ans
+- ✅ Endpoint groupé optimisé (`GET /api/v1/projections/range`) pour éliminer les requêtes N+1
+- ✅ Table détaillée mois par mois
+- ✅ Indicateurs de revenus, dépenses, flux nets et soldes cumulés
+- ✅ Alertes visuelles pour les mois déficitaires
+- ✅ Calculs prédictifs basés sur les transactions et récurrences
 
-### 5. Gestion des Comptes
-- ✅ Liste de tous les comptes
-- ✅ Types de comptes (Courant, Épargne, Crédit)
-- ✅ Affichage du solde et nombre de transactions
+### 5. Projets & Enveloppes de Dépenses
+- ✅ Vue liste des projets (`/projects`) avec KPIs cumulés (Dépenses prévues, Budget cible)
+- ✅ Vue détaillée par projet (`/projects/:id`) avec fil d'Ariane et retour arrière
+- ✅ Création et modification complète (nom, description, budget cible, couleur, icône vectorielle)
+- ✅ Duplication instantanée de projet
+- ✅ Simulation financière What-If (impact direct sur la courbe de trésorerie sans altérer les données réelles)
+- ✅ Commit de projet : injection des dépenses prévues dans la Timeline officielle
+- ✅ Rollback de projet : retour au statut simulation et retrait des dépenses de la Timeline
+
+### 6. Gestion des Comptes
+- ✅ Liste de tous les comptes bancaires
+- ✅ 6 types de comptes (Courant, Épargne, Investissement, Prêt, Cash, Autre)
+- ✅ Logos bancaires automatiques (BoursoBank, SG, BNP, Crédit Agricole, etc.)
+- ✅ Affichage du solde dynamique et nombre de transactions
 - ✅ CRUD complet (Créer, Modifier, Supprimer)
-- ✅ Dialog de création/édition
 
-### 6. Gestion des Catégories
+### 7. Gestion des Catégories
 - ✅ Liste des catégories de revenus et dépenses
-- ✅ Sélecteur d'icônes (12 options)
-- ✅ Sélecteur de couleurs (10 options)
-- ✅ Budget mensuel optionnel pour dépenses
-- ✅ Barre de progression du budget
+- ✅ Sélecteur d'icônes et de couleurs personnalisées
+- ✅ Plafond budgétaire mensuel optionnel avec jauge de progression
 - ✅ CRUD complet
-- ✅ Dialog de création/édition
 
-### 7. Objectifs d'Épargne
-- ✅ Liste des objectifs
-- ✅ Sélecteur d'icônes
-- ✅ Barre de progression
-- ✅ Calcul d'épargne mensuelle requise
-- ✅ Date limite
+### 8. Objectifs d'Épargne
+- ✅ Liste des objectifs avec date cible
+- ✅ Barre de progression dynamique
+- ✅ Calcul d'effort d'épargne mensuelle nécessaire
 - ✅ CRUD complet
-- ✅ Dialog de création/édition
 
-### 8. Paramètres - Profil
+### 9. Paramètres - Profil & Sécurité
 - ✅ Modification des informations personnelles
-- ✅ Photo de profil avec avatar
 - ✅ Changement de mot de passe
-- ✅ Formulaires de validation
+- ✅ Suppression de compte avec conformité RGPD et confirmation
+- ✅ Résilience de session : préservation de l'authentification lors de timeouts ou erreurs serveur
 
-### 9. Paramètres - Foyer
-- ✅ Vue du foyer existant
-- ✅ Liste des membres
-- ✅ Invitation de partenaire
-- ✅ Dissolution du foyer avec confirmation
-- ✅ États vides pour création de foyer
+### 10. Paramètres - Foyer (Mode Couple)
+- ✅ Vue du foyer existant et des 3 portefeuilles (Mon / Partenaire / Commun)
+- ✅ Invitation de partenaire par email
+- ✅ Dissolution du foyer avec archivage et redistribution
 
-### 10. Corbeille
+### 11. Corbeille
 - ✅ Liste des transactions supprimées
-- ✅ Restauration des éléments
+- ✅ Restauration unitaire
 - ✅ Suppression définitive
 - ✅ Vidage complet de la corbeille
-- ✅ Indicateur de date de suppression
 
-### 11. Navigation & Layout
-- ✅ Sidebar desktop avec icônes Lucide
-- ✅ Navigation mobile en bas d'écran
-- ✅ Responsive design
-- ✅ Menu utilisateur avec avatar
-- ✅ Touch targets 44x44px minimum
-
-### 12. Système de Design
-- ✅ Palette de couleurs OKLCH selon PRD
-- ✅ Typeraces Inter + JetBrains Mono
-- ✅ Composants Shadcn v4
-- ✅ Tokens CSS cohérents
-- ✅ Gradients pour portefeuilles
-- ✅ États hover/active/focus
+### 12. Navigation & Layout
+- ✅ Header fixe (Sticky Header) lors du défilement
+- ✅ Sidebar desktop avec navigation Lucide
+- ✅ Navigation mobile fluide
+- ✅ Theme switcher (Clair / Sombre)
 
 ### 13. Données & Persistance
-- ✅ useKV pour persistance
-- ✅ Types TypeScript complets
-- ✅ Données d'exemple (transactions, comptes, catégories, objectifs)
-- ✅ Mise à jour fonctionnelle des états
+- ✅ Backend REST FastAPI 0.115+
+- ✅ Base de données relationnelle PostgreSQL 15 (SQLAlchemy 2.0 async)
+- ✅ Cache Redis 7 pour les sessions et révocations JWT
+- ✅ Client Axios avec intercepteurs et rafraîchissement silencieux des tokens
+- ✅ Types TypeScript stricts et synchronisés avec les schémas Pydantic
 
 ## 🎨 Conformité au PRD
 

@@ -65,8 +65,8 @@ class TokenResponse(BaseModel):
 
 
 class TokenRefresh(BaseModel):
-    """Schema for token refresh request."""
-    refresh_token: str = Field(..., description="Refresh token to exchange for new access token")
+    """Schema for token refresh request (supports body or HttpOnly cookie)."""
+    refresh_token: Optional[str] = Field(default=None, description="Refresh token to exchange for new access token")
 
 
 class UserUpdate(BaseModel):

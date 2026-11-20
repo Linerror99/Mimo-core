@@ -1,51 +1,36 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from './lib/queryClient'
 import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { Dashboard } from './pages/Dashboard'
 import { Timeline } from './pages/TimelinePage'
-import { Projection } from './pages/Projection'
 import { AccountsPage } from './pages/AccountsPage'
 import { CategoriesPage } from './pages/CategoriesPage'
-import RecurringPage from './pages/RecurringPage'
 import { ProjectionPage } from './pages/ProjectionPage'
-import { Goals } from './pages/Goals'
+import { ProjectsPage } from './pages/ProjectsPage'
 import { SettingsProfile } from './pages/SettingsProfile'
 import { SettingsHousehold } from './pages/SettingsHousehold'
 import Settings from './pages/Settings'
 import { Trash } from './pages/TrashPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { PrivacyPage } from './pages/PrivacyPage'
+import { TermsPage } from './pages/TermsPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { Toaster } from '@/components/ui/sonner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { FeedbackProvider } from './context/FeedbackContext'
 import { useAuthStore } from '@/stores/authStore'
-import { useNavigate } from 'react-router-dom'
 
-type Page = 
-  | 'login' 
-  | 'register' 
-  | 'dashboard' 
-  | 'timeline' 
-  | 'projection' 
-  | 'accounts' 
-  | 'categories' 
-  | 'recurring'
-  | 'projections'
-  | 'goals' 
-  | 'settings'
-  | 'settings-profile' 
-  | 'settings-household' 
-  | 'settings-invitations'
-  | 'trash'
-  | 'notifications'
-
-// Helper component to handle legacy navigation
-function LegacyNavigationWrapper({ children }: { children: React.ReactElement }) {
+// Helper wrapper to provide navigate and onLogout to existing authenticated pages
+function AuthenticatedPage({ Component }: { Component: React.ComponentType<{ navigate: (page: any) => void; onLogout: () => void }> }) {
   const navigate = useNavigate()
   const { logout } = useAuthStore()
 
-  const handleNavigate = (page: Page) => {
+  const handleNavigate = (page: string) => {
     navigate(`/${page}`)
   }
 
@@ -54,24 +39,24 @@ function LegacyNavigationWrapper({ children }: { children: React.ReactElement })
     navigate('/login')
   }
 
-  return children({ navigate: handleNavigate, onLogout: handleLogout })
+  return <Component navigate={handleNavigate} onLogout={handleLogout} />
 }
 
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public auth pages */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       
+      {/* Protected core pages */}
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Dashboard navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={Dashboard} />
           </ProtectedRoute>
         } 
       />
@@ -80,9 +65,7 @@ function AppRoutes() {
         path="/timeline" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Timeline navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={Timeline} />
           </ProtectedRoute>
         } 
       />
@@ -91,9 +74,7 @@ function AppRoutes() {
         path="/projection" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <ProjectionPage navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={ProjectionPage} />
           </ProtectedRoute>
         } 
       />
@@ -102,9 +83,7 @@ function AppRoutes() {
         path="/accounts" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <AccountsPage navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={AccountsPage} />
           </ProtectedRoute>
         } 
       />
@@ -113,73 +92,46 @@ function AppRoutes() {
         path="/categories" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <CategoriesPage navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={CategoriesPage} />
           </ProtectedRoute>
         } 
       />
       
       <Route 
-        path="/recurring" 
+        path="/projects" 
         element={
           <ProtectedRoute>
-            <RecurringPage />
+            <AuthenticatedPage Component={ProjectsPage} />
           </ProtectedRoute>
         } 
       />
-      
+
       <Route 
-        path="/projections" 
+        path="/projects/:id" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <ProjectionPage navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={ProjectsPage} />
           </ProtectedRoute>
         } 
       />
-      
-      <Route 
-        path="/goals" 
-        element={
-          <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Goals navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
-          </ProtectedRoute>
-        } 
-      />
+
+      {/* Unified route: /goals redirects to /projects?tab=goals */}
+      <Route path="/goals" element={<Navigate to="/projects?tab=goals" replace />} />
       
       <Route 
         path="/settings" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <SettingsProfile navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={SettingsProfile} />
           </ProtectedRoute>
         } 
       />
       
       <Route 
-        path="/settings-profile" 
+        path="/settings/household" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <SettingsProfile navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
-          </ProtectedRoute>
-        } 
-      />
-      
-      <Route 
-        path="/settings-household" 
-        element={
-          <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <SettingsHousehold navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={SettingsHousehold} />
           </ProtectedRoute>
         } 
       />
@@ -188,31 +140,21 @@ function AppRoutes() {
         path="/settings/invitations" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Settings navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={Settings} />
           </ProtectedRoute>
         } 
       />
 
-      <Route 
-        path="/settings-invitations" 
-        element={
-          <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Settings navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
-          </ProtectedRoute>
-        } 
-      />
+      {/* Redirect aliases for legacy settings routes */}
+      <Route path="/settings-profile" element={<Navigate to="/settings" replace />} />
+      <Route path="/settings-household" element={<Navigate to="/settings/household" replace />} />
+      <Route path="/settings-invitations" element={<Navigate to="/settings/invitations" replace />} />
       
       <Route 
         path="/trash" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <Trash navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={Trash} />
           </ProtectedRoute>
         } 
       />
@@ -221,24 +163,35 @@ function AppRoutes() {
         path="/notifications" 
         element={
           <ProtectedRoute>
-            <LegacyNavigationWrapper>
-              {({ navigate, onLogout }) => <NotificationsPage navigate={navigate} onLogout={onLogout} />}
-            </LegacyNavigationWrapper>
+            <AuthenticatedPage Component={NotificationsPage} />
           </ProtectedRoute>
         } 
       />
+
+      {/* Legacy aliases and removed routes */}
+      <Route path="/projections" element={<Navigate to="/projection" replace />} />
+      <Route path="/recurring" element={<Navigate to="/timeline" replace />} />
+
+      {/* Public legal & info pages */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+
+      {/* Wildcard 404 page */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
 
 function App() {
   return (
-    <BrowserRouter>
-      <FeedbackProvider>
-        <AppRoutes />
-        <Toaster />
-      </FeedbackProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <FeedbackProvider>
+          <AppRoutes />
+          <Toaster />
+        </FeedbackProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 

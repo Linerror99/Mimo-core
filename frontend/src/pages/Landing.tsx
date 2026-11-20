@@ -149,47 +149,45 @@ export function Landing() {
 
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6 animate-fade-in backdrop-blur-sm">
               <Sparkles className="h-4 w-4 animate-pulse" />
-              <span className="text-sm font-medium">Nouvelle génération de gestion financière</span>
             </div>
-            
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground mb-6 animate-fade-in-up leading-tight">
+
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-foreground mb-6 animate-fade-in-up leading-tight tracking-tight">
               Prenez le contrôle de vos{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] animate-gradient">
                 finances personnelles
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto animate-fade-in-up animation-delay-100 leading-relaxed">
-              Mimo Finance vous aide à gérer votre budget, suivre vos dépenses et atteindre vos objectifs financiers en toute simplicité.
+            <p className="text-base sm:text-lg lg:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto animate-fade-in-up animation-delay-100 leading-relaxed px-2">
+              Mimo Finance vous aide à anticiper vos soldes futurs, calculer votre reste à vivre au jour le jour et synchroniser votre budget en toute sérénité.
             </p>
             
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-fade-in-up animation-delay-200">
+            {/* CTA Unique et Dominant (Point 20) */}
+            <div className="flex flex-col items-center justify-center gap-3 mb-14 animate-fade-in-up animation-delay-200">
               <Button 
                 size="lg" 
                 onClick={() => navigate('/register')}
-                className="w-full sm:w-auto group text-lg px-10 py-6 hover:scale-105 transition-all shadow-xl hover:shadow-2xl"
+                className="w-full sm:w-auto group text-base sm:text-lg px-8 sm:px-12 py-6 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-semibold hover:scale-105 transition-all shadow-xl shadow-purple-500/25"
               >
                 Commencer gratuitement
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                onClick={() => navigate('/login')}
-                className="w-full sm:w-auto text-lg px-10 py-6 hover:scale-105 transition-all backdrop-blur-sm"
-              >
-                Se connecter
-              </Button>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                100% gratuit &bull; Sans engagement &bull; Déjà inscrit ?{' '}
+                <button onClick={() => navigate('/login')} className="text-primary hover:underline font-semibold ml-1">
+                  Se connecter
+                </button>
+              </p>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto animate-fade-in-up animation-delay-300">
+            {/* Stats Responsive */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 max-w-3xl mx-auto animate-fade-in-up animation-delay-300">
               {stats.map((stat, index) => (
-                <div key={index} className="text-center backdrop-blur-sm bg-card/50 rounded-2xl p-6 hover:scale-105 transition-transform">
-                  <div className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent mb-2">
+                <div key={index} className="text-center backdrop-blur-sm bg-card/50 border border-border/40 rounded-2xl p-4 sm:p-6 hover:scale-105 transition-transform">
+                  <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent mb-1">
                     {stat.value}
                   </div>
-                  <div className="text-sm sm:text-base text-muted-foreground font-medium">
+                  <div className="text-xs sm:text-sm text-muted-foreground font-medium">
                     {stat.label}
                   </div>
                 </div>
@@ -199,7 +197,7 @@ export function Landing() {
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-bounce hidden sm:block">
           <div className="w-6 h-10 border-2 border-primary rounded-full p-1">
             <div className="w-1 h-3 bg-primary rounded-full mx-auto animate-pulse" />
           </div>
@@ -207,32 +205,32 @@ export function Landing() {
       </section>
 
       {/* Features Section */}
-      <section ref={featuresRef} className="relative py-32 bg-card/30 backdrop-blur-sm">
+      <section ref={featuresRef} className="relative py-24 sm:py-32 bg-card/30 backdrop-blur-sm">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-20 scroll-reveal opacity-0 translate-y-20 transition-all duration-700">
-              <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-6">
+            <div className="text-center mb-16 scroll-reveal opacity-0 translate-y-20 transition-all duration-700">
+              <h2 className="text-3xl sm:text-5xl font-bold text-foreground mb-4">
                 Tout ce dont vous avez besoin
               </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Des fonctionnalités puissantes pour une gestion financière complète et simplifiée
+              <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
+                Des fonctionnalités puissantes pour une gestion financière complète, prévisionnelle et simplifiée
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {features.map((feature, index) => (
                 <div 
                   key={index}
-                  className="scroll-reveal opacity-0 translate-y-20 transition-all duration-700 bg-card rounded-2xl p-8 border border-border hover:border-primary/50 hover:shadow-2xl group cursor-pointer hover:scale-105"
+                  className="scroll-reveal opacity-0 translate-y-20 transition-all duration-700 bg-card rounded-2xl p-6 sm:p-8 border border-border hover:border-primary/50 hover:shadow-2xl group cursor-pointer hover:scale-105"
                   style={{ transitionDelay: `${index * 100}ms` }}
                 >
-                  <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all">
-                    <feature.icon className="h-8 w-8 text-primary" />
+                  <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all">
+                    <feature.icon className="h-7 w-7 text-primary" />
                   </div>
-                  <h3 className="text-2xl font-semibold text-foreground mb-3">
+                  <h3 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
                     {feature.title}
                   </h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
                     {feature.description}
                   </p>
                 </div>
@@ -243,48 +241,44 @@ export function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section ref={ctaRef} className="container mx-auto px-4 py-32">
+      <section ref={ctaRef} className="container mx-auto px-4 py-20 sm:py-32">
         <div className="max-w-5xl mx-auto scroll-reveal opacity-0 scale-95 transition-all duration-700">
-          <div className="relative bg-gradient-to-br from-primary via-primary to-accent rounded-3xl p-12 lg:p-20 text-center overflow-hidden shadow-2xl">
+          <div className="relative bg-gradient-to-br from-primary via-primary to-accent rounded-3xl p-8 sm:p-12 lg:p-20 text-center overflow-hidden shadow-2xl">
             {/* Animated background */}
             <div className="absolute inset-0 bg-grid-white/10" />
             <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" />
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse animation-delay-200" />
             
             <div className="relative z-10">
-              <div className="mb-8">
+              <div className="mb-6">
                 <img 
                   src="/mimo-logo.jpg" 
-                  alt="Mimo Finance" 
-                  className="w-24 h-24 rounded-2xl object-cover shadow-2xl mx-auto hover:scale-110 transition-transform"
+                  alt="Logo Mimo Finance" 
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl mx-auto hover:scale-110 transition-transform"
                 />
               </div>
               
-              <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
+              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
                 Prêt à transformer votre vie financière ?
               </h2>
-              <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto leading-relaxed">
-                Rejoignez Mimo Finance dès aujourd'hui et commencez à gérer vos finances comme un pro.
+              <p className="text-sm sm:text-lg text-white/90 mb-8 max-w-xl mx-auto leading-relaxed">
+                Rejoignez Mimo Finance dès aujourd'hui et anticipez sereinement vos fins de mois.
               </p>
               
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              {/* Bottom CTA Unique */}
+              <div className="flex flex-col items-center justify-center gap-3">
                 <Button 
                   size="lg" 
                   variant="secondary"
                   onClick={() => navigate('/register')}
-                  className="w-full sm:w-auto group text-lg px-10 py-6 hover:scale-105 transition-all shadow-xl"
+                  className="w-full sm:w-auto group text-base sm:text-lg px-8 sm:px-12 py-6 rounded-2xl bg-white text-slate-900 font-bold hover:scale-105 transition-all shadow-2xl"
                 >
-                  Créer mon compte
+                  Créer mon compte en 2 minutes
                   <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline"
-                  onClick={() => navigate('/login')}
-                  className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border-white/30 hover:border-white/50 text-lg px-10 py-6 backdrop-blur-sm hover:scale-105 transition-all"
-                >
-                  J'ai déjà un compte
-                </Button>
+                <p className="text-xs text-white/80">
+                  100% gratuit &bull; Sans carte bancaire &bull; Conforme RGPD
+                </p>
               </div>
             </div>
           </div>
@@ -292,23 +286,32 @@ export function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="container mx-auto px-4 py-12 border-t border-border">
+      <footer className="container mx-auto px-4 py-10 border-t border-border">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <img src="/mimo-logo.jpg" alt="Mimo Finance" className="w-10 h-10 rounded-lg object-cover" />
-            <span className="text-sm text-muted-foreground">
-              © 2025 Mimo Finance. Tous droits réservés.
+            <img src="/mimo-logo.jpg" alt="Logo Mimo Finance" className="w-8 h-8 rounded-lg object-cover" />
+            <span className="text-xs sm:text-sm text-muted-foreground">
+              © {new Date().getFullYear()} Mimo Finance. Tous droits réservés.
             </span>
           </div>
           
-          <div className="flex items-center gap-6">
-            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Confidentialité
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Conditions
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+          <div className="flex items-center gap-6 text-xs sm:text-sm">
+            <button 
+              onClick={() => navigate('/privacy')} 
+              className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Confidentialité (RGPD)
+            </button>
+            <button 
+              onClick={() => navigate('/terms')} 
+              className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Conditions (CGU)
+            </button>
+            <a 
+              href="mailto:contact@mimofinance.com" 
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
               Contact
             </a>
           </div>

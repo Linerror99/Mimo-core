@@ -11,6 +11,7 @@ import { accountService } from '@/services/accountService';
 import { Transaction, TransactionType, TransactionState } from '@/types/transaction';
 import { Account } from '@/types/account';
 import { useFeedback } from '@/context/FeedbackContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface GoalDetailModalProps {
   goal: Goal | null;
@@ -29,6 +30,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
   onEditGoal,
   onDeleteGoal,
 }) => {
+  useBodyScrollLock(isOpen);
   const { showFeedback } = useFeedback();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -110,24 +112,42 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
         type: 'success',
       });
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erreur lors de l\'ajout du versement');
+      showFeedback({
+        title: 'Erreur',
+        message: err.response?.data?.detail || "Erreur lors de l'ajout du versement",
+        type: 'warning',
+      });
     }
   };
 
-  const handleDeleteTransaction = async (txId: string) => {
-    if (!window.confirm('Supprimer ce versement ?')) return;
-    try {
-      await transactionService.delete(txId);
-      await loadGoalData();
-      onGoalUpdated();
-      showFeedback({
-        title: 'Versement supprimé',
-        message: 'Le versement a été retiré de l\'épargne.',
-        type: 'delete',
-      });
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDeleteTransaction = (txId: string) => {
+    showFeedback({
+      title: 'Supprimer ce versement ?',
+      message: 'Voulez-vous vraiment retirer ce versement de votre épargne ?',
+      type: 'delete',
+      showCancel: true,
+      confirmText: 'Supprimer',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          await transactionService.delete(txId);
+          await loadGoalData();
+          onGoalUpdated();
+          showFeedback({
+            title: 'Versement supprimé',
+            message: "Le versement a été retiré de l'épargne.",
+            type: 'delete',
+          });
+        } catch (err) {
+          console.error(err);
+          showFeedback({
+            title: 'Erreur',
+            message: 'Erreur lors de la suppression du versement.',
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
   const progress = goal.target_amount && goal.target_amount > 0
@@ -149,7 +169,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
               <DialogTitle className="text-2xl font-bold mt-1">{goal.name}</DialogTitle>
               {goal.description && <p className="text-sm text-muted-foreground mt-1">{goal.description}</p>}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mr-8">
               <Button size="sm" variant="outline" onClick={() => onEditGoal(goal)}>
                 <Edit className="w-4 h-4 mr-1" /> Modifier
               </Button>
@@ -188,7 +208,14 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({
             <div>
               <span className="text-slate-400 block">Contribution mensuelle :</span>
               <span className="font-semibold text-slate-800 text-sm">
-                {goal.monthly_contribution ? `${formatCurrency(goal.monthly_contribution)} / mois` : 'Libre'}
+                {(() => {
+                  // Calculer la contribution réelle à partir des transactions liées
+                  if (transactions.length > 0) {
+                    const avgContribution = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / transactions.length;
+                    return `${formatCurrency(avgContribution)} / mois`;
+                  }
+                  return goal.monthly_contribution ? `${formatCurrency(goal.monthly_contribution)} / mois` : 'Libre';
+                })()}
               </span>
             </div>
             <div>

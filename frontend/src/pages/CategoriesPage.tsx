@@ -14,6 +14,9 @@ import {
   DEFAULT_CATEGORY_COLORS,
 } from "../types/category";
 import { CategoryIcon, AVAILABLE_CATEGORY_ICONS } from "../components/CategoryIcon";
+import { invalidateCategories } from "@/hooks/queries/useCategoriesQuery";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useFeedback } from "@/context/FeedbackContext";
 import "../styles/Categories.css";
 
 type Page =
@@ -32,12 +35,15 @@ interface CategoriesPageProps {
 }
 
 export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
+  const { showFeedback } = useFeedback();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [filterType, setFilterType] = useState<CategoryType | "ALL">("ALL");
+
+  useBodyScrollLock(showModal);
 
   // Form state
   const [formData, setFormData] = useState<CategoryCreate>({
@@ -107,23 +113,41 @@ export function CategoriesPage({ navigate, onLogout }: CategoriesPageProps) {
         await categoryService.createCategory(formData);
       }
       await loadCategories();
+      invalidateCategories();
       handleCloseModal();
     } catch (err: any) {
       setError(err.response?.data?.detail || "Erreur lors de la sauvegarde");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette catégorie ?")) {
-      return;
-    }
-
-    try {
-      await categoryService.deleteCategory(id);
-      await loadCategories();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Erreur lors de la suppression");
-    }
+  const handleDelete = (id: string) => {
+    showFeedback({
+      title: 'Supprimer cette catégorie ?',
+      message: 'Êtes-vous sûr de vouloir supprimer cette catégorie ?',
+      type: 'delete',
+      showCancel: true,
+      confirmText: 'Supprimer',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        try {
+          await categoryService.deleteCategory(id);
+          await loadCategories();
+          invalidateCategories();
+          showFeedback({
+            title: 'Catégorie supprimée',
+            message: 'La catégorie a été supprimée avec succès.',
+            type: 'delete',
+          });
+        } catch (err: any) {
+          setError(err.response?.data?.detail || "Erreur lors de la suppression");
+          showFeedback({
+            title: 'Erreur',
+            message: err.response?.data?.detail || "Erreur lors de la suppression",
+            type: 'warning',
+          });
+        }
+      },
+    });
   };
 
   const getParentCategories = () => {

@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect, useRef } from 'react'
 import '../styles/Layout.css'
-import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown } from 'lucide-react'
+import { Home, List, TrendingUp, CreditCard, Folder, Target, Trash2, LogOut, User, UserPlus, Settings, Menu, Moon, Sun, ChevronDown, Plus, Compass, Eye, EyeOff } from 'lucide-react'
+import { QuickTransactionModal } from './QuickTransactionModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -11,8 +12,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/stores/authStore'
+import { usePrivacyStore } from '@/stores/privacyStore'
 import { NotificationBell } from '@/components/NotificationBell'
 import { Notification } from '@/types/notification'
+import { API_BASE_URL } from '@/config/api'
 
 type Page =
   | 'dashboard'
@@ -21,6 +24,7 @@ type Page =
   | 'accounts'
   | 'categories'
   | 'goals'
+  | 'projects'
   | 'settings'
   | 'settings-profile'
   | 'settings-household'
@@ -39,14 +43,14 @@ const menuItems = [
   { id: 'dashboard' as Page, label: 'Dashboard', icon: Home },
   { id: 'timeline' as Page, label: 'Timeline', icon: List },
   { id: 'projection' as Page, label: 'Projection', icon: TrendingUp },
+  { id: 'projects' as Page, label: 'Projets & Objectifs', icon: Target },
   { id: 'accounts' as Page, label: 'Comptes', icon: CreditCard },
-  { id: 'goals' as Page, label: 'Objectifs', icon: Target },
   { id: 'categories' as Page, label: 'Catégories', icon: Folder },
-  { id: 'trash' as Page, label: 'Corbeille', icon: Trash2 },
 ]
 
 export function Layout({ children, currentPage, navigate, onLogout }: LayoutProps) {
   const { user } = useAuthStore()
+  const { isPrivate, togglePrivacy } = usePrivacyStore()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mimo-sidebar-open')
@@ -62,9 +66,9 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
     }
     return false
   })
+  const [quickTxModalOpen, setQuickTxModalOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
   const getAvatarUrl = (avatarUrl: string | null) => {
     if (!avatarUrl) return undefined
     if (avatarUrl.startsWith('http')) return avatarUrl
@@ -104,6 +108,25 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
       setDarkMode(false)
     }
   }, [])
+
+  // Sync privacy mode with document body and add keyboard shortcut 'H'
+  useEffect(() => {
+    document.body.classList.toggle('privacy-mode', isPrivate)
+  }, [isPrivate])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        togglePrivacy()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [togglePrivacy])
 
   // Close sidebar on mobile outside click only
   useEffect(() => {
@@ -148,6 +171,16 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
         </div>
 
         <div className="mimo-header-right">
+          {/* Privacy Toggle (Mode Discret) */}
+          <button
+            className={`mimo-header-icon-btn ${isPrivate ? 'text-primary bg-primary/10' : ''}`}
+            onClick={togglePrivacy}
+            aria-label={isPrivate ? 'Désactiver le mode discret (Touche H)' : 'Activer le mode discret (Touche H)'}
+            title={isPrivate ? 'Mode discret activé (cliquez ou tapez H pour afficher les montants)' : 'Mode discret (cliquez ou tapez H pour masquer les montants)'}
+          >
+            {isPrivate ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+          </button>
+
           {/* Dark / Light Mode Toggle */}
           <button
             className="mimo-header-icon-btn"
@@ -194,6 +227,10 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
               <DropdownMenuItem onClick={() => handleNavClick('settings-invitations')}>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Invitations
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavClick('trash')}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Corbeille
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLogout}>
@@ -242,6 +279,26 @@ export function Layout({ children, currentPage, navigate, onLogout }: LayoutProp
       <main className="mimo-main">
         {children}
       </main>
+
+      {/* ====== FLOATING ACTION BUTTON (NOUVELLE TRANSACTION) ====== */}
+      <button
+        type="button"
+        className="mimo-fab"
+        onClick={() => setQuickTxModalOpen(true)}
+        aria-label="Ajouter une transaction"
+        title="Ajouter une transaction"
+      >
+        <div className="mimo-fab-icon">
+          <Plus className="w-5 h-5" />
+        </div>
+        <span className="mimo-fab-text">Transaction</span>
+      </button>
+
+      {/* ====== QUICK TRANSACTION MODAL ====== */}
+      <QuickTransactionModal
+        isOpen={quickTxModalOpen}
+        onClose={() => setQuickTxModalOpen(false)}
+      />
     </div>
   )
 }
