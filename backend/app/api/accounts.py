@@ -33,7 +33,8 @@ async def create_account(
     account = await AccountService.create_account(
         db=db,
         household_id=current_user.household_id,
-        account_data=account_data
+        account_data=account_data,
+        owner_user_id=current_user.id
     )
 
     # Ajouter le current_balance
@@ -46,6 +47,7 @@ async def create_account(
         "initial_balance": account.initial_balance,
         "currency": account.currency,
         "is_active": account.is_active == "true",
+        "logo_url": account.logo_url,
         "current_balance": current_balance,
         "closed_at": account.closed_at,
         "created_at": account.created_at,
@@ -74,10 +76,11 @@ async def list_accounts(
         include_inactive=include_inactive
     )
 
-    # Ajouter le current_balance pour chaque compte
+    # Ajouter le current_balance pour chaque compte en batch (évite le N+1)
+    balances_map = await AccountService.calculate_balances_batch(db=db, accounts=accounts)
     accounts_with_balance = []
     for account in accounts:
-        current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
+        current_balance = balances_map.get(account.id, account.initial_balance)
         account_dict = {
             "id": account.id,
             "household_id": account.household_id,
@@ -86,6 +89,7 @@ async def list_accounts(
             "initial_balance": account.initial_balance,
             "currency": account.currency,
             "is_active": account.is_active == "true",
+            "logo_url": account.logo_url,
             "current_balance": current_balance,
             "closed_at": account.closed_at,
             "created_at": account.created_at,
@@ -131,6 +135,7 @@ async def get_account(
         "initial_balance": account.initial_balance,
         "currency": account.currency,
         "is_active": account.is_active == "true",
+        "logo_url": account.logo_url,
         "current_balance": current_balance,
         "closed_at": account.closed_at,
         "created_at": account.created_at,
@@ -182,7 +187,9 @@ async def update_account(
         "initial_balance": updated_account.initial_balance,
         "currency": updated_account.currency,
         "is_active": updated_account.is_active == "true",
+        "logo_url": updated_account.logo_url,
         "current_balance": current_balance,
+        "closed_at": updated_account.closed_at,
         "created_at": updated_account.created_at,
         "updated_at": updated_account.updated_at
     }
@@ -246,12 +253,13 @@ async def get_total_balance(
         include_inactive=False
     )
 
-    # Calculer le solde total
+    # Calculer le solde total en batch (évite le N+1)
+    balances_map = await AccountService.calculate_balances_batch(db=db, accounts=accounts)
     total_balance = 0.0
     accounts_detail = []
 
     for account in accounts:
-        balance = await AccountService.calculate_balance(db=db, account_id=account.id)
+        balance = balances_map.get(account.id, account.initial_balance)
         total_balance += float(balance)
         accounts_detail.append({
             "id": account.id,

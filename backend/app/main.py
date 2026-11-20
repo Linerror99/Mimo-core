@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.api import (
     accounts,
@@ -22,7 +22,8 @@ from app.api import (
     users,
     wallets,
 )
-from app.api.v1 import exports, goals, admin
+from app.api.deps import CurrentUser
+from app.api.v1 import admin, exports, goals, projects
 from app.api.v1.scheduled import backup
 from app.config import settings
 from app.core.error_handler import (
@@ -35,16 +36,20 @@ from app.core.logger import logger
 # Import security and error handling
 from app.core.security import setup_cors, setup_security_middleware
 
+# Setup environment
+environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
+is_production = environment.lower() == "production"
+
 app = FastAPI(
-    title="DuoFlow Finance API",
+    title="Mimo Finance API",
     description="API for personal and couple finance management",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json",
 )
 
 # Setup CORS (secure configuration based on environment)
-environment = settings.ENVIRONMENT if hasattr(settings, 'ENVIRONMENT') else "development"
 setup_cors(app, environment=environment, allowed_origins=settings.CORS_ORIGINS)
 
 # Setup security middleware (headers, rate limiting, logging)
@@ -57,13 +62,47 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 logger.info(f"Application starting in {environment} mode")
 
-# Static file uploads disabled - using Google Cloud Storage (GCS) in production
-# Local uploads only for development
-# if environment == "development":
-#     upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
-#     UPLOAD_DIR = Path(upload_dir_path)
-#     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-#     app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Static file uploads (Local storage in dev / docker)
+upload_dir_path = os.getenv("UPLOAD_DIR", "/app/uploads")
+UPLOAD_DIR = Path(upload_dir_path)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "receipts").mkdir(parents=True, exist_ok=True)
+
+
+def _resolve_safe_upload_path(subdir: str, filename: str) -> Path:
+    """Resolve an upload path while preventing path traversal attacks."""
+    if not filename or "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    base_dir = (UPLOAD_DIR / subdir).resolve()
+    target = (base_dir / filename).resolve()
+    if not str(target).startswith(f"{base_dir}{os.sep}"):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    return target
+
+
+@app.get("/uploads/avatars/{filename}")
+async def get_uploaded_avatar(filename: str):
+    local_path = _resolve_safe_upload_path("avatars", filename)
+    if local_path.is_file():
+        return FileResponse(local_path)
+    if settings.GCS_BUCKET_UPLOADS:
+        gcs_url = f"https://storage.googleapis.com/{settings.GCS_BUCKET_UPLOADS}/avatars/{filename}"
+        return RedirectResponse(url=gcs_url, status_code=307)
+    raise HTTPException(status_code=404, detail="Avatar not found")
+
+
+@app.get("/uploads/receipts/{filename}")
+async def get_uploaded_receipt(filename: str, current_user: CurrentUser):
+    """Serve receipt files only to authenticated users."""
+    _ = current_user
+    local_path = _resolve_safe_upload_path("receipts", filename)
+    if local_path.is_file():
+        return FileResponse(local_path)
+    if settings.GCS_BUCKET_UPLOADS:
+        gcs_url = f"https://storage.googleapis.com/{settings.GCS_BUCKET_UPLOADS}/receipts/{filename}"
+        return RedirectResponse(url=gcs_url, status_code=307)
+    raise HTTPException(status_code=404, detail="Receipt not found")
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
@@ -73,6 +112,7 @@ app.include_router(accounts.router, prefix=settings.API_V1_PREFIX, tags=["Accoun
 app.include_router(categories.router, prefix=settings.API_V1_PREFIX, tags=["Categories"])
 app.include_router(transactions.router, prefix=settings.API_V1_PREFIX, tags=["Transactions"])
 app.include_router(goals.router, prefix=settings.API_V1_PREFIX, tags=["Goals"])
+app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])
 app.include_router(exports.router, prefix=settings.API_V1_PREFIX, tags=["Exports"])
 app.include_router(invitations.router, prefix=settings.API_V1_PREFIX, tags=["Invitations"])
 app.include_router(households.router, prefix=settings.API_V1_PREFIX, tags=["Households"])

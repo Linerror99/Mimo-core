@@ -46,6 +46,10 @@ class RecurringTemplateBase(BaseModel):
     destination_account_id: Optional[str] = Field(None, description="ID du compte destination (pour TRANSFER)")
     category_id: Optional[str] = Field(None, description="ID de la catégorie")
 
+
+class RecurringTemplateCreate(RecurringTemplateBase):
+    """Schema pour création de RecurringTemplate"""
+
     @field_validator('end_date')
     @classmethod
     def validate_end_date(cls, v, info):
@@ -95,11 +99,6 @@ class RecurringTemplateBase(BaseModel):
         return v
 
 
-class RecurringTemplateCreate(RecurringTemplateBase):
-    """Schema pour création de RecurringTemplate"""
-    pass
-
-
 class RecurringTemplateUpdate(BaseModel):
     """Schema pour mise à jour de RecurringTemplate"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -114,6 +113,10 @@ class RecurringTemplateUpdate(BaseModel):
 
     category_id: Optional[str] = None
     is_active: Optional[str] = Field(None, pattern="^(true|false)$")
+    apply_to_future: bool = Field(
+        default=False,
+        description="Si True, applique les modifications aux occurrences futures (PROJECTED) déjà générées"
+    )
 
 
 class RecurringTemplateResponse(RecurringTemplateBase):

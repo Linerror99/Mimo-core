@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: duoflow-postgres
+    container_name: mimo-postgres
     environment:
       POSTGRES_USER: duoflow
       POSTGRES_PASSWORD: duoflow123
@@ -17,14 +17,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - duoflow-network
+      - mimo-network
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: duoflow-redis
+    container_name: mimo-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-16379}:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -34,19 +34,23 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - duoflow-network
+      - mimo-network
 
   # Backend API (FastAPI)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: duoflow-backend
+    container_name: mimo-backend
     environment:
       - DATABASE_URL=postgresql://duoflow:duoflow123@postgres:5432/duoflow
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - DEBUG=true
+      - ENVIRONMENT=development
+      - COOKIE_SECURE=false
+      - COOKIE_SAMESITE=lax
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5000,http://localhost:5173
     ports:
       - "8000:8000"
     volumes:
@@ -57,29 +61,35 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - duoflow-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - mimo-network
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  # Frontend (React + Vite)
+  # Frontend (Next.js 15 App Router + BFF Proxy)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: duoflow-frontend
+      target: development
+    container_name: mimo-frontend
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=/api/v1
+      - INTERNAL_API_URL=http://backend:8000/api/v1
+      - WATCHPACK_POLLING=true
     ports:
-      - "5000:5000"
+      - "3000:3000"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
+      - ./frontend/tests:/app/tests
+    depends_on:
+      - backend
     networks:
-      - duoflow-network
+      - mimo-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  duoflow-network:
+  mimo-network:
     driver: bridge

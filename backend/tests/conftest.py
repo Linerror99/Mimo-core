@@ -11,8 +11,12 @@ from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 
-# Utilise la même DB mais avec isolation par test (drop/create tables)
-TEST_DATABASE_URL = settings.DATABASE_URL.replace(
+# Utilise une base de test dédiée pour isoler complètement les tests de la base de dev
+raw_db_url = settings.DATABASE_URL
+if "/" in raw_db_url:
+    base_url, db_name = raw_db_url.rsplit("/", 1)
+    raw_db_url = f"{base_url}/duoflow_test"
+TEST_DATABASE_URL = raw_db_url.replace(
     "postgresql://", "postgresql+asyncpg://"
 )
 
@@ -62,9 +66,10 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestSessionLocal() as session:
         yield session
 
-    # Nettoyer après le test
+    # Nettoyer les données créées pendant le test sans supprimer les tables
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 @pytest.fixture(scope="function")

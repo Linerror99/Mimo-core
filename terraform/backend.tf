@@ -2,7 +2,7 @@
 
 terraform {
   backend "gcs" {
-    bucket = "mimo-finance-prod-terraform-state"
+    bucket = "project-df0355fd-eba9-4724-bbd-tfstate"
     prefix = "production/state"
   }
   

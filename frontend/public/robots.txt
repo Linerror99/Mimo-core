@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /timeline
+Disallow: /projection
+Disallow: /projections
+Disallow: /accounts
+Disallow: /categories
+Disallow: /recurring
+Disallow: /goals
+Disallow: /projects
+Disallow: /settings
+Disallow: /settings-profile
+Disallow: /settings-household
+Disallow: /settings/invitations
+Disallow: /trash
+Disallow: /notifications
+
+Sitemap: https://mimo-frontend-qjhc3e7jla-ew.a.run.app/sitemap.xml

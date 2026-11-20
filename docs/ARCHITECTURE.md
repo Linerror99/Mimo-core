@@ -23,12 +23,13 @@
 │          Application de Gestion Financière Collaborative     │
 └─────────────────────────────────────────────────────────────┘
 
-FRONTEND (React + TypeScript)
-├─ Next.js 15 (App Router)
-├─ TanStack Query (server state)
-├─ Zustand (client state)
-├─ Shadcn/ui + Tailwind CSS
-└─ React Hook Form + Zod
+FRONTEND (React 18 + TypeScript)
+├─ Vite 6 (SPA Bundler ultra-rapide)
+├─ React Router v6 (Client Routing)
+├─ Axios (Services API REST)
+├─ Shadcn/ui + Tailwind CSS + Vanilla CSS
+├─ Lucide React (Iconographie moderne)
+└─ Recharts (Visualisations graphiques)
 
 BACKEND (Python + FastAPI)
 ├─ FastAPI 0.115+
@@ -69,8 +70,8 @@ graph TB
     end
 
     subgraph "Application Layer"
-        FE1[Frontend Instance 1<br/>Next.js SSR]
-        FE2[Frontend Instance 2<br/>Next.js SSR]
+        FE1[Frontend Instance 1<br/>Vite + React SPA Nginx]
+        FE2[Frontend Instance 2<br/>Vite + React SPA Nginx]
         API1[Backend Instance 1<br/>FastAPI]
         API2[Backend Instance 2<br/>FastAPI]
     end
@@ -135,7 +136,7 @@ graph LR
 ```mermaid
 sequenceDiagram
     participant U as User Browser
-    participant FE as Frontend (Next.js)
+    participant FE as Frontend (React + Vite)
     participant API as Backend (FastAPI)
     participant R as Redis Cache
     participant DB as PostgreSQL
@@ -200,6 +201,39 @@ erDiagram
     RECURRING_TEMPLATE ||--o{ TRANSACTION : "generates"
     GOAL ||--|| USER : "belongs to"
     GOAL ||--|| CATEGORY : "targets"
+
+    USER ||--o{ PROJECT : "creates"
+    PROJECT ||--o{ PROJECT_ITEM : "contains"
+    ACCOUNT ||--o{ PROJECT_ITEM : "debited for"
+    CATEGORY ||--o{ PROJECT_ITEM : "categorizes"
+
+    PROJECT {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string description
+        decimal total_budget
+        string color
+        string icon
+        enum status "DRAFT|COMMITTED|ARCHIVED"
+        date target_start_date
+        date target_end_date
+        datetime created_at
+        datetime updated_at
+    }
+
+    PROJECT_ITEM {
+        uuid id PK
+        uuid project_id FK
+        uuid account_id FK
+        uuid category_id FK
+        string name
+        decimal amount
+        date planned_date
+        string notes
+        datetime created_at
+        datetime updated_at
+    }
 
     USER {
         uuid id PK
@@ -591,54 +625,35 @@ frontend/
 │   └── favicon.ico
 ├── src/
 │   ├── components/         # Composants réutilisables
-│   │   ├── ui/            # Shadcn/ui primitives
-│   │   │   ├── button.tsx
-│   │   │   ├── card.tsx
-│   │   │   ├── dialog.tsx
-│   │   │   └── ...
-│   │   ├── layout/        # Layout components
-│   │   │   ├── Sidebar.tsx
-│   │   │   ├── BottomNav.tsx
-│   │   │   └── Header.tsx
-│   │   ├── transaction/   # Feature components
-│   │   │   ├── TransactionList.tsx
-│   │   │   ├── TransactionItem.tsx
-│   │   │   ├── AddTransactionModal.tsx
-│   │   │   └── ValidationModal.tsx
-│   │   └── NotificationBell.tsx
-│   ├── pages/             # Next.js pages
-│   │   ├── _app.tsx
-│   │   ├── index.tsx      # Landing
-│   │   ├── login.tsx
-│   │   ├── register.tsx
-│   │   ├── dashboard.tsx
-│   │   ├── transactions.tsx
-│   │   ├── accounts.tsx
-│   │   └── ...
-│   ├── services/          # API calls
-│   │   ├── api.ts         # Axios instance
-│   │   ├── authService.ts
-│   │   ├── transactionService.ts
-│   │   └── ...
-│   ├── stores/            # Zustand stores
-│   │   ├── authStore.ts   # user, tokens, logout
-│   │   └── uiStore.ts     # modals, toasts
-│   ├── hooks/             # Custom hooks
-│   │   ├── useAuth.ts
-│   │   ├── useTransactions.ts (TanStack Query)
-│   │   └── useNotifications.ts
-│   ├── types/             # TypeScript types
-│   │   ├── auth.ts
-│   │   ├── transaction.ts
-│   │   └── ...
-│   ├── schemas/           # Zod validation
-│   │   ├── authSchemas.ts
-│   │   └── transactionSchemas.ts
-│   └── utils/
-│       ├── formatters.ts  # Date, currency
-│       └── validators.ts
-├── .env.local.example
-├── next.config.js
+│   │   ├── ui/            # Primitives Shadcn/ui (Button, Dialog, DropdownMenu...)
+│   │   ├── Layout.tsx     # Layout principal (Sidebar + Sticky Header)
+│   │   ├── BankLogo.tsx   # Logos dynamiques des banques
+│   │   └── ExportButton.tsx
+│   ├── pages/             # Vues de l'application
+│   │   ├── Dashboard.tsx      # Vue d'ensemble & KPIs
+│   │   ├── TimelinePage.tsx   # Timeline interactive & récurrences
+│   │   ├── ProjectionPage.tsx # Projections financières 1 mois à 5 ans
+│   │   ├── ProjectsPage.tsx   # Projets & Enveloppes (What-If, Commit)
+│   │   ├── AccountsPage.tsx   # Gestion des comptes bancaires
+│   │   ├── CategoriesPage.tsx # Catégories & plafonds
+│   │   ├── Goals.tsx          # Objectifs d'épargne
+│   │   └── SettingsProfile.tsx# Profil & sécurité
+│   ├── services/          # Client API REST (Axios)
+│   │   ├── api.ts             # Axios interceptors & session resilience
+│   │   ├── authService.ts     # Auth & JWT
+│   │   ├── projectService.ts  # Projets, simulation & rollback
+│   │   ├── projectionService.ts # Range API projections
+│   │   └── transactionService.ts
+│   ├── stores/            # State global Zustand
+│   │   └── authStore.ts       # Auth, tokens, logout
+│   ├── styles/            # Styles CSS modulaires & responsifs
+│   │   ├── Layout.css
+│   │   ├── Timeline.css
+│   │   └── Projection.css
+│   ├── types/             # Typages TypeScript
+│   └── App.tsx            # Configuration du routeur React
+├── index.html
+├── vite.config.ts
 ├── tailwind.config.js
 ├── tsconfig.json
 └── package.json

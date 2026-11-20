@@ -12,13 +12,15 @@ Règles:
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
+from dateutil.relativedelta import relativedelta
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
 from app.models.goal import Goal
-from app.models.transaction import Transaction, TransactionState
+from app.models.transaction import Transaction, TransactionState, TransactionType
+from app.models.user import User
 
 
 class GoalService:
@@ -38,29 +40,38 @@ class GoalService:
         self,
         created_by: str,
         name: str,
-        target_amount: float,
+        target_amount: Optional[float] = None,
+        current_amount: Optional[float] = 0,
+        monthly_contribution: Optional[float] = None,
         user_id: Optional[str] = None,
         household_id: Optional[str] = None,
         description: Optional[str] = None,
-        target_date: Optional[date] = None
+        target_date: Optional[date] = None,
+        account_id: Optional[str] = None,
+        destination_account_id: Optional[str] = None,
+        start_date: Optional[date] = None,
+        auto_sync_transactions: bool = True
     ) -> Goal:
         """
-        Crée un nouvel objectif d'épargne
+        Crée un nouvel objectif d'épargne ou projet
 
         Args:
             created_by: ID de l'utilisateur créateur
             name: Nom de l'objectif
-            target_amount: Montant cible
-            user_id: ID du user (objectif personnel) - exclusif avec household_id
-            household_id: ID du foyer (objectif de foyer) - exclusif avec user_id
+            target_amount: Montant cible optionnel (None pour épargne continue)
+            current_amount: Montant actuel
+            monthly_contribution: Montant mensuel prélevé (optionnel)
+            user_id: ID utilisateur (si objectif personnel)
+            household_id: ID foyer (si objectif partagé)
             description: Description optionnelle
             target_date: Date cible optionnelle
+            account_id: Compte source
+            destination_account_id: Compte épargne destination
+            start_date: Date de première échéance / début
+            auto_sync_transactions: Si True, génère automatiquement les échéances prévisionnelles
 
         Returns:
             Goal créé
-
-        Raises:
-            ValueError: Si montant cible <= 0 ou si user_id et household_id invalides
         """
         # Validation: SOIT user_id SOIT household_id (exclusif)
         if user_id is None and household_id is None:
@@ -69,8 +80,8 @@ class GoalService:
         if user_id is not None and household_id is not None:
             raise ValueError("Vous devez fournir user_id ou household_id exclusivement, pas les deux")
 
-        # Validation montant
-        if target_amount <= 0:
+        # Validation montant cible si fourni
+        if target_amount is not None and target_amount <= 0:
             raise ValueError("Le montant cible doit être positif")
 
         # Créer objectif
@@ -79,15 +90,22 @@ class GoalService:
             household_id=household_id,
             created_by=created_by,
             name=name,
-            target_amount=Decimal(str(target_amount)),
+            target_amount=Decimal(str(target_amount)) if target_amount is not None else None,
+            monthly_contribution=Decimal(str(monthly_contribution)) if monthly_contribution is not None else None,
             description=description,
             target_date=target_date,
-            current_amount=Decimal("0")
+            account_id=account_id,
+            destination_account_id=destination_account_id,
+            current_amount=Decimal(str(current_amount or 0))
         )
 
         self.db.add(goal)
         await self.db.commit()
         await self.db.refresh(goal)
+
+        # Synchroniser les virements prévisionnels si une contribution mensuelle est définie
+        if auto_sync_transactions and goal.monthly_contribution and float(goal.monthly_contribution) > 0:
+            await self.sync_goal_transactions(goal, start_date=start_date)
 
         return goal
 
@@ -105,29 +123,15 @@ class GoalService:
     ) -> List[Goal]:
         """
         Liste les objectifs d'un user OU d'un household
-
-        Args:
-            user_id: ID du user (objectifs personnels)
-            household_id: ID du foyer (objectifs de foyer)
-
-        Returns:
-            Liste des objectifs
         """
-        if user_id:
-            result = await self.db.execute(
-                select(Goal)
-                .where(Goal.user_id == user_id)
-                .order_by(Goal.created_at.desc())
-            )
-        elif household_id:
-            result = await self.db.execute(
-                select(Goal)
-                .where(Goal.household_id == household_id)
-                .order_by(Goal.created_at.desc())
-            )
-        else:
-            return []
+        query = select(Goal)
 
+        if user_id:
+            query = query.where(Goal.user_id == user_id)
+        elif household_id:
+            query = query.where(Goal.household_id == household_id)
+
+        result = await self.db.execute(query.order_by(Goal.created_at.desc()))
         return list(result.scalars().all())
 
     async def update_goal(
@@ -135,49 +139,66 @@ class GoalService:
         goal_id: str,
         name: Optional[str] = None,
         target_amount: Optional[float] = None,
+        monthly_contribution: Optional[float] = None,
         description: Optional[str] = None,
-        target_date: Optional[date] = None
+        target_date: Optional[date] = None,
+        account_id: Optional[str] = None,
+        destination_account_id: Optional[str] = None,
+        update_dict: Optional[dict] = None
     ) -> Goal:
         """
         Met à jour un objectif
-
-        Args:
-            goal_id: ID de l'objectif
-            name: Nouveau nom (optionnel)
-            target_amount: Nouveau montant cible (optionnel)
-            description: Nouvelle description (optionnel)
-            target_date: Nouvelle date cible (optionnel)
-
-        Returns:
-            Goal mis à jour
-
-        Raises:
-            ValueError: Si objectif introuvable ou montant invalide
         """
         goal = await self.get_goal(goal_id)
         if not goal:
             raise ValueError(f"Objectif {goal_id} introuvable")
 
-        # Mettre à jour champs fournis
-        if name is not None:
-            goal.name = name
-        if target_amount is not None:
-            if target_amount <= 0:
-                raise ValueError("Le montant cible doit être positif")
-            goal.target_amount = Decimal(str(target_amount))
-        if description is not None:
-            goal.description = description
-        if target_date is not None:
-            goal.target_date = target_date
+        if update_dict is not None:
+            if "name" in update_dict and update_dict["name"] is not None:
+                goal.name = update_dict["name"]
+            if "target_amount" in update_dict:
+                val = update_dict["target_amount"]
+                goal.target_amount = Decimal(str(val)) if val is not None else None
+            if "monthly_contribution" in update_dict:
+                val = update_dict["monthly_contribution"]
+                goal.monthly_contribution = Decimal(str(val)) if (val is not None and float(val) > 0) else None
+            if "description" in update_dict:
+                goal.description = update_dict["description"]
+            if "target_date" in update_dict:
+                goal.target_date = update_dict["target_date"]
+            if "account_id" in update_dict:
+                goal.account_id = update_dict["account_id"]
+            if "destination_account_id" in update_dict:
+                goal.destination_account_id = update_dict["destination_account_id"]
+        else:
+            if name is not None:
+                goal.name = name
+            if target_amount is not None:
+                if target_amount <= 0:
+                    raise ValueError("Le montant cible doit être positif")
+                goal.target_amount = Decimal(str(target_amount))
+            if monthly_contribution is not None:
+                goal.monthly_contribution = Decimal(str(monthly_contribution)) if monthly_contribution > 0 else None
+            if description is not None:
+                goal.description = description
+            if target_date is not None:
+                goal.target_date = target_date
+            if account_id is not None:
+                goal.account_id = account_id
+            if destination_account_id is not None:
+                goal.destination_account_id = destination_account_id
 
         await self.db.commit()
         await self.db.refresh(goal)
+
+        # Synchroniser automatiquement les virements / transactions prévisionnelles
+        await self.sync_goal_transactions(goal)
 
         return goal
 
     async def delete_goal(self, goal_id: str) -> None:
         """
-        Supprime un objectif
+        Supprime un objectif et nettoie ses transactions prévisionnelles associées.
 
         Args:
             goal_id: ID de l'objectif
@@ -189,7 +210,152 @@ class GoalService:
         if not goal:
             raise ValueError(f"Objectif {goal_id} introuvable")
 
+        # Supprimer les transactions prévisionnelles non réalisées liées à cet objectif
+        stmt = select(Transaction).where(
+            Transaction.goal_id == goal_id,
+            Transaction.state == TransactionState.PROJECTED
+        )
+        tx_res = await self.db.execute(stmt)
+        for tx in tx_res.scalars().all():
+            await self.db.delete(tx)
+
         await self.db.delete(goal)
+        await self.db.commit()
+
+    async def sync_goal_transactions(self, goal: Goal, start_date: Optional[date] = None) -> None:
+        """
+        Synchronise automatiquement les transactions prévisionnelles (virements/échéances)
+        liées à un objectif d'épargne.
+
+        - Respecte scrupuleusement les transactions REALIZED existantes (historique passé).
+        - Si monthly_contribution > 0 :
+            - Met à jour les transactions PROJECTED existantes (montant, comptes, libellé).
+            - Supprime les transactions PROJECTED au-delà de la target_date (si l'horizon est raccourci).
+            - Crée les échéances manquantes mois par mois jusqu'à la target_date (ou jusqu'à atteindre target_amount).
+        - Si monthly_contribution <= 0 ou None :
+            - Supprime les transactions PROJECTED associées.
+        """
+        # Récupérer household_id
+        household_id = goal.household_id
+        if not household_id:
+            user_stmt = select(User).where(User.id == (goal.user_id or goal.created_by))
+            user_res = await self.db.execute(user_stmt)
+            user_obj = user_res.scalar_one_or_none()
+            if user_obj:
+                household_id = user_obj.household_id
+
+        # Récupérer toutes les transactions existantes liées à cet objectif
+        stmt = select(Transaction).where(
+            Transaction.goal_id == goal.id,
+            Transaction.deleted_at.is_(None)
+        ).order_by(Transaction.transaction_date.asc())
+        tx_res = await self.db.execute(stmt)
+        existing_txs = list(tx_res.scalars().all())
+
+        projected_txs = [t for t in existing_txs if t.state == TransactionState.PROJECTED]
+        realized_txs = [t for t in existing_txs if t.state == TransactionState.REALIZED]
+
+        monthly = float(goal.monthly_contribution) if goal.monthly_contribution else 0
+        if monthly <= 0:
+            # Pas de prélèvement mensuel : nettoyer les prévisions futures
+            for t in projected_txs:
+                await self.db.delete(t)
+            await self.db.commit()
+            return
+
+        # Déterminer les comptes source et destination
+        account_id = goal.account_id
+        if not account_id and household_id:
+            acc_res = await self.db.execute(
+                select(Account).where(
+                    Account.household_id == household_id,
+                    Account.is_active == "true"
+                ).order_by(Account.created_at.asc())
+            )
+            first_acc = acc_res.scalars().first()
+            if first_acc:
+                account_id = first_acc.id
+
+        destination_account_id = goal.destination_account_id
+        tx_type = TransactionType.TRANSFER if destination_account_id else TransactionType.EXPENSE
+        tx_amount = Decimal(str(monthly if tx_type == TransactionType.TRANSFER else -abs(monthly)))
+
+        today = date.today()
+
+        # Déterminer la date de fin (horizon)
+        if goal.target_date:
+            end_date = goal.target_date
+        elif goal.target_amount and float(goal.target_amount) > 0:
+            rem = max(0.0, float(goal.target_amount) - float(goal.current_amount or 0))
+            needed_months = max(1, min(120, int(rem / monthly) + 1))
+            end_date = today + relativedelta(months=needed_months)
+        else:
+            end_date = today + relativedelta(months=12)
+
+        # Déterminer le mois de départ
+        if start_date:
+            start_cursor = start_date
+        elif realized_txs:
+            last_realized = max(t.transaction_date for t in realized_txs)
+            start_cursor = max(today, last_realized + relativedelta(months=1))
+        elif projected_txs:
+            min_proj = min(t.transaction_date for t in projected_txs)
+            start_cursor = min_proj
+        else:
+            start_cursor = today
+
+        # Jour du mois par défaut (ex: jour de target_date ou jour de start_cursor, capé à 28)
+        day = min(goal.target_date.day if goal.target_date else (start_cursor.day or 1), 28)
+        curr = date(start_cursor.year, start_cursor.month, day)
+        end_limit = date(end_date.year, end_date.month, day)
+
+        desired_dates = []
+        iteration = 0
+        while curr <= end_limit and iteration < 240:
+            if curr >= today:  # Planifier aujourd'hui et les échéances futures
+                desired_dates.append(curr)
+            curr = curr + relativedelta(months=1)
+            iteration += 1
+
+        desired_keys = {(d.year, d.month): d for d in desired_dates}
+        existing_projected_map = {(t.transaction_date.year, t.transaction_date.month): t for t in projected_txs}
+
+        prefix = "Épargne " if tx_type == TransactionType.TRANSFER else ""
+        default_notes = "Généré automatiquement par l'objectif d'épargne" if tx_type == TransactionType.TRANSFER else "Généré par le projet d'achat"
+
+        # 1. Mettre à jour les transactions existantes ou supprimer celles hors horizon
+        for (y, m), tx in existing_projected_map.items():
+            if (y, m) in desired_keys:
+                tx.amount = tx_amount
+                tx.account_id = account_id
+                tx.destination_account_id = destination_account_id if tx_type == TransactionType.TRANSFER else None
+                tx.type = tx_type
+                # Conserver les libellés de type (1/3) ou personnalisés existants s'ils ne contiennent pas le préfixe erroné
+                if not tx.description or tx.description.startswith("Épargne ") or (tx_type != TransactionType.TRANSFER and "Épargne " in tx.description):
+                    tx.description = f"{prefix}{goal.name} ({m:02d}/{y})"
+                tx.notes = default_notes
+            else:
+                # La date de cette transaction projetée est au-delà du nouvel horizon (ou dans le passé)
+                await self.db.delete(tx)
+
+        # 2. Créer les transactions manquantes pour les mois souhaités
+        for (y, m), due_date in desired_keys.items():
+            if (y, m) not in existing_projected_map:
+                state = TransactionState.PROJECTED if due_date > today else TransactionState.PENDING
+                new_tx = Transaction(
+                    household_id=household_id,
+                    account_id=account_id,
+                    destination_account_id=destination_account_id if tx_type == TransactionType.TRANSFER else None,
+                    goal_id=goal.id,
+                    amount=tx_amount,
+                    transaction_date=due_date,
+                    type=tx_type,
+                    state=state,
+                    description=f"{prefix}{goal.name} ({m:02d}/{y})",
+                    notes=default_notes
+                )
+                self.db.add(new_tx)
+
         await self.db.commit()
 
     async def calculate_progress(self, goal_id: str) -> Goal:
@@ -339,54 +505,47 @@ class GoalService:
         """
         Calcule le solde disponible pour les objectifs
 
-        - Objectif personnel: somme des soldes des comptes de l'utilisateur uniquement
-        - Objectif foyer: somme des soldes des comptes du household (les deux partenaires)
-
-        Args:
-            user_id: ID de l'utilisateur
-            household_id: ID du foyer (optionnel)
-            is_household_goal: True si c'est un objectif foyer, False sinon
-
-        Returns:
-            Solde total disponible
+        - Objectif personnel: somme des soldes réels des comptes de l'utilisateur
+          (fallback sur les comptes actifs du foyer si original_owner_user_id n'est pas encore renseigné)
+        - Objectif foyer: somme des soldes réels des comptes actifs du household (les deux partenaires)
         """
-        from app.models.transaction import Transaction
+        from app.services.account_service import AccountService
 
         if is_household_goal and household_id:
-            # Objectif foyer: somme des comptes du household (couple)
+            # Objectif foyer: somme des comptes actifs du household (couple)
             accounts_result = await self.db.execute(
-                select(Account.id, Account.initial_balance)
-                .where(Account.household_id == household_id)
-            )
-            accounts = accounts_result.all()
-        else:
-            # Objectif personnel: somme des comptes de l'utilisateur uniquement
-            accounts_result = await self.db.execute(
-                select(Account.id, Account.initial_balance)
-                .where(Account.original_owner_user_id == user_id)
-            )
-            accounts = accounts_result.all()
-
-        # Calculer le solde pour chaque compte (initial_balance + transactions)
-        total_balance = Decimal("0")
-        for account in accounts:
-            account_id, initial_balance = account
-
-            # Somme des transactions pour ce compte
-            transactions_result = await self.db.execute(
-                select(func.coalesce(func.sum(Transaction.amount), 0))
-                .where(
-                    Transaction.account_id == account_id,
-                    Transaction.deleted_at.is_(None)
+                select(Account).where(
+                    Account.household_id == household_id,
+                    Account.is_active == "true"
                 )
             )
-            transactions_sum = transactions_result.scalar_one()
+            accounts = list(accounts_result.scalars().all())
+        else:
+            # Objectif personnel: comptes dont l'utilisateur est propriétaire
+            accounts_result = await self.db.execute(
+                select(Account).where(
+                    Account.original_owner_user_id == user_id,
+                    Account.is_active == "true"
+                )
+            )
+            accounts = list(accounts_result.scalars().all())
 
-            # Balance du compte = initial + transactions
-            account_balance = initial_balance + Decimal(str(transactions_sum))
-            total_balance += account_balance
+            # Fallback pour les comptes historiques créés avant le peuplement de original_owner_user_id
+            if not accounts and household_id:
+                fallback_result = await self.db.execute(
+                    select(Account).where(
+                        Account.household_id == household_id,
+                        Account.original_owner_user_id.is_(None),
+                        Account.is_active == "true"
+                    )
+                )
+                accounts = list(fallback_result.scalars().all())
 
-        return total_balance
+        if not accounts:
+            return Decimal("0")
+
+        balances = await AccountService.calculate_balances_batch(db=self.db, accounts=accounts)
+        return sum(balances.values(), Decimal("0"))
 
     async def get_allocated_amount(
         self,
@@ -458,3 +617,19 @@ class GoalService:
             return False, f"Solde insuffisant. Disponible: {remaining_balance}€, Demandé: {new_amount}€"
 
         return True, ""
+
+    async def get_goal_transactions(self, goal_id: str) -> List[Transaction]:
+        """
+        Récupère toutes les transactions (passées et futures) liées à un objectif
+        """
+        result = await self.db.execute(
+            select(Transaction)
+            .where(
+                and_(
+                    Transaction.goal_id == goal_id,
+                    Transaction.deleted_at.is_(None)
+                )
+            )
+            .order_by(Transaction.transaction_date.desc())
+        )
+        return list(result.scalars().all())

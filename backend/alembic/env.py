@@ -9,7 +9,17 @@ from alembic import context
 # Import app config and models
 from app.config import settings
 from app.database import Base
-from app.models import User, Household
+from app.models import (
+    Account,
+    Category,
+    Goal,
+    Household,
+    Invitation,
+    Notification,
+    RecurringTemplate,
+    Transaction,
+    User,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

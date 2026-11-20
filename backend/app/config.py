@@ -1,17 +1,20 @@
 """Application Configuration"""
 
-from typing import List, Union
+from typing import List, Optional, Union
 import os
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_INSECURE_JWT_SECRET = "your-secret-key-change-in-production"
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
     # Application
-    APP_NAME: str = "DuoFlow Finance"
+    APP_NAME: str = "Mimo Finance"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
     ENVIRONMENT: str = "development"  # development, staging, production
@@ -26,7 +29,7 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Reduced for production security
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS - Development defaults (override in production)
@@ -41,15 +44,28 @@ class Settings(BaseSettings):
     GCS_BUCKET_UPLOADS: str = "mimo-uploads-prod"
     GCS_BUCKET_BACKUPS: str = "mimo-backups-prod"
 
-    # Admin
+    # Admin & Scheduler
     ADMIN_TOKEN: str = ""
+    JOB_TOKEN: str = ""
+    SCHEDULER_SERVICE_ACCOUNT: Optional[str] = None  # e.g. scheduler-sa@project-id.iam.gserviceaccount.com
 
     # Security
-    BCRYPT_ROUNDS: int = 4  # Réduit pour les load tests (12 en prod)
+    BCRYPT_ROUNDS: int = 12  # Standard sécurisé OWASP (12 rounds)
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = "none"  # "none" for cross-origin frontend/backend on Cloud Run
+    COOKIE_DOMAIN: Optional[str] = None
 
     # Logging
     LOG_LEVEL: str = "INFO"
     ENABLE_JSON_LOGS: bool = True
+
+    # SMTP Email
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: str = "noreply@mimofinance.com"
+    SMTP_TLS: bool = True
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -58,6 +74,21 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        """Enforce secure configuration when running in production."""
+        if self.ENVIRONMENT.lower() == "production":
+            self.DEBUG = False
+            if (
+                not self.JWT_SECRET_KEY
+                or self.JWT_SECRET_KEY == DEFAULT_INSECURE_JWT_SECRET
+                or len(self.JWT_SECRET_KEY) < 32
+            ):
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set to a strong secret (>= 32 chars) in production."
+                )
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

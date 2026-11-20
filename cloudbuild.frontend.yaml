@@ -3,13 +3,15 @@ steps:
     args:
       - 'build'
       - '-f'
-      - 'Dockerfile.temp.frontend'
+      - 'frontend/Dockerfile.prod'
+      - '--build-arg'
+      - 'VITE_API_URL=https://mimo-backend-qjhc3e7jla-ew.a.run.app'
       - '-t'
-      - 'europe-west1-docker.pkg.dev/mimo-finance-prod/mimo-repo/frontend:latest'
-      - '.'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mimo-repo/frontend:latest'
+      - './frontend'
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'europe-west1-docker.pkg.dev/mimo-finance-prod/mimo-repo/frontend:latest'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mimo-repo/frontend:latest'
 images:
-  - 'europe-west1-docker.pkg.dev/mimo-finance-prod/mimo-repo/frontend:latest'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mimo-repo/frontend:latest'

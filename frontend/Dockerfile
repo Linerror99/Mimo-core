@@ -1,22 +1,29 @@
-# Frontend Dockerfile - Optimized for Development
-FROM node:20-alpine
-
+FROM node:22-alpine AS base
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy package files first (cache layer)
-COPY package*.json ./
-
-# Install dependencies (cached if package.json unchanged)
+FROM base AS deps
+COPY package.json ./
 RUN npm install
 
-# Copy source code
+FROM deps AS development
 COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
 
-# Pre-build: optimize Vite dependencies (speeds up first load)
-RUN npm run build -- --mode development 2>/dev/null || true
+FROM deps AS builder
+COPY . .
+RUN npm run build
 
-# Expose Vite dev server port
-EXPOSE 5000
-
-# Start dev server with hot reload
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5000"]
+FROM base AS production
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+CMD ["node", "server.js"]

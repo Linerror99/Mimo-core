@@ -1,94 +1,69 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# ==============================================================================
+# Mimo Finance — Initialisation complète de l'environnement local (100 % Docker)
+# ==============================================================================
+set -euo pipefail
 
-echo "🚀 Setting up DuoFlow Finance - Development Environment"
-echo "========================================================"
-echo ""
+echo "🚀 Initialisation de Mimo Finance (PostgreSQL + Redis + FastAPI + Next.js 15)"
+echo "=============================================================================="
 
-# Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo -e "${RED}❌ Docker is not running. Please start Docker Desktop first.${NC}"
+if ! docker info >/dev/null 2>&1; then
+    echo -e "${RED}❌ Docker n'est pas lancé. Démarre Docker Desktop puis réessaie.${NC}"
     exit 1
 fi
+echo -e "${GREEN}✅ Docker est actif${NC}"
 
-echo -e "${GREEN}✅ Docker is running${NC}"
-echo ""
-
-# Create .env files if they don't exist
-echo "📝 Setting up environment files..."
-
-if [ ! -f .env ]; then
+if [ ! -f .env ] && [ -f .env.example ]; then
     cp .env.example .env
-    echo -e "${GREEN}✅ Created .env from .env.example${NC}"
+    echo -e "${GREEN}✅ .env créé depuis .env.example${NC}"
 else
-    echo -e "${YELLOW}⚠️  .env already exists, skipping${NC}"
+    echo -e "${YELLOW}⚠️  .env déjà présent${NC}"
 fi
 
-if [ ! -f backend/.env ]; then
-    cp backend/.env.example backend/.env
-    echo -e "${GREEN}✅ Created backend/.env${NC}"
-else
-    echo -e "${YELLOW}⚠️  backend/.env already exists, skipping${NC}"
-fi
-
-if [ ! -f frontend/.env ]; then
-    cp frontend/.env.example frontend/.env
-    echo -e "${GREEN}✅ Created frontend/.env${NC}"
-else
-    echo -e "${YELLOW}⚠️  frontend/.env already exists, skipping${NC}"
+if [ ! -f frontend/.env ] && [ -f frontend/.env.docker ]; then
+    cp frontend/.env.docker frontend/.env
+    echo -e "${GREEN}✅ frontend/.env créé depuis frontend/.env.docker${NC}"
 fi
 
 echo ""
-echo "🐳 Starting Docker containers..."
-docker-compose up -d
+echo "🐳 Construction et démarrage des conteneurs..."
+docker compose up -d --build
 
-echo ""
-echo "⏳ Waiting for services to be healthy..."
-sleep 10
-
-# Check backend health
-echo "🔍 Checking backend health..."
-max_retries=30
+echo "⏳ Attente du backend (http://localhost:8000/health)..."
+max_retries=40
 retry_count=0
-
 while [ $retry_count -lt $max_retries ]; do
-    if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Backend is healthy!${NC}"
+    if curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Backend opérationnel !${NC}"
         break
     fi
     retry_count=$((retry_count + 1))
-    echo "⏳ Waiting for backend... ($retry_count/$max_retries)"
     sleep 2
 done
 
 if [ $retry_count -eq $max_retries ]; then
-    echo -e "${RED}❌ Backend failed to start${NC}"
-    echo "Run 'docker-compose logs backend' to see the logs"
+    echo -e "${RED}❌ Le backend n'a pas démarré à temps.${NC}"
+    echo "Voir les logs : docker compose logs backend"
     exit 1
 fi
 
-# Check detailed health
-echo ""
-echo "🔍 Checking detailed health (Database + Redis)..."
-curl -s http://localhost:8000/health/detailed | python3 -m json.tool
+echo "🗄️  Application des migrations Alembic..."
+docker compose exec -T backend alembic upgrade head
+echo -e "${GREEN}✅ Migrations appliquées${NC}"
 
 echo ""
-echo -e "${GREEN}✅ Setup complete!${NC}"
+echo -e "${GREEN}✅ Mimo Finance est prêt !${NC}"
+echo "   Frontend : http://localhost:3000"
+echo "   Backend  : http://localhost:8000"
+echo "   Swagger  : http://localhost:8000/docs"
 echo ""
-echo "📋 Available services:"
-echo "   Frontend:  http://localhost:5173"
-echo "   Backend:   http://localhost:8000"
-echo "   API Docs:  http://localhost:8000/docs"
-echo "   ReDoc:     http://localhost:8000/redoc"
-echo ""
-echo "📝 Useful commands:"
-echo "   Stop:      docker-compose down"
-echo "   Logs:      docker-compose logs -f"
-echo "   Restart:   docker-compose restart"
-echo "   Rebuild:   docker-compose up -d --build"
-echo ""
+echo "Commandes utiles :"
+echo "   ./scripts/dev.sh       (démarrer avec build)"
+echo "   ./scripts/test.sh all  (lancer les tests TDD)"
+echo "   ./menu.sh              (centre de contrôle interactif)"
+echo "   docker compose down    (arrêter tous les services)"

@@ -403,6 +403,70 @@ class TestTransactionAPI:
         data = response.json()
         assert data["deleted_at"] is None
 
+    async def test_empty_trash(
+        self,
+        client: AsyncClient,
+        test_user_token: str
+    ):
+        """Test vidage complet de la corbeille"""
+        # Créer un compte et une catégorie
+        account_response = await client.post(
+            "/api/v1/accounts",
+            json={"name": "Test Account Trash", "type": "CHECKING", "initial_balance": 1000.00, "currency": "EUR"},
+            headers={"Authorization": f"Bearer {test_user_token}"}
+        )
+        account_id = account_response.json()["id"]
+
+        category_response = await client.post(
+            "/api/v1/categories",
+            json={"name": "Test Category Trash", "color": "#00FF00"},
+            headers={"Authorization": f"Bearer {test_user_token}"}
+        )
+        category_id = category_response.json()["id"]
+
+        # Créer deux transactions
+        for i in range(2):
+            create_resp = await client.post(
+                "/api/v1/transactions",
+                json={
+                    "description": f"Trash item {i}",
+                    "amount": -20.00,
+                    "transaction_date": str(date.today()),
+                    "type": "EXPENSE",
+                    "account_id": account_id,
+                    "category_id": category_id
+                },
+                headers={"Authorization": f"Bearer {test_user_token}"}
+            )
+            tx_id = create_resp.json()["id"]
+            # Soft delete
+            await client.delete(
+                f"/api/v1/transactions/{tx_id}",
+                headers={"Authorization": f"Bearer {test_user_token}"}
+            )
+
+        # Vérifier qu'il y a des éléments dans la corbeille
+        trash_resp = await client.get(
+            "/api/v1/transactions/trash",
+            headers={"Authorization": f"Bearer {test_user_token}"}
+        )
+        assert len(trash_resp.json()) >= 2
+
+        # Vider la corbeille
+        empty_resp = await client.delete(
+            "/api/v1/transactions/trash",
+            headers={"Authorization": f"Bearer {test_user_token}"}
+        )
+        assert empty_resp.status_code == 200
+        assert empty_resp.json()["count"] >= 2
+
+        # Vérifier que la corbeille est vide maintenant
+        after_resp = await client.get(
+            "/api/v1/transactions/trash",
+            headers={"Authorization": f"Bearer {test_user_token}"}
+        )
+        assert len(after_resp.json()) == 0
+
     async def test_unauthorized_access(
         self,
         client: AsyncClient

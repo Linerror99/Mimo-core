@@ -20,15 +20,18 @@ class AccountService:
     async def create_account(
         db: AsyncSession,
         household_id: str,
-        account_data: AccountCreate
+        account_data: AccountCreate,
+        owner_user_id: Optional[str] = None
     ) -> Account:
         """Create a new account"""
         account = Account(
             household_id=household_id,
+            original_owner_user_id=owner_user_id,
             name=account_data.name,
             type=account_data.type,
             initial_balance=account_data.initial_balance,
-            currency=account_data.currency
+            currency=account_data.currency,
+            logo_url=account_data.logo_url
         )
 
         db.add(account)
@@ -114,18 +117,18 @@ class AccountService:
         db: AsyncSession,
         account_id: str
     ) -> Decimal:
-        """Calculate current account balance (initial + realized transactions up to today)"""
+        """Calculate current account balance (initial + realized transactions up to today, including incoming transfers)"""
         from datetime import date
-        from app.models.transaction import Transaction, TransactionState
+        from app.models.transaction import Transaction, TransactionState, TransactionType
 
         account = await db.get(Account, account_id)
         if not account:
             return Decimal("0")
 
-        # Calculer la somme des transactions REALIZED jusqu'à aujourd'hui uniquement
-        # Exclut les transactions futures (PROJECTED) et en attente (PENDING)
         today = date.today()
-        result = await db.execute(
+
+        # 1. Transactions où le compte est le compte principal (EXPENSE, INCOME, et compte source pour TRANSFER)
+        outgoing_and_incomes_res = await db.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0))
             .where(
                 Transaction.account_id == account_id,
@@ -134,7 +137,72 @@ class AccountService:
                 Transaction.transaction_date <= today
             )
         )
-        transactions_sum = result.scalar_one()
+        outgoing_and_incomes = outgoing_and_incomes_res.scalar_one()
 
-        # Balance = initial_balance + somme transactions réalisées
-        return account.initial_balance + Decimal(str(transactions_sum))
+        # 2. Virements entrants où le compte est le compte de destination (destination_account_id)
+        # Sur le compte destination, on crédite la valeur absolue du montant du virement
+        incoming_transfers_res = await db.execute(
+            select(func.coalesce(func.sum(func.abs(Transaction.amount)), 0))
+            .where(
+                Transaction.destination_account_id == account_id,
+                Transaction.type == TransactionType.TRANSFER,
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
+            )
+        )
+        incoming_transfers = incoming_transfers_res.scalar_one()
+
+        # Balance = initial_balance + outgoing_and_incomes + incoming_transfers
+        return account.initial_balance + Decimal(str(outgoing_and_incomes)) + Decimal(str(incoming_transfers))
+
+    @staticmethod
+    async def calculate_balances_batch(
+        db: AsyncSession,
+        accounts: List[Account]
+    ) -> dict[str, Decimal]:
+        """Calculate current balances for multiple accounts in 2 SQL queries (avoids N+1)."""
+        from datetime import date
+        from app.models.transaction import Transaction, TransactionState, TransactionType
+
+        if not accounts:
+            return {}
+
+        account_ids = [acc.id for acc in accounts]
+        today = date.today()
+
+        outgoing_res = await db.execute(
+            select(
+                Transaction.account_id,
+                func.coalesce(func.sum(Transaction.amount), 0)
+            )
+            .where(
+                Transaction.account_id.in_(account_ids),
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
+            )
+            .group_by(Transaction.account_id)
+        )
+        outgoing_map = {row[0]: Decimal(str(row[1])) for row in outgoing_res.all()}
+
+        incoming_res = await db.execute(
+            select(
+                Transaction.destination_account_id,
+                func.coalesce(func.sum(func.abs(Transaction.amount)), 0)
+            )
+            .where(
+                Transaction.destination_account_id.in_(account_ids),
+                Transaction.type == TransactionType.TRANSFER,
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+                Transaction.transaction_date <= today
+            )
+            .group_by(Transaction.destination_account_id)
+        )
+        incoming_map = {row[0]: Decimal(str(row[1])) for row in incoming_res.all()}
+
+        return {
+            acc.id: acc.initial_balance + outgoing_map.get(acc.id, Decimal("0")) + incoming_map.get(acc.id, Decimal("0"))
+            for acc in accounts
+        }

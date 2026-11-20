@@ -2,6 +2,7 @@
 Admin endpoints for maintenance operations
 Requires admin authentication via X-Admin-Token header
 """
+import secrets
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
 import subprocess
@@ -18,7 +19,7 @@ class MigrationResponse(BaseModel):
 
 
 def verify_admin_token(x_admin_token: str = Header(...)) -> None:
-    """Verify admin token from header"""
+    """Verify admin token from header using constant-time comparison"""
     expected_token = os.getenv("ADMIN_TOKEN")
     
     if not expected_token:
@@ -27,7 +28,7 @@ def verify_admin_token(x_admin_token: str = Header(...)) -> None:
             detail="Admin token not configured on server"
         )
     
-    if x_admin_token != expected_token:
+    if not secrets.compare_digest(x_admin_token, expected_token):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid admin token"
