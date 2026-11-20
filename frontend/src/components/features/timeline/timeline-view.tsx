@@ -4,7 +4,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  AlertTriangle,
   CalendarClock,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -13,12 +15,14 @@ import {
   Download,
   Edit3,
   Layers,
+  List,
   Plus,
   Repeat,
   Search,
   SlidersHorizontal,
   Target,
   Trash2,
+  X,
 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -57,6 +61,53 @@ import {
   type TransactionType,
   type TransactionUpdate,
 } from "@/types/transaction";
+
+const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] as const;
+
+type BalanceStatus = "danger" | "warning" | "normal" | "success";
+
+/**
+ * Règles d'affichage du solde en fin de journée :
+ * - Rouge (< 0 €) : danger
+ * - Ambre (0 à 50 €) : warning
+ * - Vert clair (50 à 100 €) : normal
+ * - Vert (> 100 €) : success
+ */
+function getBalanceStatus(amount: number): BalanceStatus {
+  if (amount < 0) return "danger";
+  if (amount <= 50) return "warning";
+  if (amount <= 100) return "normal";
+  return "success";
+}
+
+const BALANCE_BADGE_CLASSES: Record<BalanceStatus, string> = {
+  danger:
+    "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  warning:
+    "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300",
+  normal:
+    "border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300",
+  success:
+    "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+};
+
+const BALANCE_DOT_CLASSES: Record<BalanceStatus, string> = {
+  danger: "bg-rose-500",
+  warning: "bg-amber-500",
+  normal: "bg-emerald-400",
+  success: "bg-emerald-600",
+};
+
+const BALANCE_CELL_CLASSES: Record<BalanceStatus, string> = {
+  danger:
+    "border-rose-300/80 bg-rose-50/70 hover:bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10 dark:hover:bg-rose-500/15",
+  warning:
+    "border-amber-300/80 bg-amber-50/70 hover:bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10 dark:hover:bg-amber-500/15",
+  normal:
+    "border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50/80 dark:border-emerald-500/25 dark:bg-emerald-500/[0.06] dark:hover:bg-emerald-500/10",
+  success:
+    "border-emerald-300/70 bg-emerald-50/70 hover:bg-emerald-50 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15",
+};
 
 interface TimelineViewProps {
   isLoading: boolean;
@@ -177,6 +228,10 @@ export function TimelineView({
   const [viewMode, setViewMode] = useState<"transactions" | "templates">(
     "transactions"
   );
+  const [displayMode, setDisplayMode] = useState<"list" | "calendar">("list");
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(
+    null
+  );
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionType | "ALL">("ALL");
   const [stateFilter, setStateFilter] = useState<TransactionState | "ALL">(
@@ -213,6 +268,7 @@ export function TimelineView({
   // Clear selection when month or filters change
   useEffect(() => {
     setSelectedIds([]);
+    setSelectedCalendarDay(null);
   }, [year, month, viewMode]);
 
   // Keyboard navigation Left/Right between months (disabled while typing or modal open)
@@ -413,6 +469,117 @@ export function TimelineView({
     .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
   const monthNet = monthIncome - monthExpense;
 
+  // Groupement des transactions filtrées par jour (YYYY-MM-DD)
+  const groupedByDate = useMemo(() => {
+    const map: Record<string, Transaction[]> = {};
+    for (const tx of filteredTransactions) {
+      const key = tx.transaction_date.slice(0, 10);
+      if (!map[key]) map[key] = [];
+      map[key].push(tx);
+    }
+    return map;
+  }, [filteredTransactions]);
+
+  // Solde cumulé en fin de journée (pour tout l'historique + chaque jour du mois affiché)
+  const dailyBalancesMap = useMemo(() => {
+    const scopedAccounts =
+      accountFilter !== "ALL"
+        ? accounts.filter((a) => a.id === accountFilter)
+        : accounts.filter((a) => a.is_active);
+    const activeAccountIds = new Set(scopedAccounts.map((a) => a.id));
+    const initialBalance = scopedAccounts.reduce(
+      (sum, acc) => sum + Number(acc.initial_balance || 0),
+      0
+    );
+
+    const historySource =
+      allTransactions && allTransactions.length > 0
+        ? allTransactions
+        : transactions;
+
+    const sortedHistory = historySource
+      .filter((t) => !t.deleted_at)
+      .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+
+    const deltaForTx = (tx: Transaction): number => {
+      const absAmt = Math.abs(Number(tx.amount));
+      if (accountFilter !== "ALL") {
+        if (tx.type === "TRANSFER") {
+          let d = 0;
+          if (tx.account_id === accountFilter) d -= absAmt;
+          if (tx.destination_account_id === accountFilter) d += absAmt;
+          return d;
+        }
+        if (tx.account_id !== accountFilter) return 0;
+        return tx.type === "INCOME" ? absAmt : tx.type === "EXPENSE" ? -absAmt : 0;
+      }
+      if (tx.type === "TRANSFER") {
+        const fromIn = activeAccountIds.has(tx.account_id);
+        const toIn = tx.destination_account_id
+          ? activeAccountIds.has(tx.destination_account_id)
+          : false;
+        if (fromIn && !toIn) return -absAmt;
+        if (!fromIn && toIn) return absAmt;
+        return 0;
+      }
+      if (activeAccountIds.size > 0 && !activeAccountIds.has(tx.account_id)) {
+        return 0;
+      }
+      return tx.type === "INCOME" ? absAmt : tx.type === "EXPENSE" ? -absAmt : 0;
+    };
+
+    const dailyDeltas: Record<string, number> = {};
+    for (const tx of sortedHistory) {
+      const d = tx.transaction_date.slice(0, 10);
+      dailyDeltas[d] = (dailyDeltas[d] || 0) + deltaForTx(tx);
+    }
+
+    const mm = String(month).padStart(2, "0");
+    const lastDay = new Date(year, month, 0).getDate();
+    const monthDates: string[] = [];
+    for (let d = 1; d <= lastDay; d++) {
+      monthDates.push(`${year}-${mm}-${String(d).padStart(2, "0")}`);
+    }
+
+    const allDates = Array.from(
+      new Set([...Object.keys(dailyDeltas), ...monthDates])
+    ).sort((a, b) => a.localeCompare(b));
+
+    const balanceMap: Record<string, number> = {};
+    let running = initialBalance;
+    for (const d of allDates) {
+      running += dailyDeltas[d] || 0;
+      balanceMap[d] = running;
+    }
+    return balanceMap;
+  }, [accounts, accountFilter, allTransactions, transactions, year, month]);
+
+  const endOfMonthBalance = useMemo(() => {
+    const mm = String(month).padStart(2, "0");
+    const lastDay = new Date(year, month, 0).getDate();
+    const lastKey = `${year}-${mm}-${String(lastDay).padStart(2, "0")}`;
+    return dailyBalancesMap[lastKey];
+  }, [dailyBalancesMap, year, month]);
+
+  // Grille calendrier du mois (Lundi = 0, semaine ISO)
+  const calendarGrid = useMemo(() => {
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0).getDate();
+    const startDow = (firstDay.getDay() + 6) % 7;
+    const days: (string | null)[] = [];
+    for (let i = 0; i < startDow; i++) days.push(null);
+    const mm = String(month).padStart(2, "0");
+    for (let d = 1; d <= lastDay; d++) {
+      days.push(`${year}-${mm}-${String(d).padStart(2, "0")}`);
+    }
+    return days;
+  }, [year, month]);
+
+  const selectedDayTransactions = useMemo(() => {
+    if (!selectedCalendarDay) return [];
+    return groupedByDate[selectedCalendarDay] || [];
+  }, [selectedCalendarDay, groupedByDate]);
+
   if (isLoading) return <TimelineSkeleton />;
 
   const goPrevMonth = () => {
@@ -430,12 +597,12 @@ export function TimelineView({
     onChangeMonth(now.getFullYear(), now.getMonth() + 1);
   };
 
-  const openCreateTx = (prefill?: Transaction) => {
+  const openCreateTx = (prefill?: Transaction, prefillDate?: string) => {
     if (prefill) {
       setEditingTx(null);
       setDescription(`${prefill.description} (copie)`);
       setAmount(String(Math.abs(Number(prefill.amount))));
-      setTxDate(getTodayIso());
+      setTxDate(prefillDate || getTodayIso());
       setTxType(prefill.type);
       setAccountId(prefill.account_id);
       setDestAccountId(prefill.destination_account_id || "");
@@ -447,7 +614,7 @@ export function TimelineView({
       setEditingTx(null);
       setDescription("");
       setAmount("");
-      setTxDate(getTodayIso());
+      setTxDate(prefillDate || getTodayIso());
       setTxType("EXPENSE");
       setAccountId(accounts[0]?.id || "");
       setDestAccountId("");
@@ -745,33 +912,68 @@ export function TimelineView({
         </div>
       </div>
 
-      {/* Mode Switch + Month Navigator */}
+      {/* Mode Switch + List/Calendar Toggle + Month Navigator */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
-          <button
-            type="button"
-            onClick={() => setViewMode("transactions")}
-            className={cn(
-              "rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors",
-              viewMode === "transactions"
-                ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
-                : "text-slate-600 dark:text-zinc-400"
-            )}
-          >
-            Opérations ({filteredTransactions.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("templates")}
-            className={cn(
-              "rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors",
-              viewMode === "templates"
-                ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
-                : "text-slate-600 dark:text-zinc-400"
-            )}
-          >
-            Récurrences ({templates.length})
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+            <button
+              type="button"
+              onClick={() => setViewMode("transactions")}
+              className={cn(
+                "rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                viewMode === "transactions"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
+                  : "text-slate-600 dark:text-zinc-400"
+              )}
+            >
+              Opérations ({filteredTransactions.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("templates")}
+              className={cn(
+                "rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                viewMode === "templates"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
+                  : "text-slate-600 dark:text-zinc-400"
+              )}
+            >
+              Récurrences ({templates.length})
+            </button>
+          </div>
+
+          {viewMode === "transactions" && (
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+              <button
+                type="button"
+                aria-label="Vue liste"
+                onClick={() => setDisplayMode("list")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                  displayMode === "list"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
+                    : "text-slate-600 dark:text-zinc-400"
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                Liste
+              </button>
+              <button
+                type="button"
+                aria-label="Vue calendrier"
+                onClick={() => setDisplayMode("calendar")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                  displayMode === "calendar"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
+                    : "text-slate-600 dark:text-zinc-400"
+                )}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Calendrier
+              </button>
+            </div>
+          )}
         </div>
 
         {viewMode === "transactions" && (
@@ -853,9 +1055,28 @@ export function TimelineView({
             </Card>
             <Card>
               <CardContent className="p-4">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                  Solde net du mois
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                    Solde net du mois
+                  </span>
+                  {endOfMonthBalance !== undefined && (
+                    <span
+                      title="Solde prévisionnel en fin de mois"
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                        BALANCE_BADGE_CLASSES[getBalanceStatus(endOfMonthBalance)]
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          BALANCE_DOT_CLASSES[getBalanceStatus(endOfMonthBalance)]
+                        )}
+                      />
+                      Fin mois : <AmountDisplay amount={endOfMonthBalance} />
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-lg font-semibold">
                   <AmountDisplay amount={monthNet} signed colored />
                 </p>
@@ -1245,8 +1466,358 @@ export function TimelineView({
             </div>
           )}
 
-          {/* Transactions Table */}
-          {filteredTransactions.length === 0 ? (
+          {/* Vue Calendrier ou Vue Liste */}
+          {displayMode === "calendar" ? (
+            <div data-testid="timeline-calendar-view" className="space-y-4">
+              <Card>
+                <CardContent className="space-y-4 p-3 sm:p-5">
+                  {/* Légende compacte */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 text-[11px] text-slate-500 dark:border-zinc-800/80 dark:text-zinc-400">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        Revenu
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-rose-500" />
+                        Dépense
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-violet-500" />
+                        Virement
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-rose-500" />
+                        &lt; 0 €
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-amber-500" />
+                        0 – 50 €
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        50 – 100 €
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                        &gt; 100 €
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Grille ISO Lundi -> Dimanche */}
+                  <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                    {DAYS_FR.map((d) => (
+                      <div
+                        key={d}
+                        className="py-1 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500"
+                      >
+                        {d}
+                      </div>
+                    ))}
+                    {calendarGrid.map((dayStr, idx) => {
+                      if (!dayStr) {
+                        return (
+                          <div
+                            key={`empty-${idx}`}
+                            className="min-h-[58px] rounded-lg bg-slate-50/40 sm:min-h-[78px] dark:bg-zinc-900/20"
+                          />
+                        );
+                      }
+                      const dayTxs = groupedByDate[dayStr] || [];
+                      const hasTxs = dayTxs.length > 0;
+                      const isToday = dayStr === getTodayIso();
+                      const isSelected = dayStr === selectedCalendarDay;
+                      const dayBalance = dailyBalancesMap[dayStr];
+                      const balanceStatus =
+                        hasTxs && dayBalance !== undefined
+                          ? getBalanceStatus(dayBalance)
+                          : undefined;
+                      const dayNum = Number.parseInt(dayStr.split("-")[2], 10);
+
+                      return (
+                        <button
+                          key={dayStr}
+                          type="button"
+                          data-testid={`calendar-day-${dayStr}`}
+                          onClick={() =>
+                            setSelectedCalendarDay(isSelected ? null : dayStr)
+                          }
+                          title={
+                            dayBalance !== undefined && hasTxs
+                              ? `Solde fin de journée : ${dayBalance.toFixed(2)} €`
+                              : formatDateFr(dayStr)
+                          }
+                          className={cn(
+                            "flex min-h-[58px] flex-col justify-between rounded-lg border p-1.5 text-left transition-all sm:min-h-[78px] sm:p-2",
+                            balanceStatus
+                              ? BALANCE_CELL_CLASSES[balanceStatus]
+                              : "border-slate-200/80 bg-white hover:bg-slate-50 dark:border-zinc-800/80 dark:bg-[#121215] dark:hover:bg-zinc-900/60",
+                            isToday &&
+                              "ring-2 ring-violet-500/70 ring-offset-1 dark:ring-offset-[#121215]",
+                            isSelected &&
+                              "border-violet-600 ring-2 ring-violet-600 dark:border-violet-400 dark:ring-violet-400"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span
+                              className={cn(
+                                "font-mono text-xs font-semibold tabular-money",
+                                isToday
+                                  ? "text-violet-600 dark:text-violet-400"
+                                  : "text-slate-700 dark:text-zinc-200"
+                              )}
+                            >
+                              {dayNum}
+                            </span>
+                            {balanceStatus && (
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                                  BALANCE_DOT_CLASSES[balanceStatus]
+                                )}
+                              />
+                            )}
+                          </div>
+
+                          {/* Pastilles d'opérations du jour */}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {dayTxs.slice(0, 6).map((t) => {
+                              const dotColor =
+                                t.type === "INCOME"
+                                  ? "bg-emerald-500"
+                                  : t.type === "TRANSFER"
+                                    ? "bg-violet-500"
+                                    : "bg-rose-500";
+                              return (
+                                <span
+                                  key={t.id}
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2",
+                                    dotColor
+                                  )}
+                                  title={`${TRANSACTION_TYPE_LABELS[t.type]} : ${t.description}`}
+                                />
+                              );
+                            })}
+                            {dayTxs.length > 6 && (
+                              <span className="text-[9px] font-semibold text-slate-500 dark:text-zinc-400">
+                                +{dayTxs.length - 6}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Mini aperçu solde fin de journée sur écran >= sm */}
+                          {hasTxs && dayBalance !== undefined && (
+                            <div className="mt-1 hidden truncate font-mono text-[10px] font-semibold text-slate-700 tabular-money sm:block dark:text-zinc-200">
+                              <AmountDisplay amount={dayBalance} decimals={0} />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Panneau du jour sélectionné */}
+              {selectedCalendarDay && (
+                <Card data-testid="calendar-day-panel">
+                  <CardContent className="space-y-4 p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-zinc-800/80">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                          {formatDateFr(selectedCalendarDay)}
+                        </h3>
+                        {dailyBalancesMap[selectedCalendarDay] !==
+                          undefined && (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                              BALANCE_BADGE_CLASSES[
+                                getBalanceStatus(
+                                  dailyBalancesMap[selectedCalendarDay]
+                                )
+                              ]
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "h-2 w-2 rounded-full",
+                                BALANCE_DOT_CLASSES[
+                                  getBalanceStatus(
+                                    dailyBalancesMap[selectedCalendarDay]
+                                  )
+                                ]
+                              )}
+                            />
+                            Solde fin de journée :{" "}
+                            <AmountDisplay
+                              amount={dailyBalancesMap[selectedCalendarDay]}
+                            />
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            openCreateTx(undefined, selectedCalendarDay)
+                          }
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Ajouter ce jour
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCalendarDay(null)}
+                          aria-label="Fermer le panneau du jour"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {dailyBalancesMap[selectedCalendarDay] !== undefined &&
+                      dailyBalancesMap[selectedCalendarDay] < 0 && (
+                        <div className="flex items-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-700 dark:text-rose-300">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>
+                            <strong>Solde négatif :</strong> votre solde sera à{" "}
+                            <strong>
+                              <AmountDisplay
+                                amount={dailyBalancesMap[selectedCalendarDay]}
+                              />
+                            </strong>{" "}
+                            en fin de journée.
+                          </span>
+                        </div>
+                      )}
+
+                    {selectedDayTransactions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 text-center">
+                        <p className="text-xs text-slate-500 dark:text-zinc-400">
+                          Aucune transaction prévue ce jour.
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="mt-3"
+                          onClick={() =>
+                            openCreateTx(undefined, selectedCalendarDay)
+                          }
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Ajouter une transaction
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-zinc-800 dark:border-zinc-800">
+                        {selectedDayTransactions.map((tx) => {
+                          const signedAmount =
+                            tx.type === "EXPENSE"
+                              ? -Math.abs(Number(tx.amount))
+                              : Math.abs(Number(tx.amount));
+                          const accLabel =
+                            tx.account_name ||
+                            accounts.find((a) => a.id === tx.account_id)
+                              ?.name ||
+                            "—";
+                          const catLabel =
+                            tx.category_name ||
+                            categories.find((c) => c.id === tx.category_id)
+                              ?.name;
+                          const isProjected = tx.state === "PROJECTED";
+                          const isPending = tx.state === "PENDING";
+
+                          return (
+                            <div
+                              key={tx.id}
+                              className={cn(
+                                "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
+                                isProjected && "opacity-70"
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-sm font-medium text-slate-900 dark:text-zinc-100">
+                                    {tx.description}
+                                  </span>
+                                  <Badge variant={stateBadgeVariant(tx.state)}>
+                                    {TRANSACTION_STATE_LABELS[tx.state]}
+                                  </Badge>
+                                </div>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
+                                  {accLabel}
+                                  {catLabel ? ` · ${catLabel}` : ""}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <AmountDisplay
+                                  amount={signedAmount}
+                                  signed={tx.type !== "TRANSFER"}
+                                  colored={tx.type !== "TRANSFER"}
+                                  className="text-sm font-semibold"
+                                />
+                                {isPending && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onValidateTransaction(tx.id)
+                                    }
+                                    className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Valider
+                                  </button>
+                                )}
+                                <ActionMenu
+                                  ariaLabel={`Actions pour ${tx.description}`}
+                                  items={[
+                                    ...(isPending
+                                      ? [
+                                          {
+                                            label: "Ajuster / Reporter",
+                                            icon: (
+                                              <SlidersHorizontal className="h-3.5 w-3.5" />
+                                            ),
+                                            onClick: () => setValidatingTx(tx),
+                                          },
+                                        ]
+                                      : []),
+                                    {
+                                      label: "Modifier",
+                                      icon: <Edit3 className="h-3.5 w-3.5" />,
+                                      onClick: () => openEditTx(tx),
+                                    },
+                                    {
+                                      label: "Dupliquer",
+                                      icon: <Copy className="h-3.5 w-3.5" />,
+                                      onClick: () => openCreateTx(tx),
+                                    },
+                                    {
+                                      label: "Supprimer",
+                                      icon: <Trash2 className="h-3.5 w-3.5" />,
+                                      variant: "danger",
+                                      dividerBefore: true,
+                                      onClick: () => setTxToDelete(tx),
+                                    },
+                                  ]}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : filteredTransactions.length === 0 ? (
             <EmptyState
               icon={<CalendarClock className="h-5 w-5" />}
               title="Aucune transaction pour cette période"
@@ -1282,12 +1853,15 @@ export function TimelineView({
                           className="rounded border-slate-300"
                         />
                       </th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Libellé</th>
+                      <th className="px-3 py-3 sm:px-4">Date</th>
+                      <th className="px-3 py-3 sm:px-4">Libellé</th>
                       <th className="hidden px-4 py-3 md:table-cell">Compte</th>
-                      <th className="px-4 py-3">État</th>
-                      <th className="px-4 py-3 text-right">Montant</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="px-3 py-3 sm:px-4">État</th>
+                      <th className="px-3 py-3 text-right sm:px-4">Montant</th>
+                      <th className="hidden px-4 py-3 text-right sm:table-cell">
+                        Solde jour
+                      </th>
+                      <th className="px-3 py-3 text-right sm:px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
@@ -1306,6 +1880,12 @@ export function TimelineView({
 
                       const isProjected = tx.state === "PROJECTED";
                       const isPending = tx.state === "PENDING";
+                      const dayKey = tx.transaction_date.slice(0, 10);
+                      const dayBalance = dailyBalancesMap[dayKey];
+                      const dayBalanceStatus =
+                        dayBalance !== undefined
+                          ? getBalanceStatus(dayBalance)
+                          : undefined;
 
                       return (
                         <tr
@@ -1337,10 +1917,10 @@ export function TimelineView({
                               className="rounded border-slate-300"
                             />
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-500 tabular-money dark:text-zinc-400">
+                          <td className="whitespace-nowrap px-3 py-3 font-mono text-xs text-slate-500 tabular-money sm:px-4 dark:text-zinc-400">
                             {formatDateFr(tx.transaction_date)}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-3 sm:px-4">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span
                                 className={cn(
@@ -1397,7 +1977,7 @@ export function TimelineView({
                           <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-slate-600 dark:text-zinc-400 md:table-cell">
                             {accLabel}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3">
+                          <td className="whitespace-nowrap px-3 py-3 sm:px-4">
                             <Badge
                               variant={stateBadgeVariant(tx.state)}
                               className={cn(isProjected && "border-dashed")}
@@ -1405,7 +1985,7 @@ export function TimelineView({
                               {TRANSACTION_STATE_LABELS[tx.state]}
                             </Badge>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-semibold">
+                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold sm:px-4">
                             <AmountDisplay
                               amount={signedAmount}
                               signed={tx.type !== "TRANSFER"}
@@ -1415,8 +1995,41 @@ export function TimelineView({
                                   "text-slate-500 dark:text-zinc-400"
                               )}
                             />
+                            {dayBalance !== undefined && dayBalanceStatus && (
+                              <div className="mt-0.5 flex items-center justify-end gap-1 font-mono text-[10px] font-medium text-slate-500 sm:hidden dark:text-zinc-400">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full",
+                                    BALANCE_DOT_CLASSES[dayBalanceStatus]
+                                  )}
+                                />
+                                <AmountDisplay amount={dayBalance} />
+                              </div>
+                            )}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <td className="hidden whitespace-nowrap px-4 py-3 text-right sm:table-cell">
+                            {dayBalance !== undefined && dayBalanceStatus ? (
+                              <span
+                                data-testid={`row-day-balance-${tx.id}`}
+                                title="Solde restant en fin de journée"
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold tabular-money",
+                                  BALANCE_BADGE_CLASSES[dayBalanceStatus]
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                                    BALANCE_DOT_CLASSES[dayBalanceStatus]
+                                  )}
+                                />
+                                <AmountDisplay amount={dayBalance} />
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right sm:px-4">
                             <div className="inline-flex items-center gap-1">
                               {isPending && (
                                 <button
