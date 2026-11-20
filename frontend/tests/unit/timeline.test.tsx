@@ -156,11 +156,11 @@ describe("TimelineView — Filtres, États & Création", () => {
       />
     );
 
-    // 1000 - 85.40 = 914,60 € le 12 nov ; 914.60 - 39.99 = 874,61 € le 19 nov
-    expect(screen.getByTestId("row-day-balance-t-1")).toHaveTextContent(
+    // 1000 - 85.40 = 914,60 € le 12 nov ; 914.60 - 39.99 = 874,61 € le 19 nov (1 badge par jour)
+    expect(screen.getByTestId("day-balance-2026-11-12")).toHaveTextContent(
       /914,60/
     );
-    expect(screen.getByTestId("row-day-balance-t-2")).toHaveTextContent(
+    expect(screen.getByTestId("day-balance-2026-11-19")).toHaveTextContent(
       /874,61/
     );
 

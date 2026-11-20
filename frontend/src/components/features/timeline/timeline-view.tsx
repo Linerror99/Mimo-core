@@ -1853,234 +1853,261 @@ export function TimelineView({
                           className="rounded border-slate-300"
                         />
                       </th>
-                      <th className="px-3 py-3 sm:px-4">Date</th>
                       <th className="px-3 py-3 sm:px-4">Libellé</th>
                       <th className="hidden px-4 py-3 md:table-cell">Compte</th>
                       <th className="px-3 py-3 sm:px-4">État</th>
                       <th className="px-3 py-3 text-right sm:px-4">Montant</th>
-                      <th className="hidden px-4 py-3 text-right sm:table-cell">
-                        Solde jour
-                      </th>
                       <th className="px-3 py-3 text-right sm:px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
-                    {filteredTransactions.map((tx) => {
-                      const signedAmount =
-                        tx.type === "EXPENSE"
-                          ? -Math.abs(Number(tx.amount))
-                          : Math.abs(Number(tx.amount));
-                      const accLabel =
-                        tx.account_name ||
-                        accounts.find((a) => a.id === tx.account_id)?.name ||
-                        "—";
-                      const catLabel =
-                        tx.category_name ||
-                        categories.find((c) => c.id === tx.category_id)?.name;
+                    {Object.keys(groupedByDate)
+                      .sort((a, b) => b.localeCompare(a))
+                      .map((dateKey) => {
+                        const dayTxs = groupedByDate[dateKey] || [];
+                        const dayBalance = dailyBalancesMap[dateKey];
+                        const dayBalanceStatus =
+                          dayBalance !== undefined
+                            ? getBalanceStatus(dayBalance)
+                            : undefined;
 
-                      const isProjected = tx.state === "PROJECTED";
-                      const isPending = tx.state === "PENDING";
-                      const dayKey = tx.transaction_date.slice(0, 10);
-                      const dayBalance = dailyBalancesMap[dayKey];
-                      const dayBalanceStatus =
-                        dayBalance !== undefined
-                          ? getBalanceStatus(dayBalance)
-                          : undefined;
+                        return (
+                          <React.Fragment key={dateKey}>
+                            {/* En-tête de journée (date + solde unique en fin de journée) */}
+                            <tr className="border-t border-slate-200/80 bg-slate-50/90 dark:border-zinc-800 dark:bg-zinc-900/70">
+                              <td colSpan={6} className="px-3 py-2 sm:px-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-semibold text-slate-800 tabular-money dark:text-zinc-100">
+                                      {formatDateFr(dateKey)}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                                      · {dayTxs.length}{" "}
+                                      {dayTxs.length > 1
+                                        ? "opérations"
+                                        : "opération"}
+                                    </span>
+                                  </div>
+                                  {dayBalance !== undefined &&
+                                    dayBalanceStatus && (
+                                      <span
+                                        data-testid={`day-balance-${dateKey}`}
+                                        title="Solde restant en fin de journée"
+                                        className={cn(
+                                          "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold tabular-money",
+                                          BALANCE_BADGE_CLASSES[
+                                            dayBalanceStatus
+                                          ]
+                                        )}
+                                      >
+                                        <span
+                                          className={cn(
+                                            "h-1.5 w-1.5 shrink-0 rounded-full",
+                                            BALANCE_DOT_CLASSES[
+                                              dayBalanceStatus
+                                            ]
+                                          )}
+                                        />
+                                        Solde :{" "}
+                                        <AmountDisplay amount={dayBalance} />
+                                      </span>
+                                    )}
+                                </div>
+                              </td>
+                            </tr>
 
-                      return (
-                        <tr
-                          key={tx.id}
-                          data-state={tx.state}
-                          className={cn(
-                            "transition-colors",
-                            isPending &&
-                              "border-l-[3px] border-l-amber-500 bg-amber-50/90 hover:bg-amber-50 dark:bg-amber-500/10 dark:hover:bg-amber-500/15",
-                            isProjected &&
-                              "bg-slate-50/60 opacity-60 hover:opacity-85 dark:bg-zinc-900/40",
-                            !isPending &&
-                              !isProjected &&
-                              "hover:bg-slate-50/80 dark:hover:bg-zinc-900/40"
-                          )}
-                        >
-                          <td className="w-10 px-3 py-3">
-                            <input
-                              type="checkbox"
-                              aria-label={`Sélectionner ${tx.description}`}
-                              checked={selectedIds.includes(tx.id)}
-                              onChange={(e) =>
-                                setSelectedIds((prev) =>
-                                  e.target.checked
-                                    ? [...prev, tx.id]
-                                    : prev.filter((id) => id !== tx.id)
-                                )
-                              }
-                              className="rounded border-slate-300"
-                            />
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3 font-mono text-xs text-slate-500 tabular-money sm:px-4 dark:text-zinc-400">
-                            {formatDateFr(tx.transaction_date)}
-                          </td>
-                          <td className="px-3 py-3 sm:px-4">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span
-                                className={cn(
-                                  "font-medium",
-                                  isProjected
-                                    ? "italic text-slate-500 dark:text-zinc-400"
-                                    : "text-slate-900 dark:text-zinc-100"
-                                )}
-                              >
-                                {tx.description}
-                              </span>
-                              {(tx.recurring_template_id ||
-                                tx.recurrence_frequency !== "NONE") && (
-                                <Badge variant="neutral">
-                                  <Repeat className="h-3 w-3" />
-                                  Récurrent
-                                </Badge>
-                              )}
-                              {tx.project_id && (
-                                <Link
-                                  href={`/projects/${tx.project_id}`}
-                                  title="Ouvrir le projet lié"
-                                >
-                                  <Badge
-                                    variant="info"
-                                    className="cursor-pointer hover:opacity-85"
-                                  >
-                                    <Compass className="h-3 w-3" />
-                                    {tx.project_name || "Projet"}
-                                  </Badge>
-                                </Link>
-                              )}
-                              {tx.goal_id && (
-                                <Link
-                                  href="/goals"
-                                  title="Ouvrir l'objectif lié"
-                                >
-                                  <Badge
-                                    variant="success"
-                                    className="cursor-pointer hover:opacity-85"
-                                  >
-                                    <Target className="h-3 w-3" />
-                                    {tx.goal_name || "Objectif"}
-                                  </Badge>
-                                </Link>
-                              )}
-                            </div>
-                            {catLabel && (
-                              <p className="text-xs text-slate-500 dark:text-zinc-400">
-                                {catLabel}
-                              </p>
-                            )}
-                          </td>
-                          <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-slate-600 dark:text-zinc-400 md:table-cell">
-                            {accLabel}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3 sm:px-4">
-                            <Badge
-                              variant={stateBadgeVariant(tx.state)}
-                              className={cn(isProjected && "border-dashed")}
-                            >
-                              {TRANSACTION_STATE_LABELS[tx.state]}
-                            </Badge>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold sm:px-4">
-                            <AmountDisplay
-                              amount={signedAmount}
-                              signed={tx.type !== "TRANSFER"}
-                              colored={tx.type !== "TRANSFER" && !isProjected}
-                              className={cn(
-                                isProjected &&
-                                  "text-slate-500 dark:text-zinc-400"
-                              )}
-                            />
-                            {dayBalance !== undefined && dayBalanceStatus && (
-                              <div className="mt-0.5 flex items-center justify-end gap-1 font-mono text-[10px] font-medium text-slate-500 sm:hidden dark:text-zinc-400">
-                                <span
+                            {dayTxs.map((tx) => {
+                              const signedAmount =
+                                tx.type === "EXPENSE"
+                                  ? -Math.abs(Number(tx.amount))
+                                  : Math.abs(Number(tx.amount));
+                              const accLabel =
+                                tx.account_name ||
+                                accounts.find((a) => a.id === tx.account_id)
+                                  ?.name ||
+                                "—";
+                              const catLabel =
+                                tx.category_name ||
+                                categories.find((c) => c.id === tx.category_id)
+                                  ?.name;
+
+                              const isProjected = tx.state === "PROJECTED";
+                              const isPending = tx.state === "PENDING";
+
+                              return (
+                                <tr
+                                  key={tx.id}
+                                  data-state={tx.state}
                                   className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    BALANCE_DOT_CLASSES[dayBalanceStatus]
+                                    "transition-colors",
+                                    isPending &&
+                                      "border-l-[3px] border-l-amber-500 bg-amber-50/90 hover:bg-amber-50 dark:bg-amber-500/10 dark:hover:bg-amber-500/15",
+                                    isProjected &&
+                                      "bg-slate-50/60 opacity-60 hover:opacity-85 dark:bg-zinc-900/40",
+                                    !isPending &&
+                                      !isProjected &&
+                                      "hover:bg-slate-50/80 dark:hover:bg-zinc-900/40"
                                   )}
-                                />
-                                <AmountDisplay amount={dayBalance} />
-                              </div>
-                            )}
-                          </td>
-                          <td className="hidden whitespace-nowrap px-4 py-3 text-right sm:table-cell">
-                            {dayBalance !== undefined && dayBalanceStatus ? (
-                              <span
-                                data-testid={`row-day-balance-${tx.id}`}
-                                title="Solde restant en fin de journée"
-                                className={cn(
-                                  "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold tabular-money",
-                                  BALANCE_BADGE_CLASSES[dayBalanceStatus]
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 shrink-0 rounded-full",
-                                    BALANCE_DOT_CLASSES[dayBalanceStatus]
-                                  )}
-                                />
-                                <AmountDisplay amount={dayBalance} />
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3 text-right sm:px-4">
-                            <div className="inline-flex items-center gap-1">
-                              {isPending && (
-                                <button
-                                  type="button"
-                                  onClick={() => onValidateTransaction(tx.id)}
-                                  aria-label={`Valider ${tx.description}`}
-                                  title="Valider l'opération"
-                                  className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
                                 >
-                                  <Check className="h-3.5 w-3.5" />
-                                  Valider
-                                </button>
-                              )}
-                              <ActionMenu
-                                ariaLabel={`Actions pour ${tx.description}`}
-                                items={[
-                                  ...(isPending
-                                    ? [
-                                        {
-                                          label: "Ajuster / Reporter",
-                                          icon: (
-                                            <SlidersHorizontal className="h-3.5 w-3.5" />
-                                          ),
-                                          onClick: () => setValidatingTx(tx),
-                                        },
-                                      ]
-                                    : []),
-                                  {
-                                    label: "Modifier",
-                                    icon: <Edit3 className="h-3.5 w-3.5" />,
-                                    onClick: () => openEditTx(tx),
-                                  },
-                                  {
-                                    label: "Dupliquer",
-                                    icon: <Copy className="h-3.5 w-3.5" />,
-                                    onClick: () => openCreateTx(tx),
-                                  },
-                                  {
-                                    label: "Supprimer",
-                                    icon: <Trash2 className="h-3.5 w-3.5" />,
-                                    variant: "danger",
-                                    dividerBefore: true,
-                                    onClick: () => setTxToDelete(tx),
-                                  },
-                                ]}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                                  <td className="w-10 px-3 py-3">
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Sélectionner ${tx.description}`}
+                                      checked={selectedIds.includes(tx.id)}
+                                      onChange={(e) =>
+                                        setSelectedIds((prev) =>
+                                          e.target.checked
+                                            ? [...prev, tx.id]
+                                            : prev.filter((id) => id !== tx.id)
+                                        )
+                                      }
+                                      className="rounded border-slate-300"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-3 sm:px-4">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <span
+                                        className={cn(
+                                          "font-medium",
+                                          isProjected
+                                            ? "italic text-slate-500 dark:text-zinc-400"
+                                            : "text-slate-900 dark:text-zinc-100"
+                                        )}
+                                      >
+                                        {tx.description}
+                                      </span>
+                                      {(tx.recurring_template_id ||
+                                        tx.recurrence_frequency !== "NONE") && (
+                                        <Badge variant="neutral">
+                                          <Repeat className="h-3 w-3" />
+                                          Récurrent
+                                        </Badge>
+                                      )}
+                                      {tx.project_id && (
+                                        <Link
+                                          href={`/projects/${tx.project_id}`}
+                                          title="Ouvrir le projet lié"
+                                        >
+                                          <Badge
+                                            variant="info"
+                                            className="cursor-pointer hover:opacity-85"
+                                          >
+                                            <Compass className="h-3 w-3" />
+                                            {tx.project_name || "Projet"}
+                                          </Badge>
+                                        </Link>
+                                      )}
+                                      {tx.goal_id && (
+                                        <Link
+                                          href="/goals"
+                                          title="Ouvrir l'objectif lié"
+                                        >
+                                          <Badge
+                                            variant="success"
+                                            className="cursor-pointer hover:opacity-85"
+                                          >
+                                            <Target className="h-3 w-3" />
+                                            {tx.goal_name || "Objectif"}
+                                          </Badge>
+                                        </Link>
+                                      )}
+                                    </div>
+                                    {catLabel && (
+                                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                                        {catLabel}
+                                      </p>
+                                    )}
+                                  </td>
+                                  <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-slate-600 dark:text-zinc-400 md:table-cell">
+                                    {accLabel}
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-3 sm:px-4">
+                                    <Badge
+                                      variant={stateBadgeVariant(tx.state)}
+                                      className={cn(
+                                        isProjected && "border-dashed"
+                                      )}
+                                    >
+                                      {TRANSACTION_STATE_LABELS[tx.state]}
+                                    </Badge>
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-3 text-right font-semibold sm:px-4">
+                                    <AmountDisplay
+                                      amount={signedAmount}
+                                      signed={tx.type !== "TRANSFER"}
+                                      colored={
+                                        tx.type !== "TRANSFER" && !isProjected
+                                      }
+                                      className={cn(
+                                        isProjected &&
+                                          "text-slate-500 dark:text-zinc-400"
+                                      )}
+                                    />
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-3 text-right sm:px-4">
+                                    <div className="inline-flex items-center gap-1">
+                                      {isPending && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            onValidateTransaction(tx.id)
+                                          }
+                                          aria-label={`Valider ${tx.description}`}
+                                          title="Valider l'opération"
+                                          className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 text-xs font-semibold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                          Valider
+                                        </button>
+                                      )}
+                                      <ActionMenu
+                                        ariaLabel={`Actions pour ${tx.description}`}
+                                        items={[
+                                          ...(isPending
+                                            ? [
+                                                {
+                                                  label: "Ajuster / Reporter",
+                                                  icon: (
+                                                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                                                  ),
+                                                  onClick: () =>
+                                                    setValidatingTx(tx),
+                                                },
+                                              ]
+                                            : []),
+                                          {
+                                            label: "Modifier",
+                                            icon: (
+                                              <Edit3 className="h-3.5 w-3.5" />
+                                            ),
+                                            onClick: () => openEditTx(tx),
+                                          },
+                                          {
+                                            label: "Dupliquer",
+                                            icon: (
+                                              <Copy className="h-3.5 w-3.5" />
+                                            ),
+                                            onClick: () => openCreateTx(tx),
+                                          },
+                                          {
+                                            label: "Supprimer",
+                                            icon: (
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            ),
+                                            variant: "danger",
+                                            dividerBefore: true,
+                                            onClick: () => setTxToDelete(tx),
+                                          },
+                                        ]}
+                                      />
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
