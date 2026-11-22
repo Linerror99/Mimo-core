@@ -24,6 +24,12 @@ from app.services.auth_service import AuthService
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+@router.get("/registration-status")
+async def registration_status():
+    """Indique si les inscriptions publiques sont ouvertes sur cette instance."""
+    return {"allow_public_registration": settings.ALLOW_PUBLIC_REGISTRATION}
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserCreate,
@@ -39,6 +45,12 @@ async def register(
     - **first_name**: User first name
     - **last_name**: User last name
     """
+    if not settings.ALLOW_PUBLIC_REGISTRATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Les inscriptions publiques sont désactivées sur cette instance.",
+        )
+
     auth_service = AuthService(db)
 
     try:

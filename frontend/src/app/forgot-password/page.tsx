@@ -91,15 +91,23 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 py-12 dark:bg-[#09090B]">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 shadow-sm dark:border-zinc-800 dark:bg-[#121215]">
-        <Link
-          href="/login"
-          className="mb-5 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Retour à la connexion
-        </Link>
+    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] bg-[radial-gradient(ellipse_at_top,_rgba(124,58,237,0.10),_transparent_60%)] px-4 py-12 dark:bg-[#09090B] dark:bg-[radial-gradient(ellipse_at_top,_rgba(124,58,237,0.16),_transparent_60%)]">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200/90 bg-white p-7 shadow-lg shadow-slate-900/[0.04] dark:border-zinc-800 dark:bg-[#121215]">
+        <div className="mb-5 flex items-center justify-between gap-2">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Retour à la connexion
+          </Link>
+          <Link
+            href="/"
+            className="text-xs font-medium text-slate-400 hover:text-slate-900 dark:text-zinc-500 dark:hover:text-zinc-100"
+          >
+            Accueil
+          </Link>
+        </div>
 
         <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-zinc-50">
           Réinitialiser le mot de passe

@@ -390,3 +390,99 @@ class TestOpenBanking:
         assert manual_transfer.account_id == sg.id
         assert manual_transfer.destination_account_id == bnp.id
         assert manual_transfer.transaction_date == today
+
+    async def test_auto_match_projected_transfer_and_unlink_single_account(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+        test_user,
+    ):
+        """
+        Vérifie :
+        1. L'auto-matching exact d'un débit bancaire sur un virement interne PROJECTED (TRANSFER)
+        2. La déliaison unitaire d'un compte synchronisé via POST /api/v1/banking/accounts/{id}/unlink
+        """
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        today = date.today()
+
+        conn = BankConnection(
+            household_id=test_user_household_id,
+            user_id=test_user.id,
+            provider="mock",
+            institution_name="Société Générale",
+            institution_country="FR",
+            session_id="sess_transfer_match",
+            state_token="state_transfer_match_123",
+            status="ACTIVE",
+            consent_expires_at=datetime.utcnow() + timedelta(days=60),
+        )
+        db_session.add(conn)
+        await db_session.flush()
+
+        sg = Account(
+            household_id=test_user_household_id,
+            name="SG Transfer Match",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("1000.00"),
+            bank_connection_id=conn.id,
+            external_account_id="ext_sg_tr_1",
+            sync_enabled=True,
+            sync_from_date=today - timedelta(days=5),
+        )
+        livret = Account(
+            household_id=test_user_household_id,
+            name="Livret A",
+            type=AccountType.SAVINGS,
+            initial_balance=Decimal("500.00"),
+        )
+        db_session.add_all([sg, livret])
+        await db_session.flush()
+
+        planned_transfer = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            destination_account_id=livret.id,
+            description="Épargne mensuelle",
+            amount=Decimal("-150.00"),
+            transaction_date=today + timedelta(days=1),
+            type=TransactionType.TRANSFER,
+            state=TransactionState.PROJECTED,
+        )
+        db_session.add(planned_transfer)
+        await db_session.commit()
+
+        custom_bank_txs = [
+            ExternalTransaction(
+                external_transaction_id="eb_tr_epargne_150",
+                booking_date=today,
+                amount=Decimal("-150.00"),
+                description="VIR VERS LIVRET A",
+            )
+        ]
+        service = BankingSyncService(
+            db_session,
+            provider=MockBankProvider(custom_transactions=custom_bank_txs),
+        )
+        summary = await service.sync_connection(test_user_household_id, conn.id)
+        assert summary.matched == 1
+        assert summary.imported == 0
+
+        await db_session.refresh(planned_transfer)
+        assert planned_transfer.state == TransactionState.REALIZED
+        assert planned_transfer.type == TransactionType.TRANSFER
+        assert planned_transfer.destination_account_id == livret.id
+        assert planned_transfer.external_transaction_id == "eb_tr_epargne_150"
+
+        # Délier uniquement le compte SG (la connexion bancaire reste intacte)
+        unlink_acc_res = await client.post(
+            f"/api/v1/banking/accounts/{sg.id}/unlink",
+            headers=headers,
+        )
+        assert unlink_acc_res.status_code == 204
+
+        await db_session.refresh(sg)
+        assert sg.sync_enabled is False
+        assert sg.bank_connection_id is None
+        assert sg.external_account_id is None

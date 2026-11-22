@@ -31,6 +31,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.crypto import decrypt_secret, encrypt_secret, is_encrypted
 from app.models.account import Account, AccountType
 from app.models.bank_connection import BankConnection, BankConnectionStatus
 from app.models.household import Household
@@ -175,7 +176,7 @@ class BankingSyncService:
             for acc in session_res.accounts
         ]
 
-        conn.session_id = session_res.session_id
+        conn.session_id = encrypt_secret(session_res.session_id)
         conn.consent_expires_at = session_res.consent_expires_at
         conn.status = BankConnectionStatus.ACTIVE.value
         conn.last_error = None
@@ -429,6 +430,11 @@ class BankingSyncService:
             summary.errors.append(f"{conn.institution_name}: session non initialisée.")
             return summary
 
+        plain_session_id = decrypt_secret(conn.session_id)
+        if not is_encrypted(conn.session_id):
+            # Migration silencieuse au repos : chiffre les anciens session_id en clair
+            conn.session_id = encrypt_secret(plain_session_id)
+
         # Check consent expiration
         now = datetime.utcnow()
         if conn.consent_expires_at:
@@ -476,7 +482,7 @@ class BankingSyncService:
 
             try:
                 external_txs = await self.provider.fetch_transactions(
-                    session_id=conn.session_id,
+                    session_id=plain_session_id,
                     external_account_id=account.external_account_id,
                     date_from=account.sync_from_date,
                 )

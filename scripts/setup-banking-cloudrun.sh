@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Mimo Finance — Configuration Enable Banking sur Google Cloud Run + Scheduler
+# Mimo Finance — Configuration sécurisée Open Banking sur Cloud Run + Scheduler
+# Stocke les secrets sensibles dans GCP Secret Manager (jamais en env var brute)
+# et permet de verrouiller les inscriptions publiques en production.
+#
 # Usage :
 #   ENABLE_BANKING_APP_ID=<uuid> ./scripts/setup-banking-cloudrun.sh
 # Options :
 #   KEY_FILE=secrets/enable_banking_private.pem (défaut)
-#   SETUP_SCHEDULER=true (crée/met à jour le job Cloud Scheduler toutes les 6h)
+#   SETUP_SCHEDULER=true                        (job Cloud Scheduler toutes les 6h)
+#   ALLOW_PUBLIC_REGISTRATION=false             (défaut: false en prod)
 # ==============================================================================
 set -euo pipefail
 
@@ -15,6 +19,10 @@ BACKEND_SERVICE="${BACKEND_SERVICE:-mimo-backend}"
 FRONTEND_SERVICE="${FRONTEND_SERVICE:-mimo-frontend}"
 KEY_FILE="${KEY_FILE:-secrets/enable_banking_private.pem}"
 SETUP_SCHEDULER="${SETUP_SCHEDULER:-true}"
+ALLOW_PUBLIC_REGISTRATION="${ALLOW_PUBLIC_REGISTRATION:-false}"
+
+SECRET_KEY_NAME="enable-banking-private-key-b64"
+SECRET_CRON_NAME="cron-sync-secret"
 
 if [[ -z "${ENABLE_BANKING_APP_ID:-}" ]]; then
     echo "❌ Erreur : définis ENABLE_BANKING_APP_ID avant de lancer ce script."
@@ -36,26 +44,68 @@ for cmd in gcloud openssl base64; do
     fi
 done
 
+upsert_secret() {
+    local secret_name="$1"
+    local secret_value="$2"
+    if gcloud secrets describe "${secret_name}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+        printf '%s' "${secret_value}" | gcloud secrets versions add "${secret_name}" \
+            --project="${PROJECT_ID}" \
+            --data-file=- \
+            --quiet >/dev/null
+    else
+        printf '%s' "${secret_value}" | gcloud secrets create "${secret_name}" \
+            --project="${PROJECT_ID}" \
+            --replication-policy="automatic" \
+            --data-file=- \
+            --quiet >/dev/null
+    fi
+}
+
 echo ">> Récupération des URLs Cloud Run (${PROJECT_ID} / ${REGION})..."
 BACKEND_URL="$(gcloud run services describe "${BACKEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
 FRONTEND_URL="$(gcloud run services describe "${FRONTEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
+BACKEND_SA="$(gcloud run services describe "${BACKEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(spec.template.spec.serviceAccountName)')"
 REDIRECT_URL="${BANKING_REDIRECT_URL:-${FRONTEND_URL}/accounts/bank-callback}"
 
 echo "   Backend  : ${BACKEND_URL}"
 echo "   Frontend : ${FRONTEND_URL}"
 echo "   Callback : ${REDIRECT_URL}"
+echo "   Inscriptions publiques : ${ALLOW_PUBLIC_REGISTRATION}"
 
 KEY_B64="$(base64 < "${KEY_FILE}" | tr -d '\r\n')"
 CRON_SECRET="${CRON_SYNC_SECRET:-$(openssl rand -hex 32)}"
 
-echo ">> Mise à jour des variables Open Banking sur ${BACKEND_SERVICE}..."
+echo ">> Stockage des secrets dans GCP Secret Manager..."
+upsert_secret "${SECRET_KEY_NAME}" "${KEY_B64}"
+upsert_secret "${SECRET_CRON_NAME}" "${CRON_SECRET}"
+
+if [[ -n "${BACKEND_SA}" ]]; then
+    for s in "${SECRET_KEY_NAME}" "${SECRET_CRON_NAME}"; do
+        gcloud secrets add-iam-policy-binding "${s}" \
+            --project="${PROJECT_ID}" \
+            --member="serviceAccount:${BACKEND_SA}" \
+            --role="roles/secretmanager.secretAccessor" \
+            --quiet >/dev/null
+    done
+fi
+
+echo ">> Mise à jour sécurisée de ${BACKEND_SERVICE} (secrets via Secret Manager)..."
+# 1. Retire d'abord d'éventuelles anciennes env vars en clair
 gcloud run services update "${BACKEND_SERVICE}" \
     --project="${PROJECT_ID}" \
     --region="${REGION}" \
-    --update-env-vars="BANKING_PROVIDER=enable_banking,ENABLE_BANKING_APP_ID=${ENABLE_BANKING_APP_ID},ENABLE_BANKING_PRIVATE_KEY_B64=${KEY_B64},BANKING_REDIRECT_URL=${REDIRECT_URL},CRON_SYNC_SECRET=${CRON_SECRET}" \
+    --remove-env-vars="ENABLE_BANKING_PRIVATE_KEY_B64,CRON_SYNC_SECRET" \
+    --quiet >/dev/null 2>&1 || true
+
+# 2. Injecte les variables non sensibles + les secrets depuis Secret Manager
+gcloud run services update "${BACKEND_SERVICE}" \
+    --project="${PROJECT_ID}" \
+    --region="${REGION}" \
+    --update-env-vars="BANKING_PROVIDER=enable_banking,ENABLE_BANKING_APP_ID=${ENABLE_BANKING_APP_ID},BANKING_REDIRECT_URL=${REDIRECT_URL},ALLOW_PUBLIC_REGISTRATION=${ALLOW_PUBLIC_REGISTRATION}" \
+    --update-secrets="ENABLE_BANKING_PRIVATE_KEY_B64=${SECRET_KEY_NAME}:latest,CRON_SYNC_SECRET=${SECRET_CRON_NAME}:latest" \
     --quiet
 
-echo "✅ Variables Open Banking configurées sur ${BACKEND_SERVICE} !"
+echo "✅ Variables & secrets Open Banking configurés sur ${BACKEND_SERVICE} !"
 
 if [[ "${SETUP_SCHEDULER}" == "true" ]]; then
     JOB_NAME="mimo-banking-sync-6h"
@@ -86,8 +136,9 @@ fi
 
 echo ""
 echo "========================================="
-echo "  🎉 Configuration Open Banking terminée !"
-echo "  Pense à vérifier que cette Redirect URL"
-echo "  est bien enregistrée dans Enable Banking :"
-echo "  ${REDIRECT_URL}"
+echo "  🎉 Configuration sécurisée terminée !"
+echo "  - Secrets stockés dans Secret Manager"
+echo "  - Inscriptions publiques : ${ALLOW_PUBLIC_REGISTRATION}"
+echo "  - Redirect URL Enable Banking :"
+echo "    ${REDIRECT_URL}"
 echo "========================================="

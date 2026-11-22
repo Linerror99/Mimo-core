@@ -55,4 +55,13 @@ describe("MimoAuthCard — Authentification Style GitHub", () => {
       password: "StrongPass1!",
     });
   });
+
+  it("affiche un lien explicite de retour vers la page d'accueil", () => {
+    render(<MimoAuthCard onLoginSubmit={vi.fn()} onRegisterSubmit={vi.fn()} />);
+
+    const backHomeLink = screen.getByRole("link", {
+      name: /retour à l'accueil/i,
+    });
+    expect(backHomeLink).toHaveAttribute("href", "/");
+  });
 });

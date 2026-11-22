@@ -2,10 +2,10 @@
   <img src="https://img.icons8.com/fluency/96/money-bag.png" alt="Mimo Finance Logo" width="96" />
 </p>
 
-<h1 align="center">💰 Mimo Finance</h1>
+<h1 align="center">💰 Mimo Finance v2</h1>
 
 <p align="center">
-  <strong>Application moderne de gestion financière collaborative pour individus et couples</strong>
+  <strong>Application moderne de gestion financière personnelle et couple avec Timeline unifiée, Projections 5 ans et Open Banking DSP2</strong>
 </p>
 
 <p align="center">
@@ -18,70 +18,40 @@
   <a href="https://sonarcloud.io/summary/new_code?id=Linerror99_Mimo-core">
     <img src="https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=alert_status" alt="Quality Gate Status" />
   </a>
-  <a href="https://sonarcloud.io/summary/new_code?id=Linerror99_Mimo-core">
-    <img src="https://sonarcloud.io/api/project_badges/measure?project=Linerror99_Mimo-core&metric=coverage" alt="Coverage" />
-  </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12" />
-  <img src="https://img.shields.io/badge/react-18-61DAFB?logo=react&logoColor=white" alt="React 18" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white" alt="Next.js 15" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12" />
+  <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 15" />
+  <img src="https://img.shields.io/badge/Open%20Banking-DSP2-7C3AED" alt="Open Banking DSP2" />
   <img src="https://img.shields.io/badge/GCP-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white" alt="GCP Cloud Run" />
-  <img src="https://img.shields.io/badge/Terraform-7B42BC?logo=terraform&logoColor=white" alt="Terraform" />
 </p>
 
 <p align="center">
-  <a href="#-démo-live"><strong>🌐 Démo Live</strong></a> •
   <a href="#-fonctionnalités"><strong>✨ Fonctionnalités</strong></a> •
+  <a href="#-open-banking-dsp2"><strong>🏦 Open Banking</strong></a> •
+  <a href="#-sécurité"><strong>🔐 Sécurité</strong></a> •
   <a href="#️-architecture"><strong>🏗️ Architecture</strong></a> •
-  <a href="#-infrastructure-gcp"><strong>☁️ Infrastructure GCP</strong></a> •
-  <a href="#-installation-locale"><strong>🚀 Installation</strong></a>
+  <a href="#-installation-locale"><strong>🚀 Installation</strong></a> •
+  <a href="#-déploiement-gcp"><strong>☁️ Déploiement</strong></a>
 </p>
-
----
-
-## 🌐 Démo Live
-
-<p align="center">
-  <a href="https://mimo-frontend-301595415100.europe-west1.run.app">
-    <img src="https://img.shields.io/badge/🚀_ACCÉDER_À_L'APPLICATION-Mimo_Finance-4285F4?style=for-the-badge&logoColor=white" alt="Demo Live" />
-  </a>
-</p>
-
-| Environnement | URL |
-|--------------|-----|
-| **🖥️ Frontend** | https://mimo-frontend-301595415100.europe-west1.run.app |
-| **🔌 Backend API** | https://mimo-backend-xpaldfrvjq-ew.a.run.app |
-| **📚 API Docs (Swagger)** | https://mimo-backend-xpaldfrvjq-ew.a.run.app/docs |
-| **❤️ Health Check** | https://mimo-backend-xpaldfrvjq-ew.a.run.app/health |
-
-> 💡 **Créez un compte gratuit** pour tester toutes les fonctionnalités : gestion des comptes, transactions, projections 12 mois, mode couple, objectifs d'épargne...
 
 ---
 
 ## 🎯 À propos du projet
 
-**Mimo Finance** remplace la gestion financière par Excel avec une **timeline unifiée** (passé → présent → futur). L'application permet de :
+**Mimo Finance** remplace les tableurs Excel par une **timeline financière unifiée** (passé → présent → futur) synchronisée avec vos comptes bancaires européens (DSP2). L'application permet de :
 
-- 📊 **Visualiser** l'évolution de vos finances sur 1 mois à 5 ans
-- 🧳 **Planifier des projets** (vacances, travaux, achats) avec simulation financière What-If et enveloppes dédiées
-- 🔄 **Automatiser** les transactions récurrentes (loyer, salaire, abonnements)
-- 👫 **Partager** vos finances en couple avec 3 portefeuilles tracés
-- ⏰ **Valider** automatiquement les transactions du jour
-- 🎯 **Atteindre** vos objectifs d'épargne
-
-### Pourquoi Mimo ?
-
-| ❌ Avant (Excel) | ✅ Avec Mimo |
-|-----------------|-------------|
-| Perte d'historique | Timeline continue illimitée |
-| Pas de projections | Projections automatiques multi-années (jusqu'à 5 ans) |
-| Gestion couple complexe | Mode couple avec fusion/dissolution |
-| Dépenses imprévues non testées | Simulateur What-If & Enveloppes de projets |
-| Transactions manuelles | Récurrences auto-générées |
-| Pas de notifications | Alertes validation quotidienne |
+- 🏦 **Synchroniser vos banques** automatiquement en lecture seule (Enable Banking DSP2, synchro toutes les 6h + manuelle)
+- 📅 **Suivre votre trésorerie** en vue **Liste** (regroupée par jour avec solde fin de journée) ou **Calendrier** mensuel
+- 📊 **Projeter vos finances** de 1 mois à **5 ans** avec détection automatique des mois déficitaires
+- 🧳 **Planifier des projets** (vacances, achats, travaux) avec enveloppes budgétaires et simulation **What-If**
+- 🎯 **Suivre vos objectifs d'épargne** et échéances réalisées
+- 🔄 **Automatiser vos récurrences** (loyer, salaire, abonnements, virements internes)
+- 👥 **Partager vos finances en couple** avec 3 portefeuilles tracés (Mon / Partenaire / Commun)
 
 ---
 
@@ -91,197 +61,104 @@
 <tr>
 <td width="50%">
 
-### 🔐 Authentification
-- Inscription / Connexion sécurisée (JWT)
-- Tokens refresh (7 jours) avec session résiliente
-- Blacklist Redis (déconnexion instantanée)
-- Modification profil / mot de passe
+### 🏦 Open Banking (DSP2 / Enable Banking)
+- Connexion bancaire européenne en **lecture seule** (zéro initiation de virement)
+- **Auto-matching exact** au centime près (±3 jours) sur les opérations `PROJECTED`/`PENDING` (y compris virements internes)
+- **Fusion manuelle intelligente** depuis la Timeline (classe les correspondances probables en tête, supporte virements internes, recherche par libellé / montant / date)
+- Date de reprise **« Importer à partir du »** modifiable à tout moment par compte
+- Déliaison unitaire par compte ou par transaction, alertes d'expiration du consentement (90 jours)
 
-### 💳 Gestion des Comptes
-- 6 types : Courant, Épargne, Investissement, Prêt, Cash, Autre
-- Solde dynamique calculé automatiquement
-- Fermeture compte (soft delete avec historique)
-
-### 💸 Transactions & Timeline
-- États : PROJETÉ → EN ATTENTE → RÉALISÉ → ANNULÉ
-- Timeline mensuelle interactive & ergonomie mobile compacte
-- Menu contextuel rapide (Modifier, Dupliquer, Supprimer)
-- Recherche instantanée globale et filtres avancés
+### 💸 Timeline & Récurrences
+- États : `PROJECTED` → `PENDING` → `REALIZED` / `CANCELLED`
+- Double vue **Liste** (regroupée par jour) & **Calendrier** interactif avec code couleur de solde
+- Recherche globale multi-mois + filtres avancés + export PDF mensuel
+- Modèles récurrents (Hebdo, Mensuel, Trimestriel, Annuel, Personnalisé) avec édition/annulation groupée
 - Corbeille avec restauration (30 jours)
-- Upload reçus PDF sur Cloud Storage
 
 </td>
 <td width="50%">
 
-### 🧳 Projets & Enveloppes de Dépenses
-- Planification de projets (Voyages, Travaux, Événements...)
-- Simulation financière What-If : impact trésorerie en direct
-- Suivi Dépenses prévues vs Budget fixé
-- Injection dans la Timeline (Commit) & annulation (Rollback)
-- Duplication et édition complète de projets
+### 💳 Comptes & Catégories
+- 6 types : Courant, Épargne, Investissement, Prêt, Espèces, Autre
+- Calcul de solde exact (dépenses, revenus, virements entrants/sortants) + rapprochement en 1 clic
+- Clôture douce (historique conservé) et logos bancaires
 
-### 🔄 Récurrences
-- Fréquences : Hebdo, Mensuel, Trimestriel, Annuel
-- Génération automatique des échéances
-- Modification/suppression unitaire ou groupée
-- Badge "Récurrent" sur timeline
+### 🧳 Projets, Objectifs & Projections
+- Enveloppes de projets avec statut de paiement réel par dépense + simulation **What-If**
+- Objectifs d'épargne avec suivi automatique des versements réalisés
+- Projections long terme jusqu'à **5 ans** avec alertes de découvert
 
-### 👥 Mode Couple
-- Invitation par email (in-app ou nouveau user)
-- Fusion automatique des foyers
-- 3 portefeuilles : Mon / Partenaire / Commun
-- Dissolution avec redistribution intelligente
-
-### 📊 Analytics & Projections Long Terme
-- Dashboard avec KPIs temps réel
-- Projections financières de 1 mois à 5 ans (Range API)
-- Détection des mois déficitaires et alertes de trésorerie
-- Objectifs épargne avec suivi de progression
+### 👥 Mode Couple & Notifications
+- Invitation par email, fusion et dissolution intelligente de foyers
+- 3 portefeuilles : Personnel, Partenaire, Commun
+- Maintenance quotidienne automatique + notifications in-app
 
 </td>
 </tr>
 </table>
 
-### 🔔 Système de Notifications
-- Validation quotidienne automatique (job Cloud Scheduler)
-- Notifications in-app temps réel (polling 30s)
-- Actions rapides : Valider, Reporter, Modifier, Supprimer
+---
+
+## 🔐 Sécurité
+
+Mimo Finance applique une approche **défense en profondeur** adaptée aux données bancaires :
+
+| Couche | Protection en place |
+|--------|---------------------|
+| **Accès bancaire DSP2** | **100 % lecture seule** via Enable Banking (RSA-4096 / JWT RS256). Aucun mot de passe bancaire stocké dans Mimo. |
+| **Chiffrement au repos** | `bank_connections.session_id` chiffré en PostgreSQL via **Fernet** (AES-128-CBC + HMAC-SHA256, préfixe `enc:v1:`, rétrocompatible). |
+| **Authentification** | Mots de passe hashés en **bcrypt (12 rounds)**, JWT HS256 court, `refresh_token` en cookie `HttpOnly + Secure`, `access_token` en `sessionStorage`, révocation instantanée via blacklist Redis. |
+| **Anti brute-force** | Rate limiting global (`100 req/min/IP`) **et** rate limiting strict dédié sur `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/verify-reset-code`, `/auth/reset-password` (**10 tentatives / 15 min** en prod via Redis). |
+| **Contrôle d'accès** | Flag `ALLOW_PUBLIC_REGISTRATION=false` pour fermer les inscriptions publiques en prod (HTTP `403`), isolation stricte par `household_id`, vérifications en temps constant (`secrets.compare_digest`) sur les tokens cron / jobs / admin. |
+| **API & Headers** | `/docs`, `/redoc`, `/openapi.json` désactivés en production ; headers HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, CSP, `Referrer-Policy`, CORS strict sans `*`. |
+| **Secrets & Infra** | Secrets injectés via **GCP Secret Manager** (`jwt-secret`, `admin-token`, `db-password`, `enable-banking-private-key-b64`, `cron-sync-secret`), VPC privé Cloud SQL/Redis, aucun `.env` ni `.pem` versionné. |
 
 ---
 
 ## 🏗️ Architecture
 
-### Vue d'ensemble
-
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         UTILISATEURS                                │
-│                    (Desktop / Mobile / Tablet)                      │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │ HTTPS
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      GOOGLE CLOUD PLATFORM                          │
-│                        (europe-west1)                               │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                   Cloud Run (Serverless)                     │   │
-│  │  ┌─────────────────────┐      ┌─────────────────────┐       │   │
-│  │  │      Frontend       │      │       Backend       │       │   │
-│  │  │    React + Vite     │ ───► │      FastAPI        │       │   │
-│  │  │   (auto-scale 0-10) │      │   (auto-scale 0-10) │       │   │
-│  │  └─────────────────────┘      └──────────┬──────────┘       │   │
-│  └──────────────────────────────────────────┼──────────────────┘   │
-│                                             │                       │
-│  ┌──────────────────────────────────────────┼──────────────────┐   │
-│  │                    VPC Network (Private)                    │   │
-│  │                                          │                  │   │
-│  │            ┌─────────────────────────────┤                  │   │
-│  │            │     VPC Connector           │                  │   │
-│  │            │     (10.8.0.0/28)           │                  │   │
-│  │            └─────────────────────────────┤                  │   │
-│  │                     │                    │                  │   │
-│  │        ┌────────────┴────────────┐       │                  │   │
-│  │        ▼                         ▼       ▼                  │   │
-│  │  ┌───────────────┐        ┌───────────────┐                 │   │
-│  │  │   Cloud SQL   │        │    Redis      │                 │   │
-│  │  │ PostgreSQL 15 │        │  Memorystore  │                 │   │
-│  │  │ (10.165.0.3)  │        │(10.198.211.99)│                 │   │
-│  │  └───────────────┘        └───────────────┘                 │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                    Services Additionnels                     │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │   │
-│  │  │Cloud Storage │  │Secret Manager│  │   Artifact   │       │   │
-│  │  │ (Uploads/    │  │ (Credentials)│  │   Registry   │       │   │
-│  │  │  Backups)    │  │              │  │(Docker imgs) │       │   │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘       │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+Utilisateurs (Desktop / Mobile)
+        │ HTTPS
+        ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                Google Cloud Platform (europe-west1)                │
+│                                                                    │
+│  ┌──────────────────────┐   BFF /api/v1   ┌─────────────────────┐ │
+│  │  mimo-frontend       │ ──────────────► │  mimo-backend       │ │
+│  │  Next.js 15 (SSR/App)│                 │  FastAPI + Gunicorn │ │
+│  └──────────────────────┘                 └──────┬──────────┬───┘ │
+│                                                  │          │     │
+│        ┌─────────────────────────────────────────┘          │     │
+│        ▼ (VPC Privé)                                        ▼     │
+│  ┌──────────────┐   ┌──────────────┐            ┌───────────────┐ │
+│  │  Cloud SQL   │   │    Redis     │            │ Enable Banking│ │
+│  │ PostgreSQL 15│   │  Memorystore │            │  API (DSP2)   │ │
+│  └──────────────┘   └──────────────┘            └───────────────┘ │
+│                                                                    │
+│  Services GCP : Secret Manager · Cloud Scheduler (6h + daily) ·   │
+│                 Cloud Storage (Uploads/Backups) · Artifact Registry│
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Stack Technique
 
 | Couche | Technologies |
 |--------|-------------|
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Shadcn/ui, Zustand, Recharts |
-| **Backend** | FastAPI, Python 3.12, SQLAlchemy 2.0 (async), Pydantic v2, Alembic |
-| **Database** | PostgreSQL 15 (Cloud SQL), Redis 7 (Memorystore) |
-| **Infrastructure** | Terraform, Cloud Run, VPC, Secret Manager, Cloud Scheduler |
-| **CI/CD** | GitHub Actions, Workload Identity Federation, Artifact Registry |
-| **Monitoring** | Cloud Monitoring, Uptime Checks, Alerting |
-| **Qualité** | Pytest (111+ tests), Ruff, ESLint, Mypy, SonarCloud |
+| **Frontend** | Next.js 15 (App Router), React 18, TypeScript 5, Tailwind CSS, TanStack Query, Zustand, Recharts, Vitest |
+| **Backend** | FastAPI, Python 3.12, SQLAlchemy 2.0 (async), Pydantic v2, Alembic, `cryptography` (Fernet), Pytest |
+| **Données** | PostgreSQL 15, Redis 7 |
+| **Open Banking** | Enable Banking API (DSP2 / ISO 20022), mode `mock` offline pour dev & CI |
+| **Infrastructure** | Google Cloud Run, Cloud SQL, Memorystore, Secret Manager, Cloud Scheduler, Terraform |
 
 ---
 
-## ☁️ Infrastructure GCP
-
-### Ressources déployées via Terraform (42+ ressources)
-
-```
-📦 Compute
-├── Cloud Run (Frontend)     → mimo-frontend (auto-scaling 0-10)
-├── Cloud Run (Backend)      → mimo-backend (auto-scaling 0-10)
-└── VPC Connector            → mimo-vpc-connector (e2-micro, 2-3 instances)
-
-💾 Data
-├── Cloud SQL PostgreSQL 15  → mimo-db-7100c619 (db-f1-micro, 10GB SSD)
-├── Redis Memorystore        → mimo-redis (1GB, BASIC tier)
-└── Cloud Storage            → mimo-uploads-prod, mimo-backups-prod
-
-🔒 Network
-├── VPC Network              → mimo-vpc (custom mode)
-├── Private Service Access   → 10.165.0.0/16 (Cloud SQL peering)
-└── Firewall Rules           → allow-health-check, allow-redis
-
-🔐 Security
-├── Secret Manager           → db-password, jwt-secret, admin-token
-├── Service Accounts (3)     → cloud-run-sa, github-actions-sa, scheduler-sa
-└── IAM Bindings             → Principle of least privilege
-
-🚀 CI/CD
-├── Artifact Registry        → mimo-repo (Docker images)
-├── Workload Identity Pool   → github-pool (OIDC, no JSON keys!)
-└── GitHub Actions           → Build → Test → Deploy (auto on push main)
-
-📊 Monitoring
-├── Uptime Checks            → Backend health (every 5 min)
-├── Alert Policies           → Email notification on downtime
-└── Cloud Scheduler          → Daily validation job, Weekly backup
-```
-
-### Sécurité & Bonnes Pratiques
-
-| Aspect | Implementation |
-|--------|---------------|
-| **🔐 Secrets** | Secret Manager (zéro credential en clair) |
-| **🌐 Network** | VPC privé, Cloud SQL/Redis sans IP publique |
-| **🔑 Auth CI/CD** | Workload Identity Federation (pas de clés JSON) |
-| **🛡️ CORS** | Origins restreints aux frontends autorisés |
-| **🎫 Tokens** | JWT signé HS256, refresh 7j, blacklist Redis |
-| **📝 Audit** | Cloud Audit Logs activés |
-
-### Coûts estimés (Free tier + pay-per-use)
-
-| Ressource | Coût/mois |
-|-----------|-----------|
-| Cloud Run (2 services) | ~$5-15 |
-| Cloud SQL (db-f1-micro) | ~$8 |
-| Redis Memorystore (1GB) | ~$35 |
-| Cloud Storage | ~$1-2 |
-| Autres (DNS, monitoring) | ~$2-5 |
-| **Total estimé** | **~$50-65/mois** |
-
----
-
-## 🚀 Installation Locale
+## 🚀 Installation Locale (100 % Docker)
 
 ### Prérequis
+- Docker Desktop 24.0+ & Git
 
-- Docker Desktop 24.0+
-- Git
-
-### Quick Start
+### Démarrage rapide
 
 ```bash
 # 1. Cloner le projet
@@ -291,10 +168,10 @@ cd Mimo-core
 # 2. Configurer l'environnement
 cp .env.example .env
 
-# 3. Démarrer l'application
+# 3. Démarrer la stack complète (PostgreSQL, Redis, Backend, Frontend)
 docker compose up -d
 
-# 4. Vérifier que tout fonctionne
+# 4. Vérifier les services
 docker compose ps
 ```
 
@@ -302,32 +179,45 @@ docker compose ps
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | http://localhost:5173 |
-| **Backend API** | http://localhost:8000 |
-| **API Docs (Swagger)** | http://localhost:8000/docs |
+| **Frontend (Next.js)** | http://localhost:3000 |
+| **Backend API (FastAPI)** | http://localhost:8000 |
+| **API Docs (Swagger — dev uniquement)** | http://localhost:8000/docs |
 | **Health Check** | http://localhost:8000/health |
 
-### Commandes utiles
+---
+
+## 🧪 Tests & Qualité (Docker)
 
 ```bash
-# Logs en temps réel
-docker compose logs -f
+# Tests unitaires backend (pytest)
+docker exec mimo-backend pytest tests/ -v
 
-# Logs backend uniquement
-docker compose logs -f backend
+# Tests ciblés Open Banking & Sécurité
+docker exec mimo-backend pytest tests/test_banking.py tests/test_enable_banking_provider.py tests/test_security.py tests/test_security_hardening.py -v
 
-# Rebuild après modifications
-docker compose up -d --build
-
-# Lancer les tests backend
-docker compose exec backend pytest tests/ -v
-
-# Reset base de données
-docker compose exec backend alembic upgrade head
-
-# Arrêter tous les services
-docker compose down
+# Vérification TypeScript + Tests unitaires frontend (Vitest) + Lint
+docker exec mimo-frontend sh -c "npx tsc --noEmit && npx vitest run && npm run lint"
 ```
+
+---
+
+## ☁️ Déploiement GCP
+
+Le déploiement production s'effectue directement via les scripts Bash (le workflow GitHub Actions `.github/workflows/deploy-production.yml` est en déclenchement manuel `workflow_dispatch` uniquement) :
+
+```bash
+# 1. Déployer backend + frontend sur Cloud Run (build linux/amd64 + smoke tests)
+./deploy.sh all
+
+# Ou cibler un seul service :
+./deploy.sh backend
+./deploy.sh frontend
+
+# 2. Configurer Open Banking (secrets via Secret Manager) + Cloud Scheduler 6h + fermer les inscriptions publiques
+ENABLE_BANKING_APP_ID=<uuid-enable-banking> ./scripts/setup-banking-cloudrun.sh
+```
+
+> Les migrations Alembic (`alembic upgrade head`) s'exécutent automatiquement au démarrage du conteneur backend (`backend/Dockerfile.prod`).
 
 ---
 
@@ -335,142 +225,41 @@ docker compose down
 
 ```
 Mimo-core/
-├── 📂 backend/                    # API FastAPI (Python)
+├── backend/
 │   ├── app/
-│   │   ├── api/v1/               # Routes REST
-│   │   │   ├── auth.py           # Authentification
-│   │   │   ├── accounts.py       # Comptes bancaires
-│   │   │   ├── transactions.py   # Transactions
-│   │   │   ├── categories.py     # Catégories
-│   │   │   ├── recurring.py      # Récurrences
-│   │   │   ├── notifications.py  # Notifications
-│   │   │   └── households.py     # Foyers (couple)
-│   │   ├── models/               # Modèles SQLAlchemy
-│   │   ├── services/             # Logique métier
-│   │   ├── schemas/              # Validation Pydantic
-│   │   └── config.py             # Configuration
-│   ├── alembic/                  # Migrations DB (13 migrations)
-│   └── tests/                    # Tests unitaires (111+ tests)
-│
-├── 📂 frontend/                   # App React (TypeScript)
+│   │   ├── api/                  # Routes REST (auth, accounts, transactions, jobs, ...)
+│   │   │   └── v1/               # banking.py, projects.py, goals.py, exports.py, admin.py
+│   │   ├── core/                 # security.py (CORS, headers, rate-limit), crypto.py (Fernet), logger.py
+│   │   ├── models/               # Modèles SQLAlchemy (Account, Transaction, BankConnection, ...)
+│   │   ├── schemas/              # Schémas Pydantic v2
+│   │   └── services/             # Logique métier + services/banking/ (enable_banking, sync_service, mock)
+│   ├── alembic/                  # Migrations PostgreSQL
+│   └── tests/                    # Suite Pytest (auth, comptes, timeline, banking, sécurité)
+├── frontend/
 │   ├── src/
-│   │   ├── components/           # Composants UI réutilisables
-│   │   ├── pages/                # Pages (Dashboard, Timeline, Settings...)
-│   │   ├── services/             # Appels API (fetch)
-│   │   ├── stores/               # State Zustand
-│   │   └── types/                # Types TypeScript
-│   └── public/                   # Assets statiques
-│
-├── 📂 terraform/                  # Infrastructure as Code
-│   ├── main.tf                   # Ressources GCP (~800 lignes)
-│   ├── variables.tf              # Variables
-│   ├── outputs.tf                # Outputs
-│   └── terraform.tfvars          # Valeurs (gitignored)
-│
-├── 📂 .github/workflows/          # CI/CD GitHub Actions
-│   ├── ci.yml                    # Tests + Lint
-│   └── deploy-production.yml     # Déploiement GCP
-│
-├── 📂 docs/                       # Documentation
-│   ├── SPECIFICATIONS.md         # Spécifications fonctionnelles
-│   ├── SPRINT-PLANNING.md        # Historique des 10 sprints
-│   └── STACK-TECHNIQUE.md        # Stack technique détaillée
-│
-├── docker-compose.yml            # Orchestration locale
-└── README.md                     # Ce fichier
+│   │   ├── app/                  # Pages App Router (dashboard, timeline, accounts, projects, goals, terms, privacy...)
+│   │   ├── components/           # Composants UI & features
+│   │   ├── services/             # Clients API typés
+│   │   └── stores/               # Stores Zustand
+│   └── tests/unit/               # Suite Vitest + Testing Library
+├── scripts/                      # Scripts Bash (dev.sh, setup-banking-cloudrun.sh, ...)
+├── terraform/                    # Infrastructure as Code GCP
+├── docs/                         # Documentation technique & variables d'environnement
+├── deploy.sh                     # Script de déploiement direct Cloud Run
+└── docker-compose.yml            # Stack locale Docker
 ```
 
 ---
 
-## 🧪 Tests & Qualité
+## 📚 Documentation complémentaire
 
-### Métriques
-
-| Métrique | Valeur |
-|----------|--------|
-| **Tests unitaires** | 111+ (100% GREEN) |
-| **Couverture** | 70%+ |
-| **Migrations Alembic** | 13 |
-| **Lignes de code** | ~20,000+ |
-
-### Lancer les tests
-
-```bash
-# Backend (pytest)
-docker compose exec backend pytest tests/ -v --cov=app
-
-# Frontend (vitest)
-cd frontend && npm run test
-
-# Linting
-docker compose exec backend ruff check app/
-cd frontend && npm run lint
-```
-
----
-
-## 📊 Métriques du Projet
-
-| Métrique | Valeur |
-|----------|--------|
-| **Sprints complétés** | 10 |
-| **Durée développement** | ~5 mois |
-| **Ressources Terraform** | 42+ |
-| **Endpoints API** | 35+ |
-| **Composants React** | 50+ |
-
----
-
-## 🛣️ Roadmap
-
-### ✅ Complété (v1.0)
-- [x] Authentification JWT + Redis blacklist
-- [x] CRUD Comptes & Catégories
-- [x] Transactions avec timeline
-- [x] Récurrences automatiques (12 mois)
-- [x] Validation quotidienne + Notifications
-- [x] Mode Couple (fusion/dissolution)
-- [x] Objectifs épargne
-- [x] Dashboard analytics avec graphiques
-- [x] Upload fichiers (Cloud Storage)
-- [x] Déploiement GCP production
-
-### 🔜 À venir (v2.0)
-- [ ] Import CSV/OFX bancaire
-- [ ] Règles de catégorisation automatique
-- [ ] Budgets par catégorie avec alertes
-- [ ] Rappels email (SendGrid)
-- [ ] Application mobile (React Native)
-- [ ] Connexion bancaire (Plaid/Bridge)
-- [ ] Multi-langue (i18n)
-- [ ] Mode sombre
-
----
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues ! 
-
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/amazing-feature`)
-3. Commit (`git commit -m 'Add amazing feature'`)
-4. Push (`git push origin feature/amazing-feature`)
-5. Ouvrir une Pull Request
+- [Variables d'environnement & Secrets](docs/ENVIRONMENT-VARIABLES.md)
+- [Architecture détaillée](docs/ARCHITECTURE.md)
+- [Guide de déploiement](docs/DEPLOYMENT.md)
+- [Spécifications fonctionnelles](docs/SPECIFICATIONS.md)
 
 ---
 
 ## 📝 Licence
 
-Ce projet est sous licence MIT. Voir [LICENSE](LICENSE) pour plus de détails.
-
----
-
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/Linerror99">Linerror99</a>
-</p>
-
-<p align="center">
-  <a href="https://mimo-frontend-301595415100.europe-west1.run.app">
-    <img src="https://img.shields.io/badge/🚀_Essayer_Mimo_Finance-Demo_Live-00C853?style=for-the-badge" alt="Demo Live" />
-  </a>
-</p>
+Projet sous licence MIT. Voir [LICENSE](LICENSE).

@@ -65,6 +65,26 @@ ADMIN_TOKEN={hex-token}
 ```
 - Utilisé pour sécuriser l'endpoint `/api/v1/admin/migrate`
 
+### 🔹 **Open Banking (Enable Banking DSP2) & Durcissement Sécurité**
+```bash
+# Open Banking
+BANKING_PROVIDER=enable_banking
+ENABLE_BANKING_APP_ID={uuid-enable-banking}
+ENABLE_BANKING_PRIVATE_KEY_B64={secret-manager:enable-banking-private-key-b64}
+BANKING_REDIRECT_URL=https://{frontend-url}/accounts/bank-callback
+CRON_SYNC_SECRET={secret-manager:cron-sync-secret}
+
+# Durcissement sécurité
+ALLOW_PUBLIC_REGISTRATION=false
+AUTH_RATE_LIMIT_REQUESTS=10
+AUTH_RATE_LIMIT_WINDOW_SECONDS=900
+BANKING_ENCRYPTION_KEY={optional-fernet-key}
+```
+- `ENABLE_BANKING_PRIVATE_KEY_B64` et `CRON_SYNC_SECRET` sont stockés dans **GCP Secret Manager** via `./scripts/setup-banking-cloudrun.sh`.
+- `ALLOW_PUBLIC_REGISTRATION=false` bloque `POST /api/v1/auth/register` en production (`HTTP 403`) tout en préservant les invitations de foyer existantes.
+- `AUTH_RATE_LIMIT_REQUESTS` / `AUTH_RATE_LIMIT_WINDOW_SECONDS` brident les endpoints sensibles (`/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/verify-reset-code`, `/auth/reset-password`) à 10 tentatives / 15 min par IP.
+- `bank_connections.session_id` est chiffré au repos en PostgreSQL (Fernet AES-128-CBC + HMAC-SHA256, préfixe `enc:v1:`).
+
 ---
 
 ## 🔄 Comment ça marche ?

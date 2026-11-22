@@ -131,6 +131,62 @@ describe("Open Banking UI — Connexions, Synchro manuelle & Fusion Timeline", (
     expect(onSyncAll).toHaveBeenCalledTimes(1);
   });
 
+  it("permet de modifier sync_from_date et de délier un compte synchronisé dans AccountsView", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const onUnlinkBankAccount = vi.fn().mockResolvedValue(undefined);
+
+    const syncedAccounts: Account[] = [
+      {
+        ...ACCOUNTS[0],
+        sync_from_date: "2026-11-18",
+      },
+    ];
+
+    render(
+      <AccountsView
+        isLoading={false}
+        accounts={syncedAccounts}
+        bankConnections={CONNECTIONS}
+        isSyncingBanks={false}
+        includeInactive={false}
+        onToggleIncludeInactive={vi.fn()}
+        onCreate={vi.fn()}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+        onStartConnectBank={vi.fn()}
+        onSyncAllBanks={vi.fn()}
+        onSyncBankConnection={vi.fn()}
+        onDeleteBankConnection={vi.fn()}
+        onUnlinkBankAccount={onUnlinkBankAccount}
+      />
+    );
+
+    // Ouvrir le menu ⋯ du compte SG -> Modifier -> changer sync_from_date
+    await user.click(screen.getByRole("button", { name: /actions pour sg/i }));
+    await user.click(screen.getByRole("menuitem", { name: /modifier/i }));
+
+    const dateInput = screen.getByLabelText(
+      /importer les opérations banque à partir du/i
+    );
+    expect(dateInput).toHaveValue("2026-11-18");
+    await user.clear(dateInput);
+    await user.type(dateInput, "2026-11-10");
+    await user.click(screen.getByRole("button", { name: /enregistrer/i }));
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      "acc-sg",
+      expect.objectContaining({ sync_from_date: "2026-11-10" })
+    );
+
+    // Ouvrir le menu ⋯ -> Délier la synchro banque
+    await user.click(screen.getByRole("button", { name: /actions pour sg/i }));
+    await user.click(
+      screen.getByRole("menuitem", { name: /délier la synchro banque/i })
+    );
+    expect(onUnlinkBankAccount).toHaveBeenCalledWith("acc-sg");
+  });
+
   it("permet de fusionner une écriture bancaire importée avec une opération prévue dans TimelineView", async () => {
     const user = userEvent.setup();
     const onMerge = vi.fn();
