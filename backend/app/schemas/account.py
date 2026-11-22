@@ -3,7 +3,7 @@ Account Schemas
 
 Pydantic models for Account API
 """
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -32,6 +32,7 @@ class AccountUpdate(BaseModel):
     type: Optional[AccountType] = None
     is_active: Optional[bool] = None
     logo_url: Optional[str] = None
+    sync_from_date: Optional[date] = None
 
 
 class AccountResponse(AccountBase):
@@ -41,6 +42,11 @@ class AccountResponse(AccountBase):
     is_active: bool
     current_balance: Decimal = Field(description="Current balance (initial + transactions)")
     closed_at: Optional[datetime] = Field(None, description="Timestamp when account was closed")
+    bank_connection_id: Optional[str] = Field(None, description="Linked Open Banking connection ID")
+    external_account_id: Optional[str] = Field(None, description="External bank account UID")
+    iban_masked: Optional[str] = Field(None, description="Masked IBAN")
+    sync_enabled: bool = Field(default=False, description="Whether Open Banking sync is active")
+    sync_from_date: Optional[date] = Field(None, description="Start date for bank transaction imports")
     created_at: datetime
     updated_at: datetime
 

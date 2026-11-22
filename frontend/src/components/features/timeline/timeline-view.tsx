@@ -14,6 +14,8 @@ import {
   Copy,
   Download,
   Edit3,
+  GitMerge,
+  Landmark,
   Layers,
   List,
   Plus,
@@ -22,6 +24,7 @@ import {
   SlidersHorizontal,
   Target,
   Trash2,
+  Unlink,
   X,
 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -151,6 +154,11 @@ interface TimelineViewProps {
     payload: { start_date: string; end_date: string }
   ) => Promise<void> | void;
   onDeleteTemplate: (id: string) => Promise<void> | void;
+  onMergeBankTransaction?: (
+    importedTxId: string,
+    targetTxId: string
+  ) => Promise<void> | void;
+  onUnlinkBankTransaction?: (txId: string) => Promise<void> | void;
   onExportPdf?: () => Promise<void> | void;
   defaultOpenCreate?: boolean;
   initialAccountFilter?: string;
@@ -220,6 +228,8 @@ export function TimelineView({
   onBulkUpdateTemplate,
   onBulkCancelTemplate,
   onDeleteTemplate,
+  onMergeBankTransaction,
+  onUnlinkBankTransaction,
   onExportPdf,
   defaultOpenCreate = false,
   initialAccountFilter = "ALL",
@@ -344,6 +354,12 @@ export function TimelineView({
 
   // Validation / Postpone Modal
   const [validatingTx, setValidatingTx] = useState<Transaction | null>(null);
+
+  // Merge imported bank transaction into existing planned transaction modal
+  const [mergingTx, setMergingTx] = useState<Transaction | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergingBusy, setMergingBusy] = useState(false);
 
   // Bulk Action Modal on Recurring Template
   const [bulkTpl, setBulkTpl] = useState<RecurringTemplate | null>(null);
@@ -2011,6 +2027,13 @@ export function TimelineView({
                                           </Badge>
                                         </Link>
                                       )}
+                                      {(tx.import_source === "open_banking" ||
+                                        Boolean(tx.external_transaction_id)) && (
+                                        <Badge variant="info">
+                                          <Landmark className="h-3 w-3" />
+                                          Banque
+                                        </Badge>
+                                      )}
                                     </div>
                                     {catLabel && (
                                       <p className="text-xs text-slate-500 dark:text-zinc-400">
@@ -2072,6 +2095,40 @@ export function TimelineView({
                                                   ),
                                                   onClick: () =>
                                                     setValidatingTx(tx),
+                                                },
+                                              ]
+                                            : []),
+                                          ...(onMergeBankTransaction &&
+                                          (tx.import_source === "open_banking" ||
+                                            Boolean(tx.external_transaction_id))
+                                            ? [
+                                                {
+                                                  label:
+                                                    "Fusionner avec une opération prévue",
+                                                  icon: (
+                                                    <GitMerge className="h-3.5 w-3.5" />
+                                                  ),
+                                                  onClick: () => {
+                                                    setMergingTx(tx);
+                                                    setMergeTargetId("");
+                                                    setMergeSearch("");
+                                                  },
+                                                },
+                                              ]
+                                            : []),
+                                          ...(onUnlinkBankTransaction &&
+                                          (tx.import_source === "open_banking" ||
+                                            Boolean(tx.external_transaction_id))
+                                            ? [
+                                                {
+                                                  label: "Délier de la banque",
+                                                  icon: (
+                                                    <Unlink className="h-3.5 w-3.5" />
+                                                  ),
+                                                  onClick: () =>
+                                                    onUnlinkBankTransaction(
+                                                      tx.id
+                                                    ),
                                                 },
                                               ]
                                             : []),
@@ -2866,6 +2923,273 @@ export function TimelineView({
         onPostpone={onPostponeTransaction}
         onCancelTransaction={onCancelTransaction}
       />
+
+      {/* Merge Bank Transaction into Planned Transaction Modal */}
+      <Modal
+        open={Boolean(mergingTx)}
+        onClose={() => setMergingTx(null)}
+        title="Fusionner avec une opération déjà prévue"
+        description="Reliez cette écriture bancaire à une opération existante (ex. salaire ou échéance arrivée plus tôt ou avec un montant différent)."
+        maxWidthClass="max-w-lg"
+      >
+        {mergingTx &&
+          (() => {
+            const byId = new Map<string, Transaction>();
+            for (const t of allTransactions ?? []) {
+              byId.set(t.id, t);
+            }
+            for (const t of transactions) {
+              byId.set(t.id, t);
+            }
+            const accountsById = new Map(accounts.map((a) => [a.id, a]));
+            const pool = Array.from(byId.values());
+            const q = mergeSearch.trim().toLowerCase();
+            const qNormalized = q.replace(",", ".");
+            const mergingAbs = Math.abs(Number(mergingTx.amount));
+            const mergingDateMs = new Date(
+              `${mergingTx.transaction_date}T00:00:00`
+            ).getTime();
+
+            const getDaysDiff = (isoDate: string) => {
+              const ms = new Date(`${isoDate}T00:00:00`).getTime();
+              return Math.round(Math.abs(ms - mergingDateMs) / 86_400_000);
+            };
+
+            const isTypeCompatible = (t: Transaction) => {
+              if (t.type === mergingTx.type) return true;
+              // Un virement interne Mimo (TRANSFER) correspond à un débit (EXPENSE)
+              // côté compte source ou un crédit (INCOME) côté compte destination.
+              if (t.type === "TRANSFER") {
+                if (mergingTx.type === "EXPENSE") {
+                  return t.destination_account_id !== mergingTx.account_id;
+                }
+                if (mergingTx.type === "INCOME") {
+                  return (
+                    t.destination_account_id === mergingTx.account_id ||
+                    t.account_id !== mergingTx.account_id
+                  );
+                }
+              }
+              return false;
+            };
+
+            const scoreCandidate = (t: Transaction) => {
+              const daysDiff = getDaysDiff(t.transaction_date);
+              const sameAmount =
+                Math.abs(Math.abs(Number(t.amount)) - mergingAbs) < 0.005;
+              const sameAccount =
+                t.account_id === mergingTx.account_id ||
+                t.destination_account_id === mergingTx.account_id;
+              const isPlanned = t.state !== "REALIZED";
+
+              let tier = 5;
+              if (sameAmount && sameAccount && daysDiff <= 7) tier = 0;
+              else if (sameAmount && daysDiff <= 15) tier = 1;
+              else if (isPlanned && sameAccount && daysDiff <= 35) tier = 2;
+              else if (sameAccount && daysDiff <= 14) tier = 3;
+              else if (isPlanned) tier = 4;
+
+              return {
+                tier,
+                plannedRank: isPlanned ? 0 : 1,
+                daysDiff,
+                isProbable: tier === 0,
+              };
+            };
+
+            const candidates = pool
+              .filter(
+                (t) =>
+                  !t.deleted_at &&
+                  t.id !== mergingTx.id &&
+                  !t.external_transaction_id &&
+                  isTypeCompatible(t)
+              )
+              .filter((t) => {
+                if (!q) return true;
+                const [y, m, d] = t.transaction_date.split("-");
+                const frNumericDate = d && m && y ? `${d}/${m}/${y}` : "";
+                const frShortDate = d && m ? `${d}/${m}` : "";
+                const amountAbs = Math.abs(Number(t.amount));
+                const amountDot = amountAbs.toFixed(2);
+                const amountComma = amountDot.replace(".", ",");
+                const amountRaw = String(amountAbs);
+                const accName = (
+                  accountsById.get(t.account_id)?.name ?? ""
+                ).toLowerCase();
+                const destAccName = t.destination_account_id
+                  ? (
+                      accountsById.get(t.destination_account_id)?.name ?? ""
+                    ).toLowerCase()
+                  : "";
+                return (
+                  t.description.toLowerCase().includes(q) ||
+                  t.transaction_date.includes(q) ||
+                  frNumericDate.includes(q) ||
+                  frShortDate.includes(q) ||
+                  formatDateFr(t.transaction_date).toLowerCase().includes(q) ||
+                  amountDot.includes(qNormalized) ||
+                  amountComma.includes(q) ||
+                  amountRaw.includes(qNormalized) ||
+                  accName.includes(q) ||
+                  destAccName.includes(q)
+                );
+              })
+              .map((t) => ({ tx: t, score: scoreCandidate(t) }))
+              .sort((a, b) => {
+                if (a.score.tier !== b.score.tier) {
+                  return a.score.tier - b.score.tier;
+                }
+                if (a.score.daysDiff !== b.score.daysDiff) {
+                  return a.score.daysDiff - b.score.daysDiff;
+                }
+                if (a.score.plannedRank !== b.score.plannedRank) {
+                  return a.score.plannedRank - b.score.plannedRank;
+                }
+                return b.tx.transaction_date.localeCompare(
+                  a.tx.transaction_date
+                );
+              })
+              .slice(0, 50);
+
+            return (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.05] p-3.5 text-xs">
+                  <p className="font-semibold text-slate-900 dark:text-zinc-100">
+                    Écriture bancaire (référence) : {mergingTx.description}
+                  </p>
+                  <p className="mt-1 text-slate-600 dark:text-zinc-400">
+                    Date banque :{" "}
+                    <strong>{formatDateFr(mergingTx.transaction_date)}</strong>{" "}
+                    · Montant banque :{" "}
+                    <AmountDisplay
+                      amount={
+                        mergingTx.type === "EXPENSE"
+                          ? -Math.abs(Number(mergingTx.amount))
+                          : Math.abs(Number(mergingTx.amount))
+                      }
+                      signed
+                      colored
+                      className="font-semibold"
+                    />
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={mergeSearch}
+                    onChange={(e) => setMergeSearch(e.target.value)}
+                    placeholder="Rechercher par libellé, montant (ex. 95) ou date (ex. 19/11)..."
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs dark:border-zinc-800 dark:bg-[#121215]"
+                  />
+                </div>
+
+                {candidates.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
+                    Aucune opération compatible trouvée à fusionner.
+                  </p>
+                ) : (
+                  <div className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-zinc-800 dark:border-zinc-800">
+                    {candidates.map(({ tx: cand, score }) => {
+                      const selected = mergeTargetId === cand.id;
+                      const candAccountName = accountsById.get(
+                        cand.account_id
+                      )?.name;
+                      const signedCandAmount =
+                        cand.type === "EXPENSE" ||
+                        (cand.type === "TRANSFER" &&
+                          cand.account_id === mergingTx.account_id)
+                          ? -Math.abs(Number(cand.amount))
+                          : Math.abs(Number(cand.amount));
+                      return (
+                        <button
+                          key={cand.id}
+                          type="button"
+                          onClick={() => setMergeTargetId(cand.id)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-xs transition-colors",
+                            selected
+                              ? "bg-violet-500/10 ring-1 ring-inset ring-violet-500/40"
+                              : "hover:bg-slate-50 dark:hover:bg-zinc-900"
+                          )}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="truncate font-semibold text-slate-900 dark:text-zinc-100">
+                                {cand.description}
+                              </span>
+                              <Badge variant={stateBadgeVariant(cand.state)}>
+                                {TRANSACTION_STATE_LABELS[cand.state]}
+                              </Badge>
+                              {cand.type === "TRANSFER" && (
+                                <Badge variant="neutral">Virement</Badge>
+                              )}
+                              {score.isProbable && (
+                                <Badge variant="info">
+                                  Correspondance probable
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400">
+                              {cand.state === "REALIZED" ? "Le" : "Prévue le"}{" "}
+                              {formatDateFr(cand.transaction_date)}
+                              {candAccountName ? ` · ${candAccountName}` : ""}
+                            </p>
+                          </div>
+                          <AmountDisplay
+                            amount={signedCandAmount}
+                            signed={cand.type !== "TRANSFER"}
+                            className="shrink-0 font-semibold text-slate-700 dark:text-zinc-200"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  L&apos;opération sélectionnée sera mise à jour avec le{" "}
+                  <strong>montant exact de la banque</strong> et sa{" "}
+                  <strong>date réelle</strong>, passera en{" "}
+                  <strong>Réalisée</strong>, conservera ses liens (récurrence,
+                  projet, objectif), et le doublon importé sera supprimé.
+                </p>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setMergingTx(null)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!mergeTargetId || mergingBusy}
+                    onClick={async () => {
+                      if (!mergeTargetId || !onMergeBankTransaction) return;
+                      setMergingBusy(true);
+                      try {
+                        await onMergeBankTransaction(
+                          mergingTx.id,
+                          mergeTargetId
+                        );
+                        setMergingTx(null);
+                      } finally {
+                        setMergingBusy(false);
+                      }
+                    }}
+                  >
+                    <GitMerge className="h-3.5 w-3.5" />
+                    {mergingBusy ? "Fusion..." : "Fusionner et valider"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+      </Modal>
 
       {/* Delete Confirmations */}
       <ConfirmDialog

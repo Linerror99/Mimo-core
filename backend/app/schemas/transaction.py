@@ -59,8 +59,8 @@ class TransactionCreate(TransactionBase):
             raise ValueError("Le montant d'un revenu doit être positif")
         if transaction_type == TransactionType.EXPENSE and v > 0:
             raise ValueError("Le montant d'une dépense doit être négatif")
-        if transaction_type == TransactionType.TRANSFER and v <= 0:
-            raise ValueError("Le montant d'un virement doit être positif")
+        if transaction_type == TransactionType.TRANSFER and v == 0:
+            raise ValueError("Le montant d'un virement ne peut pas être zéro")
         return v
 
 
@@ -145,6 +145,8 @@ class TransactionResponse(TransactionBase):
     destination_account_name: Optional[str] = Field(None, description="Nom du compte destination")
     goal_name: Optional[str] = Field(None, description="Nom de l'objectif d'épargne lié")
     project_name: Optional[str] = Field(None, description="Nom du projet lié")
+    external_transaction_id: Optional[str] = Field(None, description="Identifiant bancaire immuable (Open Banking)")
+    import_source: str = Field(default="manual", description="Provenance : manual ou open_banking")
 
     model_config = {"from_attributes": True}
 

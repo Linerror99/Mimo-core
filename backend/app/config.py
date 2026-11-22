@@ -47,7 +47,16 @@ class Settings(BaseSettings):
     # Admin & Scheduler
     ADMIN_TOKEN: str = ""
     JOB_TOKEN: str = ""
+    CRON_SYNC_SECRET: str = ""
     SCHEDULER_SERVICE_ACCOUNT: Optional[str] = None  # e.g. scheduler-sa@project-id.iam.gserviceaccount.com
+
+    # Open Banking (Enable Banking DSP2 / Mock)
+    BANKING_PROVIDER: str = "auto"  # "auto" | "enable_banking" | "mock"
+    ENABLE_BANKING_APP_ID: Optional[str] = None
+    ENABLE_BANKING_PRIVATE_KEY_PATH: Optional[str] = None
+    ENABLE_BANKING_PRIVATE_KEY_B64: Optional[str] = None
+    ENABLE_BANKING_API_URL: str = "https://api.enablebanking.com"
+    BANKING_REDIRECT_URL: str = "http://localhost:3000/accounts/bank-callback"
 
     # Security
     BCRYPT_ROUNDS: int = 12  # Standard sécurisé OWASP (12 rounds)

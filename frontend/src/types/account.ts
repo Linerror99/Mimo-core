@@ -17,6 +17,11 @@ export interface Account {
   is_active: boolean;
   logo_url?: string | null;
   closed_at: string | null;
+  bank_connection_id?: string | null;
+  external_account_id?: string | null;
+  iban_masked?: string | null;
+  sync_enabled?: boolean;
+  sync_from_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +41,7 @@ export interface AccountUpdate {
   currency?: string;
   is_active?: boolean;
   logo_url?: string | null;
+  sync_from_date?: string | null;
 }
 
 export interface TotalBalanceResponse {

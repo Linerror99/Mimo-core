@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { TimelineView } from "@/components/features/timeline/timeline-view";
 import { accountService } from "@/services/account-service";
+import { bankingService } from "@/services/banking-service";
 import { categoryService } from "@/services/category-service";
 import { transactionService } from "@/services/transaction-service";
 import { recurringService } from "@/services/recurring-service";
@@ -222,6 +223,32 @@ function TimelineContent() {
     }
   };
 
+  const handleMergeBankTransaction = async (
+    importedTxId: string,
+    targetTxId: string
+  ) => {
+    try {
+      await bankingService.mergeTransaction(importedTxId, targetTxId);
+      toast.success(
+        "Opération fusionnée avec le montant et la date de la banque"
+      );
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Fusion impossible");
+      throw err;
+    }
+  };
+
+  const handleUnlinkBankTransaction = async (txId: string) => {
+    try {
+      await bankingService.unlinkTransaction(txId);
+      toast.success("Opération déliée de la synchronisation bancaire");
+      await invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Action impossible");
+    }
+  };
+
   return (
     <AppShell activePath="/timeline">
       <TimelineView
@@ -248,6 +275,8 @@ function TimelineContent() {
         onBulkUpdateTemplate={handleBulkUpdateTemplate}
         onBulkCancelTemplate={handleBulkCancelTemplate}
         onDeleteTemplate={handleDeleteTemplate}
+        onMergeBankTransaction={handleMergeBankTransaction}
+        onUnlinkBankTransaction={handleUnlinkBankTransaction}
         onExportPdf={handleExportPdf}
         defaultOpenCreate={searchParams.get("new") === "1"}
         initialAccountFilter={searchParams.get("account_id") || "ALL"}

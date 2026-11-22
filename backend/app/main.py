@@ -23,7 +23,7 @@ from app.api import (
     wallets,
 )
 from app.api.deps import CurrentUser
-from app.api.v1 import admin, exports, goals, projects
+from app.api.v1 import admin, banking, exports, goals, projects
 from app.api.v1.scheduled import backup
 from app.config import settings
 from app.core.error_handler import (
@@ -113,6 +113,7 @@ app.include_router(categories.router, prefix=settings.API_V1_PREFIX, tags=["Cate
 app.include_router(transactions.router, prefix=settings.API_V1_PREFIX, tags=["Transactions"])
 app.include_router(goals.router, prefix=settings.API_V1_PREFIX, tags=["Goals"])
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["Projects"])
+app.include_router(banking.router, prefix=settings.API_V1_PREFIX, tags=["Open Banking"])
 app.include_router(exports.router, prefix=settings.API_V1_PREFIX, tags=["Exports"])
 app.include_router(invitations.router, prefix=settings.API_V1_PREFIX, tags=["Invitations"])
 app.include_router(households.router, prefix=settings.API_V1_PREFIX, tags=["Households"])

@@ -6,14 +6,18 @@ import {
   ArrowRight,
   Building2,
   Edit3,
+  Landmark,
   PiggyBank,
   Plus,
   Power,
+  RefreshCw,
   Scale,
   Trash2,
+  Unlink,
   Wallet,
 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { BankConnectionsPanel } from "@/components/features/accounts/bank-connections-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,9 +36,13 @@ import {
   type AccountUpdate,
 } from "@/types/account";
 
+import type { BankConnection, BankInstitution } from "@/types/banking";
+
 interface AccountsViewProps {
   isLoading: boolean;
   accounts: Account[];
+  bankConnections?: BankConnection[];
+  isSyncingBanks?: boolean;
   includeInactive: boolean;
   onToggleIncludeInactive: (next: boolean) => void;
   onCreate: (payload: AccountCreate) => Promise<void> | void;
@@ -44,6 +52,11 @@ interface AccountsViewProps {
     account: Account,
     realBalance: number
   ) => Promise<void> | void;
+  onStartConnectBank?: (institution: BankInstitution) => Promise<void> | void;
+  onSyncAllBanks?: () => Promise<void> | void;
+  onSyncBankConnection?: (connectionId: string) => Promise<void> | void;
+  onDeleteBankConnection?: (connectionId: string) => Promise<void> | void;
+  onUnlinkBankAccount?: (accountId: string) => Promise<void> | void;
   defaultOpenCreate?: boolean;
 }
 
@@ -82,21 +95,30 @@ export function AccountsSkeleton() {
 export function AccountsView({
   isLoading,
   accounts,
+  bankConnections = [],
+  isSyncingBanks = false,
   includeInactive,
   onToggleIncludeInactive,
   onCreate,
   onUpdate,
   onDelete,
   onReconcileBalance,
+  onStartConnectBank,
+  onSyncAllBanks,
+  onSyncBankConnection,
+  onDeleteBankConnection,
+  onUnlinkBankAccount,
   defaultOpenCreate = false,
 }: AccountsViewProps) {
   const [modalOpen, setModalOpen] = useState(defaultOpenCreate);
+  const [connectBankModalOpen, setConnectBankModalOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountType>("CHECKING");
   const [initialBalance, setInitialBalance] = useState("0");
   const [currency, setCurrency] = useState("EUR");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [syncFromDate, setSyncFromDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Destructive delete confirmation
@@ -128,6 +150,7 @@ export function AccountsView({
     setInitialBalance("0");
     setCurrency("EUR");
     setLogoUrl(null);
+    setSyncFromDate("");
     setModalOpen(true);
   };
 
@@ -138,6 +161,7 @@ export function AccountsView({
     setInitialBalance(String(account.initial_balance));
     setCurrency(account.currency || "EUR");
     setLogoUrl(account.logo_url ?? null);
+    setSyncFromDate(account.sync_from_date?.slice(0, 10) || "");
     setModalOpen(true);
   };
 
@@ -153,6 +177,13 @@ export function AccountsView({
         };
         if (logoUrl !== (editing.logo_url ?? null)) {
           payload.logo_url = logoUrl;
+        }
+        if (
+          editing.sync_enabled &&
+          syncFromDate &&
+          syncFromDate !== (editing.sync_from_date?.slice(0, 10) || "")
+        ) {
+          payload.sync_from_date = syncFromDate;
         }
         await onUpdate(editing.id, payload);
       } else {
@@ -207,12 +238,51 @@ export function AccountsView({
             />
             Afficher clôturés
           </label>
+          {onSyncAllBanks && bankConnections.length > 0 && (
+            <Button
+              variant="secondary"
+              disabled={isSyncingBanks}
+              onClick={() => onSyncAllBanks()}
+            >
+              <RefreshCw
+                className={
+                  isSyncingBanks ? "h-4 w-4 animate-spin" : "h-4 w-4"
+                }
+              />
+              Synchroniser
+            </Button>
+          )}
+          {onStartConnectBank && (
+            <Button
+              variant="secondary"
+              onClick={() => setConnectBankModalOpen(true)}
+            >
+              <Landmark className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              Connecter une banque
+            </Button>
+          )}
           <Button onClick={openCreateModal}>
             <Plus className="h-4 w-4" />
             Nouveau compte
           </Button>
         </div>
       </div>
+
+      {onStartConnectBank &&
+        onSyncAllBanks &&
+        onSyncBankConnection &&
+        onDeleteBankConnection && (
+          <BankConnectionsPanel
+            connections={bankConnections}
+            isSyncing={isSyncingBanks}
+            connectModalOpen={connectBankModalOpen}
+            onCloseConnectModal={() => setConnectBankModalOpen(false)}
+            onSyncAll={onSyncAllBanks}
+            onSyncConnection={onSyncBankConnection}
+            onDeleteConnection={onDeleteBankConnection}
+            onStartConnect={onStartConnectBank}
+          />
+        )}
 
       {/* Summary Strip */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -291,14 +361,25 @@ export function AccountsView({
                           <Badge variant="neutral">Clôturé</Badge>
                         )}
                       </div>
-                      <div className="mt-1.5 flex items-center gap-1.5">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <Badge variant="info">
                           {ACCOUNT_TYPE_LABELS[acc.type]}
                         </Badge>
+                        {acc.sync_enabled && (
+                          <Badge variant="success">
+                            <Landmark className="h-3 w-3" />
+                            Synchro banque
+                          </Badge>
+                        )}
                         {acc.currency && acc.currency !== "EUR" && (
                           <Badge variant="neutral">{acc.currency}</Badge>
                         )}
                       </div>
+                      {acc.iban_masked && (
+                        <p className="mt-1 font-mono text-[11px] text-slate-400 dark:text-zinc-500">
+                          {acc.iban_masked}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="shrink-0">
@@ -323,6 +404,15 @@ export function AccountsView({
                                     )
                                   );
                                 },
+                              },
+                            ]
+                          : []),
+                        ...(acc.sync_enabled && onUnlinkBankAccount
+                          ? [
+                              {
+                                label: "Délier la synchro banque",
+                                icon: <Unlink className="h-3.5 w-3.5" />,
+                                onClick: () => onUnlinkBankAccount(acc.id),
                               },
                             ]
                           : []),
@@ -484,6 +574,28 @@ export function AccountsView({
               Le solde d&apos;un compte existant évolue uniquement via vos
               transactions.
             </p>
+          )}
+
+          {editing?.sync_enabled && (
+            <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.04] p-3.5">
+              <label
+                htmlFor="acc-sync-from"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Importer les opérations banque à partir du
+              </label>
+              <input
+                id="acc-sync-from"
+                type="date"
+                value={syncFromDate}
+                onChange={(e) => setSyncFromDate(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                Après modification, cliquez sur « Synchroniser maintenant » pour
+                récupérer les écritures depuis cette date.
+              </p>
+            </div>
           )}
 
           <BankLogoPicker

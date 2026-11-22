@@ -51,6 +51,11 @@ services:
       - COOKIE_SECURE=false
       - COOKIE_SAMESITE=lax
       - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5000,http://localhost:5173
+      - BANKING_PROVIDER=${BANKING_PROVIDER:-auto}
+      - ENABLE_BANKING_APP_ID=${ENABLE_BANKING_APP_ID:-}
+      - ENABLE_BANKING_PRIVATE_KEY_B64=${ENABLE_BANKING_PRIVATE_KEY_B64:-}
+      - BANKING_REDIRECT_URL=${BANKING_REDIRECT_URL:-http://localhost:3000/accounts/bank-callback}
+      - CRON_SYNC_SECRET=${CRON_SYNC_SECRET:-}
     ports:
       - "8000:8000"
     volumes:

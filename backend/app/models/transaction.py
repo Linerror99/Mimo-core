@@ -92,6 +92,10 @@ class Transaction(Base):
     owner_type = Column(Enum(TransactionOwnerType), nullable=True)  # NULL si INDIVIDUAL, PERSONAL/SHARED si COUPLE
     owner_user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True, index=True)  # Si PERSONAL, quel user?
 
+    # Open Banking / Provenance
+    external_transaction_id = Column(String(255), nullable=True, index=True)
+    import_source = Column(String(32), nullable=False, default="manual", server_default="manual")
+
     # Métadonnées
     is_active = Column(Boolean, default=True, nullable=False)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete (corbeille)

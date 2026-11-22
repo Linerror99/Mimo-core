@@ -7,7 +7,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Numeric, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship
 
@@ -45,11 +45,24 @@ class Account(Base):
     # NULL = compte créé après fusion (compte commun)
     original_owner_user_id = Column(String(36), nullable=True)
 
+    # Open Banking (Enable Banking DSP2 / Mock)
+    bank_connection_id = Column(
+        String(36),
+        ForeignKey("bank_connections.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    external_account_id = Column(String(255), nullable=True, index=True)
+    iban_masked = Column(String(64), nullable=True)
+    sync_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    sync_from_date = Column(Date, nullable=True)
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     household = relationship("Household", back_populates="accounts")
+    bank_connection = relationship("BankConnection", back_populates="accounts")
     transactions = relationship("Transaction", foreign_keys="Transaction.account_id", back_populates="account")
 
     def __repr__(self):
