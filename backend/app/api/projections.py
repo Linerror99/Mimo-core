@@ -67,26 +67,51 @@ async def get_monthly_projection(
 
 @router.get("/range")
 async def get_projections_range(
-    start_year: int = Query(..., ge=2000, le=2100, description="Année de début"),
-    start_month: int = Query(..., ge=1, le=12, description="Mois de début"),
-    end_year: int = Query(..., ge=2000, le=2100, description="Année de fin"),
-    end_month: int = Query(..., ge=1, le=12, description="Mois de fin"),
+    start_year: Optional[int] = Query(None, ge=2000, le=2100, description="Année de début"),
+    start_month: Optional[int] = Query(None, ge=1, le=12, description="Mois de début"),
+    end_year: Optional[int] = Query(None, ge=2000, le=2100, description="Année de fin"),
+    end_month: Optional[int] = Query(None, ge=1, le=12, description="Mois de fin"),
+    start_date: Optional[date] = Query(None, description="Date exacte de début (mode personnalisé)"),
+    end_date: Optional[date] = Query(None, description="Date exacte de fin (mode personnalisé, coupe avant un salaire de fin de mois)"),
+    exclude_future_income: bool = Query(
+        False,
+        description="Si true, exclut les revenus futurs non encore réalisés (projette uniquement avec l'argent déjà en compte)",
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Calculer les projections pour une plage de mois en une seule requête optimisée.
+    Calculer les projections pour une plage de mois ou de dates exactes en une seule requête optimisée.
     """
-    if start_year > end_year or (start_year == end_year and start_month > end_month):
-        end_year, end_month = start_year, start_month
+    today = date.today()
+
+    if start_date and end_date:
+        if start_date > end_date:
+            end_date = start_date
+        resolved_start_year = start_date.year
+        resolved_start_month = start_date.month
+        resolved_end_year = end_date.year
+        resolved_end_month = end_date.month
+    else:
+        resolved_start_year = start_year or today.year
+        resolved_start_month = start_month or today.month
+        resolved_end_year = end_year or resolved_start_year
+        resolved_end_month = end_month or resolved_start_month
+        if resolved_start_year > resolved_end_year or (
+            resolved_start_year == resolved_end_year and resolved_start_month > resolved_end_month
+        ):
+            resolved_end_year, resolved_end_month = resolved_start_year, resolved_start_month
 
     projections = await ProjectionService.calculate_range_projections(
         db=db,
         household_id=current_user.household_id,
-        start_year=start_year,
-        start_month=start_month,
-        end_year=end_year,
-        end_month=end_month
+        start_year=resolved_start_year,
+        start_month=resolved_start_month,
+        end_year=resolved_end_year,
+        end_month=resolved_end_month,
+        start_date=start_date,
+        end_date=end_date,
+        exclude_future_income=exclude_future_income,
     )
 
     return projections

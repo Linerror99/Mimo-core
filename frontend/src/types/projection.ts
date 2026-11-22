@@ -18,6 +18,8 @@ export interface MonthlyProjection {
   transfers?: number;
   balance: number;
   treasury_balance?: number;
+  min_balance?: number;
+  min_treasury_balance?: number;
   projections: ProjectionEntry[];
 }
 

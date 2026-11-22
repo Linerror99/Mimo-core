@@ -47,4 +47,47 @@ describe("ProjectionView — Horizon 5 ans & Détection des mois déficitaires",
     await user.click(screen.getByRole("button", { name: "5 ans" }));
     expect(onChangeHorizon).toHaveBeenCalledWith(60);
   });
+
+  it("permet de choisir une période personnalisée (Du -> Au) et d'exclure les revenus futurs", async () => {
+    const user = userEvent.setup();
+    const onChangeCustomRange = vi.fn();
+    const onToggleExclude = vi.fn();
+
+    render(
+      <ProjectionView
+        isLoading={false}
+        horizonMonths="custom"
+        onChangeHorizon={vi.fn()}
+        customStartDate="2026-11-22"
+        customEndDate="2027-05-25"
+        onChangeCustomRange={onChangeCustomRange}
+        excludeFutureIncome={false}
+        onToggleExcludeFutureIncome={onToggleExclude}
+        projections={[
+          {
+            month: 12,
+            year: 2026,
+            income: 2000,
+            expense: 1500,
+            balance: 8500,
+            treasury_balance: 8500,
+            min_balance: 6500,
+            min_treasury_balance: 6500,
+            projections: [],
+          },
+        ]}
+        accounts={[]}
+      />
+    );
+
+    expect(screen.getByLabelText("Du")).toHaveValue("2026-11-22");
+    expect(screen.getByLabelText("Au")).toHaveValue("2027-05-25");
+
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: /sans revenus futurs/i,
+      })
+    );
+    expect(onToggleExclude).toHaveBeenCalledWith(true);
+  });
 });
