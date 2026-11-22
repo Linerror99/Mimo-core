@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Scale,
   Trash2,
+  Unlink,
   Wallet,
 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -55,6 +56,7 @@ interface AccountsViewProps {
   onSyncAllBanks?: () => Promise<void> | void;
   onSyncBankConnection?: (connectionId: string) => Promise<void> | void;
   onDeleteBankConnection?: (connectionId: string) => Promise<void> | void;
+  onUnlinkBankAccount?: (accountId: string) => Promise<void> | void;
   defaultOpenCreate?: boolean;
 }
 
@@ -105,6 +107,7 @@ export function AccountsView({
   onSyncAllBanks,
   onSyncBankConnection,
   onDeleteBankConnection,
+  onUnlinkBankAccount,
   defaultOpenCreate = false,
 }: AccountsViewProps) {
   const [modalOpen, setModalOpen] = useState(defaultOpenCreate);
@@ -115,6 +118,7 @@ export function AccountsView({
   const [initialBalance, setInitialBalance] = useState("0");
   const [currency, setCurrency] = useState("EUR");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [syncFromDate, setSyncFromDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Destructive delete confirmation
@@ -146,6 +150,7 @@ export function AccountsView({
     setInitialBalance("0");
     setCurrency("EUR");
     setLogoUrl(null);
+    setSyncFromDate("");
     setModalOpen(true);
   };
 
@@ -156,6 +161,7 @@ export function AccountsView({
     setInitialBalance(String(account.initial_balance));
     setCurrency(account.currency || "EUR");
     setLogoUrl(account.logo_url ?? null);
+    setSyncFromDate(account.sync_from_date?.slice(0, 10) || "");
     setModalOpen(true);
   };
 
@@ -171,6 +177,13 @@ export function AccountsView({
         };
         if (logoUrl !== (editing.logo_url ?? null)) {
           payload.logo_url = logoUrl;
+        }
+        if (
+          editing.sync_enabled &&
+          syncFromDate &&
+          syncFromDate !== (editing.sync_from_date?.slice(0, 10) || "")
+        ) {
+          payload.sync_from_date = syncFromDate;
         }
         await onUpdate(editing.id, payload);
       } else {
@@ -394,6 +407,15 @@ export function AccountsView({
                               },
                             ]
                           : []),
+                        ...(acc.sync_enabled && onUnlinkBankAccount
+                          ? [
+                              {
+                                label: "Délier la synchro banque",
+                                icon: <Unlink className="h-3.5 w-3.5" />,
+                                onClick: () => onUnlinkBankAccount(acc.id),
+                              },
+                            ]
+                          : []),
                         {
                           label: acc.is_active ? "Clôturer" : "Réactiver",
                           icon: <Power className="h-3.5 w-3.5" />,
@@ -552,6 +574,28 @@ export function AccountsView({
               Le solde d&apos;un compte existant évolue uniquement via vos
               transactions.
             </p>
+          )}
+
+          {editing?.sync_enabled && (
+            <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.04] p-3.5">
+              <label
+                htmlFor="acc-sync-from"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+              >
+                Importer les opérations banque à partir du
+              </label>
+              <input
+                id="acc-sync-from"
+                type="date"
+                value={syncFromDate}
+                onChange={(e) => setSyncFromDate(e.target.value)}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
+              />
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                Après modification, cliquez sur « Synchroniser maintenant » pour
+                récupérer les écritures depuis cette date.
+              </p>
+            </div>
           )}
 
           <BankLogoPicker

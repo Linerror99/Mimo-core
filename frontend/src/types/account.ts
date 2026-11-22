@@ -41,6 +41,7 @@ export interface AccountUpdate {
   currency?: string;
   is_active?: boolean;
   logo_url?: string | null;
+  sync_from_date?: string | null;
 }
 
 export interface TotalBalanceResponse {

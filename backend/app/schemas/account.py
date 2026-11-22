@@ -32,6 +32,7 @@ class AccountUpdate(BaseModel):
     type: Optional[AccountType] = None
     is_active: Optional[bool] = None
     logo_url: Optional[str] = None
+    sync_from_date: Optional[date] = None
 
 
 class AccountResponse(AccountBase):

@@ -21,6 +21,7 @@ Handles:
 import json
 import logging
 import secrets
+import uuid as uuid_lib
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
@@ -348,6 +349,26 @@ class BankingSyncService:
         await self.db.delete(conn)
         await self.db.commit()
 
+    async def unlink_account(self, household_id: str, account_id: str) -> None:
+        """Détache un compte Mimo individuel de sa synchronisation bancaire."""
+        account = await AccountService.get_account_by_id(
+            self.db, account_id, household_id
+        )
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Compte introuvable.",
+            )
+        conn_id = account.bank_connection_id
+        account.bank_connection_id = None
+        account.external_account_id = None
+        account.sync_enabled = False
+        if conn_id:
+            conn = await self.db.get(BankConnection, conn_id)
+            if conn:
+                conn.last_error = None
+        await self.db.commit()
+
     async def sync_connection(
         self,
         household_id: str,
@@ -436,6 +457,23 @@ class BankingSyncService:
         category_hints = await self._load_category_hints(conn.household_id)
 
         for account in linked_accounts:
+            # Si le compte a un identifiant non-UUID (ex. carte masquée ************1145) sur Enable Banking,
+            # on le désactive proprement pour ne pas bloquer la synchro des autres comptes.
+            if self.provider.provider_name == "enable_banking":
+                try:
+                    uuid_lib.UUID(str(account.external_account_id))
+                except ValueError:
+                    logger.warning(
+                        "Disabling sync on account %s (%s): non-UUID external_account_id=%s",
+                        account.id,
+                        account.name,
+                        account.external_account_id,
+                    )
+                    account.sync_enabled = False
+                    account.external_account_id = None
+                    account.bank_connection_id = None
+                    continue
+
             try:
                 external_txs = await self.provider.fetch_transactions(
                     session_id=conn.session_id,

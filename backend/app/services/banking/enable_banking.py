@@ -8,6 +8,7 @@ import base64
 import hashlib
 import logging
 import time
+import uuid as uuid_lib
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -195,20 +196,28 @@ class EnableBankingProvider(BankProvider):
             for raw_acc in data.get("accounts") or []:
                 if not isinstance(raw_acc, dict):
                     continue
+                # Enable Banking /accounts/{uid}/... exige strictement un UUID valide.
+                # Les cartes masquées (ex. "************1145") ou comptes sans uid ne sont pas synchronisables.
+                raw_uid = raw_acc.get("uid")
+                if not raw_uid:
+                    logger.info(
+                        "Skipping Enable Banking account without uid: %s",
+                        raw_acc.get("name") or raw_acc.get("details"),
+                    )
+                    continue
+                try:
+                    uuid_lib.UUID(str(raw_uid))
+                except ValueError:
+                    logger.info("Skipping non-UUID Enable Banking account uid=%s", raw_uid)
+                    continue
+
                 account_id_obj = raw_acc.get("account_id") or {}
                 iban = (
                     account_id_obj.get("iban")
                     if isinstance(account_id_obj, dict)
                     else None
                 )
-                other_id = (
-                    (account_id_obj.get("other") or {}).get("identification")
-                    if isinstance(account_id_obj, dict)
-                    else None
-                )
-                uid = raw_acc.get("uid") or iban or other_id
-                if not uid:
-                    continue
+                uid = str(raw_uid)
                 name = (
                     raw_acc.get("name")
                     or raw_acc.get("details")
@@ -221,7 +230,7 @@ class EnableBankingProvider(BankProvider):
                 balance = await self._fetch_account_balance(client, uid)
                 accounts.append(
                     ExternalAccount(
-                        external_account_id=str(uid),
+                        external_account_id=uid,
                         name=str(name)[:100],
                         iban_masked=mask_iban(iban),
                         currency=str(currency)[:3],

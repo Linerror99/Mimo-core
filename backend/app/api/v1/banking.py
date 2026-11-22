@@ -133,6 +133,21 @@ async def delete_bank_connection(
     return None
 
 
+@router.post("/accounts/{account_id}/unlink", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_bank_account(
+    account_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Détache un compte Mimo précis de la synchronisation bancaire sans déconnecter toute la banque."""
+    service = BankingSyncService(db)
+    await service.unlink_account(
+        household_id=current_user.household_id,
+        account_id=account_id,
+    )
+    return None
+
+
 @router.post("/sync", response_model=SyncSummaryResponse)
 async def sync_household_banks(
     current_user: User = Depends(get_current_user),

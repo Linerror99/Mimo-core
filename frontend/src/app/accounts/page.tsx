@@ -181,6 +181,16 @@ function AccountsContent() {
     }
   };
 
+  const handleUnlinkBankAccount = async (accountId: string) => {
+    try {
+      await bankingService.unlinkAccount(accountId);
+      toast.success("Synchronisation désactivée pour ce compte");
+      await invalidateBankAndFinance();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Action impossible");
+    }
+  };
+
   return (
     <AppShell activePath="/accounts">
       <AccountsView
@@ -198,6 +208,7 @@ function AccountsContent() {
         onSyncAllBanks={handleSyncAllBanks}
         onSyncBankConnection={handleSyncSingleConnection}
         onDeleteBankConnection={handleDeleteBankConnection}
+        onUnlinkBankAccount={handleUnlinkBankAccount}
         defaultOpenCreate={searchParams.get("new") === "1"}
       />
     </AppShell>

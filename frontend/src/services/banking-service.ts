@@ -89,4 +89,10 @@ export const bankingService = {
       method: "POST",
     });
   },
+
+  async unlinkAccount(accountId: string): Promise<void> {
+    await apiRequest<void>(`/banking/accounts/${accountId}/unlink`, {
+      method: "POST",
+    });
+  },
 };
