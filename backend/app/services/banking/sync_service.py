@@ -27,7 +27,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -519,10 +519,13 @@ class BankingSyncService:
         tx_service: TransactionService,
         category_hints: dict[str, str],
     ) -> str:
-        # 1. Strict deduplication by (account_id, external_transaction_id)
+        # 1. Strict deduplication by (account_id or destination_account_id, external_transaction_id)
         dup_res = await self.db.execute(
             select(Transaction.id).where(
-                Transaction.account_id == account.id,
+                or_(
+                    Transaction.account_id == account.id,
+                    Transaction.destination_account_id == account.id,
+                ),
                 Transaction.external_transaction_id == ext_tx.external_transaction_id,
                 Transaction.deleted_at.is_(None),
             )
@@ -538,14 +541,31 @@ class BankingSyncService:
         )
 
         # 2. Auto-matching EXACT au centime près (zero tolerance!) sur PENDING/PROJECTED (±3 jours)
+        # Inclut les virements internes (TRANSFER sortant pour un débit, entrant pour un crédit)
         window_start = ext_tx.booking_date - timedelta(days=AUTO_MATCH_DATE_WINDOW_DAYS)
         window_end = ext_tx.booking_date + timedelta(days=AUTO_MATCH_DATE_WINDOW_DAYS)
+
+        if tx_type == TransactionType.EXPENSE:
+            account_and_type_filter = and_(
+                Transaction.account_id == account.id,
+                Transaction.type.in_([TransactionType.EXPENSE, TransactionType.TRANSFER]),
+            )
+        else:
+            account_and_type_filter = or_(
+                and_(
+                    Transaction.account_id == account.id,
+                    Transaction.type == TransactionType.INCOME,
+                ),
+                and_(
+                    Transaction.destination_account_id == account.id,
+                    Transaction.type == TransactionType.TRANSFER,
+                ),
+            )
 
         cand_res = await self.db.execute(
             select(Transaction).where(
                 Transaction.household_id == account.household_id,
-                Transaction.account_id == account.id,
-                Transaction.type == tx_type,
+                account_and_type_filter,
                 Transaction.deleted_at.is_(None),
                 Transaction.external_transaction_id.is_(None),
                 Transaction.state.in_([TransactionState.PENDING, TransactionState.PROJECTED]),
@@ -565,7 +585,9 @@ class BankingSyncService:
             )
             matched = exact_matches[0]
             matched.state = TransactionState.REALIZED
-            matched.amount = normalized_amount
+            matched.amount = TransactionService._normalize_amount_sign(
+                matched.type, ext_tx.amount
+            )
             matched.transaction_date = ext_tx.booking_date
             matched.external_transaction_id = ext_tx.external_transaction_id
             matched.import_source = "open_banking"
@@ -649,8 +671,13 @@ class BankingSyncService:
         await self.db.delete(imported_tx)
         await self.db.flush()
 
-        # Apply bank ground-truth data onto the planned transaction
-        target_tx.account_id = bank_account_id
+        # Apply bank ground-truth data onto the planned/existing transaction
+        # Preserve source/destination accounts when merging into an incoming TRANSFER
+        if (
+            target_tx.type != TransactionType.TRANSFER
+            or target_tx.destination_account_id != bank_account_id
+        ):
+            target_tx.account_id = bank_account_id
         target_tx.amount = bank_amount
         target_tx.transaction_date = bank_date
         target_tx.state = TransactionState.REALIZED

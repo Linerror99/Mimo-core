@@ -2934,33 +2934,123 @@ export function TimelineView({
       >
         {mergingTx &&
           (() => {
-            const pool =
-              allTransactions && allTransactions.length > 0
-                ? allTransactions
-                : transactions;
+            const byId = new Map<string, Transaction>();
+            for (const t of allTransactions ?? []) {
+              byId.set(t.id, t);
+            }
+            for (const t of transactions) {
+              byId.set(t.id, t);
+            }
+            const accountsById = new Map(accounts.map((a) => [a.id, a]));
+            const pool = Array.from(byId.values());
             const q = mergeSearch.trim().toLowerCase();
+            const qNormalized = q.replace(",", ".");
+            const mergingAbs = Math.abs(Number(mergingTx.amount));
+            const mergingDateMs = new Date(
+              `${mergingTx.transaction_date}T00:00:00`
+            ).getTime();
+
+            const getDaysDiff = (isoDate: string) => {
+              const ms = new Date(`${isoDate}T00:00:00`).getTime();
+              return Math.round(Math.abs(ms - mergingDateMs) / 86_400_000);
+            };
+
+            const isTypeCompatible = (t: Transaction) => {
+              if (t.type === mergingTx.type) return true;
+              // Un virement interne Mimo (TRANSFER) correspond à un débit (EXPENSE)
+              // côté compte source ou un crédit (INCOME) côté compte destination.
+              if (t.type === "TRANSFER") {
+                if (mergingTx.type === "EXPENSE") {
+                  return t.destination_account_id !== mergingTx.account_id;
+                }
+                if (mergingTx.type === "INCOME") {
+                  return (
+                    t.destination_account_id === mergingTx.account_id ||
+                    t.account_id !== mergingTx.account_id
+                  );
+                }
+              }
+              return false;
+            };
+
+            const scoreCandidate = (t: Transaction) => {
+              const daysDiff = getDaysDiff(t.transaction_date);
+              const sameAmount =
+                Math.abs(Math.abs(Number(t.amount)) - mergingAbs) < 0.005;
+              const sameAccount =
+                t.account_id === mergingTx.account_id ||
+                t.destination_account_id === mergingTx.account_id;
+              const isPlanned = t.state !== "REALIZED";
+
+              let tier = 5;
+              if (sameAmount && sameAccount && daysDiff <= 7) tier = 0;
+              else if (sameAmount && daysDiff <= 15) tier = 1;
+              else if (isPlanned && sameAccount && daysDiff <= 35) tier = 2;
+              else if (sameAccount && daysDiff <= 14) tier = 3;
+              else if (isPlanned) tier = 4;
+
+              return {
+                tier,
+                plannedRank: isPlanned ? 0 : 1,
+                daysDiff,
+                isProbable: tier === 0,
+              };
+            };
+
             const candidates = pool
               .filter(
                 (t) =>
                   !t.deleted_at &&
                   t.id !== mergingTx.id &&
                   !t.external_transaction_id &&
-                  t.type === mergingTx.type
+                  isTypeCompatible(t)
               )
-              .filter((t) =>
-                !q
-                  ? true
-                  : t.description.toLowerCase().includes(q) ||
-                    t.transaction_date.includes(q)
-              )
-              .sort((a, b) => {
-                // Prioritize PENDING / PROJECTED first, then closest date
-                const aPlanned = a.state !== "REALIZED" ? 0 : 1;
-                const bPlanned = b.state !== "REALIZED" ? 0 : 1;
-                if (aPlanned !== bPlanned) return aPlanned - bPlanned;
-                return b.transaction_date.localeCompare(a.transaction_date);
+              .filter((t) => {
+                if (!q) return true;
+                const [y, m, d] = t.transaction_date.split("-");
+                const frNumericDate = d && m && y ? `${d}/${m}/${y}` : "";
+                const frShortDate = d && m ? `${d}/${m}` : "";
+                const amountAbs = Math.abs(Number(t.amount));
+                const amountDot = amountAbs.toFixed(2);
+                const amountComma = amountDot.replace(".", ",");
+                const amountRaw = String(amountAbs);
+                const accName = (
+                  accountsById.get(t.account_id)?.name ?? ""
+                ).toLowerCase();
+                const destAccName = t.destination_account_id
+                  ? (
+                      accountsById.get(t.destination_account_id)?.name ?? ""
+                    ).toLowerCase()
+                  : "";
+                return (
+                  t.description.toLowerCase().includes(q) ||
+                  t.transaction_date.includes(q) ||
+                  frNumericDate.includes(q) ||
+                  frShortDate.includes(q) ||
+                  formatDateFr(t.transaction_date).toLowerCase().includes(q) ||
+                  amountDot.includes(qNormalized) ||
+                  amountComma.includes(q) ||
+                  amountRaw.includes(qNormalized) ||
+                  accName.includes(q) ||
+                  destAccName.includes(q)
+                );
               })
-              .slice(0, 30);
+              .map((t) => ({ tx: t, score: scoreCandidate(t) }))
+              .sort((a, b) => {
+                if (a.score.tier !== b.score.tier) {
+                  return a.score.tier - b.score.tier;
+                }
+                if (a.score.daysDiff !== b.score.daysDiff) {
+                  return a.score.daysDiff - b.score.daysDiff;
+                }
+                if (a.score.plannedRank !== b.score.plannedRank) {
+                  return a.score.plannedRank - b.score.plannedRank;
+                }
+                return b.tx.transaction_date.localeCompare(
+                  a.tx.transaction_date
+                );
+              })
+              .slice(0, 50);
 
             return (
               <div className="space-y-4">
@@ -2991,7 +3081,7 @@ export function TimelineView({
                     type="text"
                     value={mergeSearch}
                     onChange={(e) => setMergeSearch(e.target.value)}
-                    placeholder="Rechercher l'opération prévue (ex. Salaire, Loyer)..."
+                    placeholder="Rechercher par libellé, montant (ex. 95) ou date (ex. 19/11)..."
                     className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs dark:border-zinc-800 dark:bg-[#121215]"
                   />
                 </div>
@@ -3002,8 +3092,17 @@ export function TimelineView({
                   </p>
                 ) : (
                   <div className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-zinc-800 dark:border-zinc-800">
-                    {candidates.map((cand) => {
+                    {candidates.map(({ tx: cand, score }) => {
                       const selected = mergeTargetId === cand.id;
+                      const candAccountName = accountsById.get(
+                        cand.account_id
+                      )?.name;
+                      const signedCandAmount =
+                        cand.type === "EXPENSE" ||
+                        (cand.type === "TRANSFER" &&
+                          cand.account_id === mergingTx.account_id)
+                          ? -Math.abs(Number(cand.amount))
+                          : Math.abs(Number(cand.amount));
                       return (
                         <button
                           key={cand.id}
@@ -3024,18 +3123,24 @@ export function TimelineView({
                               <Badge variant={stateBadgeVariant(cand.state)}>
                                 {TRANSACTION_STATE_LABELS[cand.state]}
                               </Badge>
+                              {cand.type === "TRANSFER" && (
+                                <Badge variant="neutral">Virement</Badge>
+                              )}
+                              {score.isProbable && (
+                                <Badge variant="info">
+                                  Correspondance probable
+                                </Badge>
+                              )}
                             </div>
                             <p className="mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400">
-                              Prévue le {formatDateFr(cand.transaction_date)}
+                              {cand.state === "REALIZED" ? "Le" : "Prévue le"}{" "}
+                              {formatDateFr(cand.transaction_date)}
+                              {candAccountName ? ` · ${candAccountName}` : ""}
                             </p>
                           </div>
                           <AmountDisplay
-                            amount={
-                              cand.type === "EXPENSE"
-                                ? -Math.abs(Number(cand.amount))
-                                : Math.abs(Number(cand.amount))
-                            }
-                            signed
+                            amount={signedCandAmount}
+                            signed={cand.type !== "TRANSFER"}
                             className="shrink-0 font-semibold text-slate-700 dark:text-zinc-200"
                           />
                         </button>

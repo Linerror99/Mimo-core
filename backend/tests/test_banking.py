@@ -317,3 +317,76 @@ class TestOpenBanking:
         unlinked = unlink_res.json()
         assert unlinked["import_source"] == "manual"
         assert unlinked["external_transaction_id"] is None
+
+    async def test_merge_bank_expense_into_existing_transfer_preserves_transfer(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """
+        Fusion d'un débit bancaire (-95 € EXPENSE) dans un virement interne manuel déjà REALIZED
+        (SG -> BNP) : conserve type=TRANSFER et destination_account_id, met à jour la date et
+        rattache external_transaction_id sans doublon.
+        """
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        today = date.today()
+
+        sg = Account(
+            household_id=test_user_household_id,
+            name="SG",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("500.00"),
+        )
+        bnp = Account(
+            household_id=test_user_household_id,
+            name="BNP",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("200.00"),
+        )
+        db_session.add_all([sg, bnp])
+        await db_session.flush()
+
+        manual_transfer = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            destination_account_id=bnp.id,
+            description="Virement SG -BNP",
+            amount=Decimal("-95.00"),
+            transaction_date=today - timedelta(days=1),
+            type=TransactionType.TRANSFER,
+            state=TransactionState.REALIZED,
+        )
+        imported_debit = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            description="000001 VIR INSTANTANE EMIS LOGITEL",
+            amount=Decimal("-95.00"),
+            transaction_date=today,
+            type=TransactionType.EXPENSE,
+            state=TransactionState.REALIZED,
+            external_transaction_id="eb_vir_bnp_95",
+            import_source="open_banking",
+        )
+        db_session.add_all([manual_transfer, imported_debit])
+        await db_session.commit()
+        await db_session.refresh(manual_transfer)
+        await db_session.refresh(imported_debit)
+
+        merge_res = await client.post(
+            f"/api/v1/banking/transactions/{imported_debit.id}/merge",
+            json={"target_transaction_id": manual_transfer.id},
+            headers=headers,
+        )
+        assert merge_res.status_code == 200
+        merged = merge_res.json()
+        assert merged["merged_transaction_id"] == manual_transfer.id
+        assert float(merged["amount"]) == pytest.approx(-95.00)
+        assert merged["external_transaction_id"] == "eb_vir_bnp_95"
+
+        await db_session.refresh(manual_transfer)
+        assert manual_transfer.type == TransactionType.TRANSFER
+        assert manual_transfer.account_id == sg.id
+        assert manual_transfer.destination_account_id == bnp.id
+        assert manual_transfer.transaction_date == today

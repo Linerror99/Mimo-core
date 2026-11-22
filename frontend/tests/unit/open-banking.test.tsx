@@ -179,4 +179,137 @@ describe("Open Banking UI — Connexions, Synchro manuelle & Fusion Timeline", (
     );
     expect(onMerge).toHaveBeenCalledWith("tx-imported", "tx-planned");
   });
+
+  it("affiche en priorité un virement interne ou une opération réalisée proche (même avec 35+ projections futures)", async () => {
+    const user = userEvent.setup();
+    const onMerge = vi.fn();
+
+    const futureProjected: Transaction[] = Array.from({ length: 35 }, (_, i) => ({
+      id: `tx-future-${i}`,
+      household_id: "h-1",
+      account_id: "acc-sg",
+      category_id: null,
+      destination_account_id: null,
+      description: `Abonnement futur ${i}`,
+      amount: -19.99,
+      transaction_date: `2027-0${(i % 9) + 1}-15`,
+      type: "EXPENSE",
+      notes: null,
+      state: "PROJECTED",
+      recurrence_frequency: "MONTHLY",
+      recurrence_end_date: null,
+      parent_transaction_id: null,
+      recurring_template_id: "tpl-future",
+      is_active: true,
+      deleted_at: null,
+      external_transaction_id: null,
+      import_source: "manual",
+      created_at: "2026-11-01T00:00:00Z",
+      updated_at: "2026-11-01T00:00:00Z",
+    }));
+
+    const importedDebit: Transaction = {
+      id: "tx-bank-95",
+      household_id: "h-1",
+      account_id: "acc-sg",
+      category_id: null,
+      destination_account_id: null,
+      description: "000001 VIR INSTANTANE EMIS LOGITEL",
+      amount: -95,
+      transaction_date: "2026-11-20",
+      type: "EXPENSE",
+      notes: null,
+      state: "REALIZED",
+      recurrence_frequency: "NONE",
+      recurrence_end_date: null,
+      parent_transaction_id: null,
+      recurring_template_id: null,
+      is_active: true,
+      deleted_at: null,
+      external_transaction_id: "eb_vir_95",
+      import_source: "open_banking",
+      created_at: "2026-11-20T00:00:00Z",
+      updated_at: "2026-11-20T00:00:00Z",
+    };
+
+    const manualTransfer: Transaction = {
+      id: "tx-transfer-95",
+      household_id: "h-1",
+      account_id: "acc-sg",
+      category_id: null,
+      destination_account_id: "acc-bnp",
+      description: "Virement SG -BNP",
+      amount: -95,
+      transaction_date: "2026-11-19",
+      type: "TRANSFER",
+      notes: null,
+      state: "REALIZED",
+      recurrence_frequency: "NONE",
+      recurrence_end_date: null,
+      parent_transaction_id: null,
+      recurring_template_id: null,
+      is_active: true,
+      deleted_at: null,
+      external_transaction_id: null,
+      import_source: "manual",
+      created_at: "2026-11-19T00:00:00Z",
+      updated_at: "2026-11-19T00:00:00Z",
+    };
+
+    render(
+      <TimelineView
+        isLoading={false}
+        year={2026}
+        month={11}
+        onChangeMonth={vi.fn()}
+        transactions={[importedDebit, manualTransfer]}
+        allTransactions={[importedDebit, manualTransfer, ...futureProjected]}
+        templates={[]}
+        accounts={ACCOUNTS}
+        categories={[]}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+        onDeleteTransaction={vi.fn()}
+        onValidateTransaction={vi.fn()}
+        onCreateTemplate={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onMergeBankTransaction={onMerge}
+        onUnlinkBankTransaction={vi.fn()}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /actions pour 000001 vir instantane emis logitel/i,
+      })
+    );
+    await user.click(
+      screen.getByRole("menuitem", {
+        name: /fusionner avec une opération prévue/i,
+      })
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: /fusionner avec une opération déjà prévue/i,
+    });
+    expect(within(dialog).getByText("Virement SG -BNP")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Correspondance probable")
+    ).toBeInTheDocument();
+
+    // Recherche par montant ("95") ou date FR ("19/11")
+    const searchInput = within(dialog).getByPlaceholderText(
+      /rechercher par libellé, montant/i
+    );
+    await user.type(searchInput, "19/11");
+    expect(within(dialog).getByText("Virement SG -BNP")).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: /virement sg -bnp/i })
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: /fusionner et valider/i })
+    );
+    expect(onMerge).toHaveBeenCalledWith("tx-bank-95", "tx-transfer-95");
+  });
 });
