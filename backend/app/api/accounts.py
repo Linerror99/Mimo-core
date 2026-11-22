@@ -17,6 +17,28 @@ from app.services.account_service import AccountService
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 
+def _serialize_account(account, current_balance) -> dict:
+    return {
+        "id": account.id,
+        "household_id": account.household_id,
+        "name": account.name,
+        "type": account.type,
+        "initial_balance": account.initial_balance,
+        "currency": account.currency,
+        "is_active": account.is_active == "true",
+        "logo_url": account.logo_url,
+        "current_balance": current_balance,
+        "closed_at": account.closed_at,
+        "bank_connection_id": account.bank_connection_id,
+        "external_account_id": account.external_account_id,
+        "iban_masked": account.iban_masked,
+        "sync_enabled": bool(account.sync_enabled),
+        "sync_from_date": account.sync_from_date,
+        "created_at": account.created_at,
+        "updated_at": account.updated_at,
+    }
+
+
 @router.post("", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
 async def create_account(
     account_data: AccountCreate,
@@ -39,22 +61,7 @@ async def create_account(
 
     # Ajouter le current_balance
     current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
-    account_dict = {
-        "id": account.id,
-        "household_id": account.household_id,
-        "name": account.name,
-        "type": account.type,
-        "initial_balance": account.initial_balance,
-        "currency": account.currency,
-        "is_active": account.is_active == "true",
-        "logo_url": account.logo_url,
-        "current_balance": current_balance,
-        "closed_at": account.closed_at,
-        "created_at": account.created_at,
-        "updated_at": account.updated_at
-    }
-
-    return account_dict
+    return _serialize_account(account, current_balance)
 
 
 @router.get("", response_model=List[AccountResponse])
@@ -78,26 +85,10 @@ async def list_accounts(
 
     # Ajouter le current_balance pour chaque compte en batch (évite le N+1)
     balances_map = await AccountService.calculate_balances_batch(db=db, accounts=accounts)
-    accounts_with_balance = []
-    for account in accounts:
-        current_balance = balances_map.get(account.id, account.initial_balance)
-        account_dict = {
-            "id": account.id,
-            "household_id": account.household_id,
-            "name": account.name,
-            "type": account.type,
-            "initial_balance": account.initial_balance,
-            "currency": account.currency,
-            "is_active": account.is_active == "true",
-            "logo_url": account.logo_url,
-            "current_balance": current_balance,
-            "closed_at": account.closed_at,
-            "created_at": account.created_at,
-            "updated_at": account.updated_at
-        }
-        accounts_with_balance.append(account_dict)
-
-    return accounts_with_balance
+    return [
+        _serialize_account(account, balances_map.get(account.id, account.initial_balance))
+        for account in accounts
+    ]
 
 
 @router.get("/{account_id}", response_model=AccountResponse)
@@ -127,22 +118,7 @@ async def get_account(
 
     # Ajouter le current_balance
     current_balance = await AccountService.calculate_balance(db=db, account_id=account.id)
-    account_dict = {
-        "id": account.id,
-        "household_id": account.household_id,
-        "name": account.name,
-        "type": account.type,
-        "initial_balance": account.initial_balance,
-        "currency": account.currency,
-        "is_active": account.is_active == "true",
-        "logo_url": account.logo_url,
-        "current_balance": current_balance,
-        "closed_at": account.closed_at,
-        "created_at": account.created_at,
-        "updated_at": account.updated_at
-    }
-
-    return account_dict
+    return _serialize_account(account, current_balance)
 
 
 @router.patch("/{account_id}", response_model=AccountResponse)
@@ -179,22 +155,7 @@ async def update_account(
 
     # Ajouter le current_balance
     current_balance = await AccountService.calculate_balance(db=db, account_id=updated_account.id)
-    account_dict = {
-        "id": updated_account.id,
-        "household_id": updated_account.household_id,
-        "name": updated_account.name,
-        "type": updated_account.type,
-        "initial_balance": updated_account.initial_balance,
-        "currency": updated_account.currency,
-        "is_active": updated_account.is_active == "true",
-        "logo_url": updated_account.logo_url,
-        "current_balance": current_balance,
-        "closed_at": updated_account.closed_at,
-        "created_at": updated_account.created_at,
-        "updated_at": updated_account.updated_at
-    }
-
-    return account_dict
+    return _serialize_account(updated_account, current_balance)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)

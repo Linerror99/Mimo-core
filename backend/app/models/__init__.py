@@ -1,4 +1,5 @@
 from .account import Account, AccountType
+from .bank_connection import BankConnection, BankConnectionStatus
 from .category import Category, CategoryType
 from .goal import Goal
 from .project import Project, ProjectItem, ProjectStatus
@@ -16,6 +17,8 @@ __all__ = [
     "HouseholdStatus",
     "Account",
     "AccountType",
+    "BankConnection",
+    "BankConnectionStatus",
     "Category",
     "CategoryType",
     "Transaction",

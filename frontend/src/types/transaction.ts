@@ -37,6 +37,8 @@ export interface Transaction {
   goal_name?: string | null;
   project_id?: string | null;
   project_name?: string | null;
+  external_transaction_id?: string | null;
+  import_source?: "manual" | "open_banking" | string;
 }
 
 export interface TransactionCreate {

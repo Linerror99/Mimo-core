@@ -14,6 +14,8 @@ import {
   Copy,
   Download,
   Edit3,
+  GitMerge,
+  Landmark,
   Layers,
   List,
   Plus,
@@ -22,6 +24,7 @@ import {
   SlidersHorizontal,
   Target,
   Trash2,
+  Unlink,
   X,
 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -151,6 +154,11 @@ interface TimelineViewProps {
     payload: { start_date: string; end_date: string }
   ) => Promise<void> | void;
   onDeleteTemplate: (id: string) => Promise<void> | void;
+  onMergeBankTransaction?: (
+    importedTxId: string,
+    targetTxId: string
+  ) => Promise<void> | void;
+  onUnlinkBankTransaction?: (txId: string) => Promise<void> | void;
   onExportPdf?: () => Promise<void> | void;
   defaultOpenCreate?: boolean;
   initialAccountFilter?: string;
@@ -220,6 +228,8 @@ export function TimelineView({
   onBulkUpdateTemplate,
   onBulkCancelTemplate,
   onDeleteTemplate,
+  onMergeBankTransaction,
+  onUnlinkBankTransaction,
   onExportPdf,
   defaultOpenCreate = false,
   initialAccountFilter = "ALL",
@@ -344,6 +354,12 @@ export function TimelineView({
 
   // Validation / Postpone Modal
   const [validatingTx, setValidatingTx] = useState<Transaction | null>(null);
+
+  // Merge imported bank transaction into existing planned transaction modal
+  const [mergingTx, setMergingTx] = useState<Transaction | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergingBusy, setMergingBusy] = useState(false);
 
   // Bulk Action Modal on Recurring Template
   const [bulkTpl, setBulkTpl] = useState<RecurringTemplate | null>(null);
@@ -2011,6 +2027,13 @@ export function TimelineView({
                                           </Badge>
                                         </Link>
                                       )}
+                                      {(tx.import_source === "open_banking" ||
+                                        Boolean(tx.external_transaction_id)) && (
+                                        <Badge variant="info">
+                                          <Landmark className="h-3 w-3" />
+                                          Banque
+                                        </Badge>
+                                      )}
                                     </div>
                                     {catLabel && (
                                       <p className="text-xs text-slate-500 dark:text-zinc-400">
@@ -2072,6 +2095,40 @@ export function TimelineView({
                                                   ),
                                                   onClick: () =>
                                                     setValidatingTx(tx),
+                                                },
+                                              ]
+                                            : []),
+                                          ...(onMergeBankTransaction &&
+                                          (tx.import_source === "open_banking" ||
+                                            Boolean(tx.external_transaction_id))
+                                            ? [
+                                                {
+                                                  label:
+                                                    "Fusionner avec une opération prévue",
+                                                  icon: (
+                                                    <GitMerge className="h-3.5 w-3.5" />
+                                                  ),
+                                                  onClick: () => {
+                                                    setMergingTx(tx);
+                                                    setMergeTargetId("");
+                                                    setMergeSearch("");
+                                                  },
+                                                },
+                                              ]
+                                            : []),
+                                          ...(onUnlinkBankTransaction &&
+                                          (tx.import_source === "open_banking" ||
+                                            Boolean(tx.external_transaction_id))
+                                            ? [
+                                                {
+                                                  label: "Délier de la banque",
+                                                  icon: (
+                                                    <Unlink className="h-3.5 w-3.5" />
+                                                  ),
+                                                  onClick: () =>
+                                                    onUnlinkBankTransaction(
+                                                      tx.id
+                                                    ),
                                                 },
                                               ]
                                             : []),
@@ -2866,6 +2923,168 @@ export function TimelineView({
         onPostpone={onPostponeTransaction}
         onCancelTransaction={onCancelTransaction}
       />
+
+      {/* Merge Bank Transaction into Planned Transaction Modal */}
+      <Modal
+        open={Boolean(mergingTx)}
+        onClose={() => setMergingTx(null)}
+        title="Fusionner avec une opération déjà prévue"
+        description="Reliez cette écriture bancaire à une opération existante (ex. salaire ou échéance arrivée plus tôt ou avec un montant différent)."
+        maxWidthClass="max-w-lg"
+      >
+        {mergingTx &&
+          (() => {
+            const pool =
+              allTransactions && allTransactions.length > 0
+                ? allTransactions
+                : transactions;
+            const q = mergeSearch.trim().toLowerCase();
+            const candidates = pool
+              .filter(
+                (t) =>
+                  !t.deleted_at &&
+                  t.id !== mergingTx.id &&
+                  !t.external_transaction_id &&
+                  t.type === mergingTx.type
+              )
+              .filter((t) =>
+                !q
+                  ? true
+                  : t.description.toLowerCase().includes(q) ||
+                    t.transaction_date.includes(q)
+              )
+              .sort((a, b) => {
+                // Prioritize PENDING / PROJECTED first, then closest date
+                const aPlanned = a.state !== "REALIZED" ? 0 : 1;
+                const bPlanned = b.state !== "REALIZED" ? 0 : 1;
+                if (aPlanned !== bPlanned) return aPlanned - bPlanned;
+                return b.transaction_date.localeCompare(a.transaction_date);
+              })
+              .slice(0, 30);
+
+            return (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.05] p-3.5 text-xs">
+                  <p className="font-semibold text-slate-900 dark:text-zinc-100">
+                    Écriture bancaire (référence) : {mergingTx.description}
+                  </p>
+                  <p className="mt-1 text-slate-600 dark:text-zinc-400">
+                    Date banque :{" "}
+                    <strong>{formatDateFr(mergingTx.transaction_date)}</strong>{" "}
+                    · Montant banque :{" "}
+                    <AmountDisplay
+                      amount={
+                        mergingTx.type === "EXPENSE"
+                          ? -Math.abs(Number(mergingTx.amount))
+                          : Math.abs(Number(mergingTx.amount))
+                      }
+                      signed
+                      colored
+                      className="font-semibold"
+                    />
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={mergeSearch}
+                    onChange={(e) => setMergeSearch(e.target.value)}
+                    placeholder="Rechercher l'opération prévue (ex. Salaire, Loyer)..."
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs dark:border-zinc-800 dark:bg-[#121215]"
+                  />
+                </div>
+
+                {candidates.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
+                    Aucune opération compatible trouvée à fusionner.
+                  </p>
+                ) : (
+                  <div className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-zinc-800 dark:border-zinc-800">
+                    {candidates.map((cand) => {
+                      const selected = mergeTargetId === cand.id;
+                      return (
+                        <button
+                          key={cand.id}
+                          type="button"
+                          onClick={() => setMergeTargetId(cand.id)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-xs transition-colors",
+                            selected
+                              ? "bg-violet-500/10 ring-1 ring-inset ring-violet-500/40"
+                              : "hover:bg-slate-50 dark:hover:bg-zinc-900"
+                          )}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="truncate font-semibold text-slate-900 dark:text-zinc-100">
+                                {cand.description}
+                              </span>
+                              <Badge variant={stateBadgeVariant(cand.state)}>
+                                {TRANSACTION_STATE_LABELS[cand.state]}
+                              </Badge>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400">
+                              Prévue le {formatDateFr(cand.transaction_date)}
+                            </p>
+                          </div>
+                          <AmountDisplay
+                            amount={
+                              cand.type === "EXPENSE"
+                                ? -Math.abs(Number(cand.amount))
+                                : Math.abs(Number(cand.amount))
+                            }
+                            signed
+                            className="shrink-0 font-semibold text-slate-700 dark:text-zinc-200"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  L&apos;opération sélectionnée sera mise à jour avec le{" "}
+                  <strong>montant exact de la banque</strong> et sa{" "}
+                  <strong>date réelle</strong>, passera en{" "}
+                  <strong>Réalisée</strong>, conservera ses liens (récurrence,
+                  projet, objectif), et le doublon importé sera supprimé.
+                </p>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setMergingTx(null)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!mergeTargetId || mergingBusy}
+                    onClick={async () => {
+                      if (!mergeTargetId || !onMergeBankTransaction) return;
+                      setMergingBusy(true);
+                      try {
+                        await onMergeBankTransaction(
+                          mergingTx.id,
+                          mergeTargetId
+                        );
+                        setMergingTx(null);
+                      } finally {
+                        setMergingBusy(false);
+                      }
+                    }}
+                  >
+                    <GitMerge className="h-3.5 w-3.5" />
+                    {mergingBusy ? "Fusion..." : "Fusionner et valider"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+      </Modal>
 
       {/* Delete Confirmations */}
       <ConfirmDialog
