@@ -2028,10 +2028,28 @@ export function TimelineView({
                                         </Link>
                                       )}
                                       {(tx.import_source === "open_banking" ||
-                                        Boolean(tx.external_transaction_id)) && (
-                                        <Badge variant="info">
+                                        Boolean(tx.external_transaction_id) ||
+                                        Boolean(
+                                          tx.destination_external_transaction_id
+                                        )) && (
+                                        <Badge
+                                          variant="info"
+                                          title={
+                                            tx.type === "TRANSFER"
+                                              ? tx.external_transaction_id &&
+                                                tx.destination_external_transaction_id
+                                                ? "Virement synchronisé sur les 2 banques (source et destination)"
+                                                : "Virement synchronisé sur 1 banque sur 2 (vous pouvez encore fusionner l'autre banque)"
+                                              : "Opération synchronisée par Open Banking"
+                                          }
+                                        >
                                           <Landmark className="h-3 w-3" />
-                                          Banque
+                                          {tx.type === "TRANSFER"
+                                            ? tx.external_transaction_id &&
+                                              tx.destination_external_transaction_id
+                                              ? "Banque 2/2"
+                                              : "Banque 1/2"
+                                            : "Banque"}
                                         </Badge>
                                       )}
                                     </div>
@@ -2100,7 +2118,21 @@ export function TimelineView({
                                             : []),
                                           ...(onMergeBankTransaction &&
                                           (tx.import_source === "open_banking" ||
-                                            Boolean(tx.external_transaction_id))
+                                            Boolean(
+                                              tx.external_transaction_id
+                                            ) ||
+                                            Boolean(
+                                              tx.destination_external_transaction_id
+                                            )) &&
+                                          !(
+                                            tx.type === "TRANSFER" &&
+                                            Boolean(
+                                              tx.external_transaction_id
+                                            ) &&
+                                            Boolean(
+                                              tx.destination_external_transaction_id
+                                            )
+                                          )
                                             ? [
                                                 {
                                                   label:
@@ -2118,7 +2150,12 @@ export function TimelineView({
                                             : []),
                                           ...(onUnlinkBankTransaction &&
                                           (tx.import_source === "open_banking" ||
-                                            Boolean(tx.external_transaction_id))
+                                            Boolean(
+                                              tx.external_transaction_id
+                                            ) ||
+                                            Boolean(
+                                              tx.destination_external_transaction_id
+                                            ))
                                             ? [
                                                 {
                                                   label: "Délier de la banque",
@@ -2955,22 +2992,35 @@ export function TimelineView({
               return Math.round(Math.abs(ms - mergingDateMs) / 86_400_000);
             };
 
-            const isTypeCompatible = (t: Transaction) => {
-              if (t.type === mergingTx.type) return true;
-              // Un virement interne Mimo (TRANSFER) correspond à un débit (EXPENSE)
-              // côté compte source ou un crédit (INCOME) côté compte destination.
+            const isInterbankPair = (t: Transaction) =>
+              t.account_id !== mergingTx.account_id &&
+              ((mergingTx.type === "EXPENSE" && t.type === "INCOME") ||
+                (mergingTx.type === "INCOME" && t.type === "EXPENSE"));
+
+            const isCompatibleTarget = (t: Transaction) => {
+              // 1. Virement interne existant (accepte 2 jambes : source + destination)
               if (t.type === "TRANSFER") {
                 if (mergingTx.type === "EXPENSE") {
-                  return t.destination_account_id !== mergingTx.account_id;
+                  return (
+                    !t.external_transaction_id &&
+                    t.destination_account_id !== mergingTx.account_id
+                  );
                 }
                 if (mergingTx.type === "INCOME") {
                   return (
-                    t.destination_account_id === mergingTx.account_id ||
-                    t.account_id !== mergingTx.account_id
+                    !t.destination_external_transaction_id &&
+                    (t.destination_account_id === mergingTx.account_id ||
+                      t.account_id !== mergingTx.account_id)
                   );
                 }
+                return false;
               }
-              return false;
+              // 2. Paire de virement inter-banques (débit SG + crédit BNP) -> conversion en 1 TRANSFER 2/2
+              if (isInterbankPair(t)) {
+                return true;
+              }
+              // 3. Fusion classique même type sur opération non encore liée
+              return t.type === mergingTx.type && !t.external_transaction_id;
             };
 
             const scoreCandidate = (t: Transaction) => {
@@ -2980,20 +3030,28 @@ export function TimelineView({
               const sameAccount =
                 t.account_id === mergingTx.account_id ||
                 t.destination_account_id === mergingTx.account_id;
+              const interbank = isInterbankPair(t);
               const isPlanned = t.state !== "REALIZED";
 
               let tier = 5;
-              if (sameAmount && sameAccount && daysDiff <= 7) tier = 0;
-              else if (sameAmount && daysDiff <= 15) tier = 1;
-              else if (isPlanned && sameAccount && daysDiff <= 35) tier = 2;
-              else if (sameAccount && daysDiff <= 14) tier = 3;
-              else if (isPlanned) tier = 4;
+              if (sameAmount && (sameAccount || interbank) && daysDiff <= 7) {
+                tier = 0;
+              } else if (sameAmount && daysDiff <= 15) {
+                tier = 1;
+              } else if (isPlanned && sameAccount && daysDiff <= 35) {
+                tier = 2;
+              } else if (sameAccount && daysDiff <= 14) {
+                tier = 3;
+              } else if (isPlanned) {
+                tier = 4;
+              }
 
               return {
                 tier,
                 plannedRank: isPlanned ? 0 : 1,
                 daysDiff,
                 isProbable: tier === 0,
+                isInterbank: interbank,
               };
             };
 
@@ -3002,8 +3060,7 @@ export function TimelineView({
                 (t) =>
                   !t.deleted_at &&
                   t.id !== mergingTx.id &&
-                  !t.external_transaction_id &&
-                  isTypeCompatible(t)
+                  isCompatibleTarget(t)
               )
               .filter((t) => {
                 if (!q) return true;
@@ -3124,7 +3181,17 @@ export function TimelineView({
                                 {TRANSACTION_STATE_LABELS[cand.state]}
                               </Badge>
                               {cand.type === "TRANSFER" && (
-                                <Badge variant="neutral">Virement</Badge>
+                                <Badge variant="neutral">
+                                  {cand.external_transaction_id ||
+                                  cand.destination_external_transaction_id
+                                    ? "Virement (1/2 lié)"
+                                    : "Virement"}
+                                </Badge>
+                              )}
+                              {score.isInterbank && (
+                                <Badge variant="warning">
+                                  Virement inter-banques
+                                </Badge>
                               )}
                               {score.isProbable && (
                                 <Badge variant="info">

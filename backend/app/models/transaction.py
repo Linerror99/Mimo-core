@@ -94,6 +94,7 @@ class Transaction(Base):
 
     # Open Banking / Provenance
     external_transaction_id = Column(String(255), nullable=True, index=True)
+    destination_external_transaction_id = Column(String(255), nullable=True, index=True)
     import_source = Column(String(32), nullable=False, default="manual", server_default="manual")
 
     # Métadonnées

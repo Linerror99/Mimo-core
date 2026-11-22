@@ -486,3 +486,292 @@ class TestOpenBanking:
         assert sg.sync_enabled is False
         assert sg.bank_connection_id is None
         assert sg.external_account_id is None
+
+    async def test_two_legged_interbank_transfer_merge_and_zero_duplicates(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+        test_user,
+    ):
+        """
+        Scénario SG -> BNP avec les 2 banques connectées :
+        1. Un virement manuel SG -> BNP (95€) existe.
+        2. On fusionne le débit SG (-95€ le 19) -> remplit external_transaction_id (1/2).
+        3. On fusionne le crédit BNP (+95€ le 20) dans le MÊME virement -> remplit
+           destination_external_transaction_id (2/2) sans écraser la date source (19).
+        4. Une re-synchro SG + BNP skippe les 2 écritures (0 doublon à vie).
+        """
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        conn_sg = BankConnection(
+            household_id=test_user_household_id,
+            user_id=test_user.id,
+            provider="mock",
+            institution_name="Société Générale",
+            institution_country="FR",
+            session_id="sess_2leg_sg",
+            state_token="state_2leg_sg",
+            status="ACTIVE",
+            consent_expires_at=datetime.utcnow() + timedelta(days=60),
+        )
+        conn_bnp = BankConnection(
+            household_id=test_user_household_id,
+            user_id=test_user.id,
+            provider="mock",
+            institution_name="BNP Paribas",
+            institution_country="FR",
+            session_id="sess_2leg_bnp",
+            state_token="state_2leg_bnp",
+            status="ACTIVE",
+            consent_expires_at=datetime.utcnow() + timedelta(days=60),
+        )
+        db_session.add_all([conn_sg, conn_bnp])
+        await db_session.flush()
+
+        sg = Account(
+            household_id=test_user_household_id,
+            name="SG 2-Leg",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("500.00"),
+            bank_connection_id=conn_sg.id,
+            external_account_id="ext_2leg_sg",
+            sync_enabled=True,
+            sync_from_date=today - timedelta(days=5),
+        )
+        bnp = Account(
+            household_id=test_user_household_id,
+            name="BNP 2-Leg",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("200.00"),
+            bank_connection_id=conn_bnp.id,
+            external_account_id="ext_2leg_bnp",
+            sync_enabled=True,
+            sync_from_date=today - timedelta(days=5),
+        )
+        db_session.add_all([sg, bnp])
+        await db_session.flush()
+
+        manual_transfer = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            destination_account_id=bnp.id,
+            description="Virement SG -> BNP",
+            amount=Decimal("-95.00"),
+            transaction_date=yesterday,
+            type=TransactionType.TRANSFER,
+            state=TransactionState.REALIZED,
+        )
+        sg_debit = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            description="VIR EMIS VERS BNP",
+            amount=Decimal("-95.00"),
+            transaction_date=yesterday,
+            type=TransactionType.EXPENSE,
+            state=TransactionState.REALIZED,
+            external_transaction_id="sg_tx_95",
+            import_source="open_banking",
+        )
+        bnp_credit = Transaction(
+            household_id=test_user_household_id,
+            account_id=bnp.id,
+            description="VIR RECU DE SG",
+            amount=Decimal("95.00"),
+            transaction_date=today,
+            type=TransactionType.INCOME,
+            state=TransactionState.REALIZED,
+            external_transaction_id="bnp_tx_95",
+            import_source="open_banking",
+        )
+        db_session.add_all([manual_transfer, sg_debit, bnp_credit])
+        await db_session.commit()
+
+        # Fusion jambe 1 (SG source)
+        m1 = await client.post(
+            f"/api/v1/banking/transactions/{sg_debit.id}/merge",
+            json={"target_transaction_id": manual_transfer.id},
+            headers=headers,
+        )
+        assert m1.status_code == 200
+        assert m1.json()["external_transaction_id"] == "sg_tx_95"
+        assert m1.json()["destination_external_transaction_id"] is None
+
+        # Fusion jambe 2 (BNP destination) sur le MÊME virement
+        m2 = await client.post(
+            f"/api/v1/banking/transactions/{bnp_credit.id}/merge",
+            json={"target_transaction_id": manual_transfer.id},
+            headers=headers,
+        )
+        assert m2.status_code == 200
+        m2_data = m2.json()
+        assert m2_data["external_transaction_id"] == "sg_tx_95"
+        assert m2_data["destination_external_transaction_id"] == "bnp_tx_95"
+        # La date source (yesterday) est conservée malgré le crédit BNP à today
+        assert m2_data["transaction_date"] == yesterday.isoformat()
+
+        # Re-synchro SG et BNP -> 0 doublon des deux côtés
+        sg_service = BankingSyncService(
+            db_session,
+            provider=MockBankProvider(
+                custom_transactions=[
+                    ExternalTransaction(
+                        external_transaction_id="sg_tx_95",
+                        booking_date=yesterday,
+                        amount=Decimal("-95.00"),
+                        description="VIR EMIS VERS BNP",
+                    )
+                ]
+            ),
+        )
+        sg_res = await sg_service.sync_connection(test_user_household_id, conn_sg.id)
+        assert sg_res.imported == 0
+        assert sg_res.skipped == 1
+
+        bnp_service = BankingSyncService(
+            db_session,
+            provider=MockBankProvider(
+                custom_transactions=[
+                    ExternalTransaction(
+                        external_transaction_id="bnp_tx_95",
+                        booking_date=today,
+                        amount=Decimal("95.00"),
+                        description="VIR RECU DE SG",
+                    )
+                ]
+            ),
+        )
+        bnp_res = await bnp_service.sync_connection(test_user_household_id, conn_bnp.id)
+        assert bnp_res.imported == 0
+        assert bnp_res.skipped == 1
+
+    async def test_merge_two_opposite_bank_txs_converts_to_transfer_and_auto_interbank_sync(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+        test_user,
+    ):
+        """
+        Vérifie :
+        1. Fusion manuelle d'un débit bancaire SG (-80€) avec un crédit bancaire BNP (+80€)
+           -> convertit en 1 seul TRANSFER SG -> BNP avec les 2 external IDs.
+        2. Auto-conversion lors de la synchro BNP (+120€) quand le débit SG (-120€) existe déjà à ±3j.
+        """
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        today = date.today()
+
+        conn_bnp = BankConnection(
+            household_id=test_user_household_id,
+            user_id=test_user.id,
+            provider="mock",
+            institution_name="BNP Paribas",
+            institution_country="FR",
+            session_id="sess_auto_bnp",
+            state_token="state_auto_bnp",
+            status="ACTIVE",
+            consent_expires_at=datetime.utcnow() + timedelta(days=60),
+        )
+        db_session.add(conn_bnp)
+        await db_session.flush()
+
+        sg = Account(
+            household_id=test_user_household_id,
+            name="SG Auto",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("500.00"),
+        )
+        bnp = Account(
+            household_id=test_user_household_id,
+            name="BNP Auto",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("200.00"),
+            bank_connection_id=conn_bnp.id,
+            external_account_id="ext_auto_bnp",
+            sync_enabled=True,
+            sync_from_date=today - timedelta(days=5),
+        )
+        db_session.add_all([sg, bnp])
+        await db_session.flush()
+
+        # Cas 1 : Fusion manuelle de 2 opérations bancaires opposées -> 1 TRANSFER 2/2
+        sg_80 = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            description="VIR SG -> BNP 80",
+            amount=Decimal("-80.00"),
+            transaction_date=today - timedelta(days=1),
+            type=TransactionType.EXPENSE,
+            state=TransactionState.REALIZED,
+            external_transaction_id="sg_80_id",
+            import_source="open_banking",
+        )
+        bnp_80 = Transaction(
+            household_id=test_user_household_id,
+            account_id=bnp.id,
+            description="VIR RECU SG 80",
+            amount=Decimal("80.00"),
+            transaction_date=today,
+            type=TransactionType.INCOME,
+            state=TransactionState.REALIZED,
+            external_transaction_id="bnp_80_id",
+            import_source="open_banking",
+        )
+        # Cas 2 : Débit SG -120€ déjà présent avant la synchro BNP (+120€)
+        sg_120 = Transaction(
+            household_id=test_user_household_id,
+            account_id=sg.id,
+            description="VIR SG -> BNP 120",
+            amount=Decimal("-120.00"),
+            transaction_date=today - timedelta(days=1),
+            type=TransactionType.EXPENSE,
+            state=TransactionState.REALIZED,
+            external_transaction_id="sg_120_id",
+            import_source="open_banking",
+        )
+        db_session.add_all([sg_80, bnp_80, sg_120])
+        await db_session.commit()
+
+        merge_res = await client.post(
+            f"/api/v1/banking/transactions/{bnp_80.id}/merge",
+            json={"target_transaction_id": sg_80.id},
+            headers=headers,
+        )
+        assert merge_res.status_code == 200
+        merged = merge_res.json()
+        assert merged["type"] == "TRANSFER"
+        assert merged["external_transaction_id"] == "sg_80_id"
+        assert merged["destination_external_transaction_id"] == "bnp_80_id"
+
+        await db_session.refresh(sg_80)
+        assert sg_80.account_id == sg.id
+        assert sg_80.destination_account_id == bnp.id
+
+        # Auto-détection lors de la synchro BNP (+120€)
+        bnp_service = BankingSyncService(
+            db_session,
+            provider=MockBankProvider(
+                custom_transactions=[
+                    ExternalTransaction(
+                        external_transaction_id="bnp_120_id",
+                        booking_date=today,
+                        amount=Decimal("120.00"),
+                        description="VIR RECU DE SG 120",
+                    )
+                ]
+            ),
+        )
+        summary = await bnp_service.sync_connection(test_user_household_id, conn_bnp.id)
+        assert summary.matched == 1
+        assert summary.imported == 0
+
+        await db_session.refresh(sg_120)
+        assert sg_120.type == TransactionType.TRANSFER
+        assert sg_120.account_id == sg.id
+        assert sg_120.destination_account_id == bnp.id
+        assert sg_120.external_transaction_id == "sg_120_id"
+        assert sg_120.destination_external_transaction_id == "bnp_120_id"

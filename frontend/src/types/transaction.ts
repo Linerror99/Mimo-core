@@ -38,6 +38,7 @@ export interface Transaction {
   project_id?: string | null;
   project_name?: string | null;
   external_transaction_id?: string | null;
+  destination_external_transaction_id?: string | null;
   import_source?: "manual" | "open_banking" | string;
 }
 

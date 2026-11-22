@@ -145,7 +145,8 @@ class TransactionResponse(TransactionBase):
     destination_account_name: Optional[str] = Field(None, description="Nom du compte destination")
     goal_name: Optional[str] = Field(None, description="Nom de l'objectif d'épargne lié")
     project_name: Optional[str] = Field(None, description="Nom du projet lié")
-    external_transaction_id: Optional[str] = Field(None, description="Identifiant bancaire immuable (Open Banking)")
+    external_transaction_id: Optional[str] = Field(None, description="Identifiant bancaire immuable côté source (Open Banking)")
+    destination_external_transaction_id: Optional[str] = Field(None, description="Identifiant bancaire immuable côté destination pour les virements inter-banques")
     import_source: str = Field(default="manual", description="Provenance : manual ou open_banking")
 
     model_config = {"from_attributes": True}
