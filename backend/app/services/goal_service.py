@@ -134,6 +134,36 @@ class GoalService:
         result = await self.db.execute(query.order_by(Goal.created_at.desc()))
         return list(result.scalars().all())
 
+    async def enrich_goals_with_realized_amounts(self, goals: List[Goal]) -> List[Goal]:
+        """
+        Synchronise à la lecture le `current_amount` des objectifs qui possèdent
+        des transactions liées déjà réalisées (`REALIZED`), en 1 seule requête SQL.
+        Les objectifs sans transactions réalisées liées conservent leur `current_amount` manuel.
+        """
+        if not goals:
+            return goals
+
+        goal_ids = [g.id for g in goals]
+        res = await self.db.execute(
+            select(
+                Transaction.goal_id,
+                func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
+            )
+            .where(
+                Transaction.goal_id.in_(goal_ids),
+                Transaction.deleted_at.is_(None),
+                Transaction.state == TransactionState.REALIZED,
+            )
+            .group_by(Transaction.goal_id)
+        )
+        realized_map = {row[0]: Decimal(str(row[1])) for row in res.all()}
+
+        for goal in goals:
+            if goal.id in realized_map:
+                goal.current_amount = realized_map[goal.id]
+
+        return goals
+
     async def update_goal(
         self,
         goal_id: str,
@@ -278,7 +308,7 @@ class GoalService:
 
         destination_account_id = goal.destination_account_id
         tx_type = TransactionType.TRANSFER if destination_account_id else TransactionType.EXPENSE
-        tx_amount = Decimal(str(monthly if tx_type == TransactionType.TRANSFER else -abs(monthly)))
+        tx_amount = Decimal(str(-abs(monthly)))
 
         today = date.today()
 

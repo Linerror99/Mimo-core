@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.project import ProjectStatus
+from app.models.transaction import TransactionState
 
 
 # ==============================================================================
@@ -44,6 +45,7 @@ class ProjectItemResponse(ProjectItemBase):
     id: str
     project_id: str
     transaction_id: Optional[str] = None
+    transaction_state: Optional[TransactionState] = None
     created_at: datetime
     updated_at: datetime
 

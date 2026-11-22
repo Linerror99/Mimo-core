@@ -147,7 +147,9 @@ export function QuickTransactionModal({
         toast.success("Récurrence rapide enregistrée");
       } else {
         const signedAmount =
-          txType === "EXPENSE" ? -Math.abs(numeric) : Math.abs(numeric);
+          txType === "EXPENSE" || txType === "TRANSFER"
+            ? -Math.abs(numeric)
+            : Math.abs(numeric);
         await transactionService.create({
           description: description.trim(),
           amount: signedAmount,

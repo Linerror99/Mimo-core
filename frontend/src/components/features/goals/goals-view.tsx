@@ -29,7 +29,10 @@ import type {
   PurchaseSimulationResult,
   SafeToSpendData,
 } from "@/types/projection";
-import type { Transaction } from "@/types/transaction";
+import {
+  TRANSACTION_STATE_LABELS,
+  type Transaction,
+} from "@/types/transaction";
 
 interface GoalsViewProps {
   isLoading: boolean;
@@ -681,14 +684,19 @@ export function GoalsView({
       </Modal>
 
       {/* Modal: Goal Detail & Versements (processus exact de GoalDetailModal) */}
+      {(() => {
+        const activeDetailGoal = detailGoal
+          ? (goals.find((g) => g.id === detailGoal.id) ?? detailGoal)
+          : null;
+        return (
       <Modal
-        open={Boolean(detailGoal)}
+        open={Boolean(activeDetailGoal)}
         onClose={closeDetailModal}
-        title={detailGoal?.name ?? ""}
-        description={detailGoal?.description ?? undefined}
+        title={activeDetailGoal?.name ?? ""}
+        description={activeDetailGoal?.description ?? undefined}
         maxWidthClass="max-w-xl"
       >
-        {detailGoal && (
+        {activeDetailGoal && (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
               <div>
@@ -696,11 +704,11 @@ export function GoalsView({
                   Épargne accumulée
                 </span>
                 <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-zinc-50">
-                  <AmountDisplay amount={Number(detailGoal.current_amount)} />
-                  {detailGoal.target_amount ? (
+                  <AmountDisplay amount={Number(activeDetailGoal.current_amount)} />
+                  {activeDetailGoal.target_amount ? (
                     <span className="ml-2 text-xs font-normal text-slate-500 dark:text-zinc-400">
                       /{" "}
-                      <AmountDisplay amount={Number(detailGoal.target_amount)} />
+                      <AmountDisplay amount={Number(activeDetailGoal.target_amount)} />
                     </span>
                   ) : null}
                 </p>
@@ -710,7 +718,7 @@ export function GoalsView({
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    const g = detailGoal;
+                    const g = activeDetailGoal;
                     closeDetailModal();
                     openEditDialog(g);
                   }}
@@ -722,7 +730,7 @@ export function GoalsView({
                   size="sm"
                   variant="danger-outline"
                   onClick={() => {
-                    const g = detailGoal;
+                    const g = activeDetailGoal;
                     closeDetailModal();
                     setGoalToDelete(g);
                   }}
@@ -802,7 +810,7 @@ export function GoalsView({
                     type="text"
                     value={txDescription}
                     onChange={(e) => setTxDescription(e.target.value)}
-                    placeholder={`Versement ${detailGoal.name}`}
+                    placeholder={`Versement ${activeDetailGoal.name}`}
                     className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-[#121215]"
                   />
                 </div>
@@ -868,42 +876,71 @@ export function GoalsView({
               </p>
             ) : (
               <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-zinc-800 dark:border-zinc-800">
-                {selectedGoalTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs"
-                  >
-                    <div>
-                      <p className="font-medium text-slate-900 dark:text-zinc-100">
-                        {tx.description}
-                      </p>
-                      <p className="text-slate-500 dark:text-zinc-400">
-                        {formatDateFr(tx.transaction_date)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <AmountDisplay
-                        amount={Math.abs(Number(tx.amount))}
-                        className="font-semibold text-emerald-600 dark:text-emerald-400"
-                      />
-                      {onDeleteContributionTx && (
-                        <button
-                          type="button"
-                          onClick={() => onDeleteContributionTx(tx.id)}
-                          aria-label={`Supprimer le versement ${tx.description}`}
-                          className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-rose-500/10 hover:text-rose-600"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                {selectedGoalTransactions.map((tx) => {
+                  const isRealized = tx.state === "REALIZED";
+                  const isPending = tx.state === "PENDING";
+                  const isProjected = tx.state === "PROJECTED";
+                  const badgeVariant = isRealized
+                    ? "success"
+                    : isPending
+                      ? "warning"
+                      : "neutral";
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className={cn(
+                        "flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs",
+                        isProjected && "opacity-65"
                       )}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="font-medium text-slate-900 dark:text-zinc-100">
+                            {tx.description}
+                          </p>
+                          <Badge
+                            variant={badgeVariant}
+                            className={cn(isProjected && "border-dashed")}
+                          >
+                            {TRANSACTION_STATE_LABELS[tx.state]}
+                          </Badge>
+                        </div>
+                        <p className="mt-0.5 text-slate-500 dark:text-zinc-400">
+                          {formatDateFr(tx.transaction_date)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <AmountDisplay
+                          amount={Math.abs(Number(tx.amount))}
+                          className={cn(
+                            "font-semibold",
+                            isRealized
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-slate-500 dark:text-zinc-400"
+                          )}
+                        />
+                        {onDeleteContributionTx && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteContributionTx(tx.id)}
+                            aria-label={`Supprimer le versement ${tx.description}`}
+                            className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-rose-500/10 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
       </Modal>
+        );
+      })()}
 
       <ConfirmDialog
         open={Boolean(goalToDelete)}

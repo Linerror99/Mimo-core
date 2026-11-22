@@ -106,6 +106,17 @@ class ProjectService:
                 detail="Projet introuvable"
             )
 
+        tx_ids = [item.transaction_id for item in project.items if item.transaction_id]
+        tx_state_map = {}
+        if tx_ids:
+            tx_res = await db.execute(
+                select(Transaction.id, Transaction.state).where(
+                    Transaction.id.in_(tx_ids),
+                    Transaction.deleted_at.is_(None),
+                )
+            )
+            tx_state_map = {row[0]: row[1] for row in tx_res.all()}
+
         items_resp = []
         total_planned = Decimal("0")
         for item in project.items:
@@ -121,6 +132,7 @@ class ProjectService:
                     category_id=item.category_id,
                     owner_user_id=item.owner_user_id,
                     transaction_id=item.transaction_id,
+                    transaction_state=tx_state_map.get(item.transaction_id) if item.transaction_id else None,
                     notes=item.notes,
                     created_at=item.created_at,
                     updated_at=item.updated_at,
@@ -572,9 +584,14 @@ class ProjectService:
             if tx.project_id == project_id:
                 continue
             amt = Decimal(str(tx.amount))
+            signed_src = (
+                abs(amt)
+                if tx.type == TransactionType.INCOME
+                else -abs(amt)
+            )
             baseline_movements[tx.transaction_date].append({
                 "account_id": tx.account_id,
-                "amount": amt
+                "amount": signed_src
             })
             if tx.destination_account_id and tx.type == TransactionType.TRANSFER:
                 baseline_movements[tx.transaction_date].append({

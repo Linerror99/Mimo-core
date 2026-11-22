@@ -554,3 +554,124 @@ class TestAuditBackendFixes:
         assert del_res.status_code == 204
         proj_after_del = (await client.get(f"/api/v1/projects/{project_id}", headers=headers)).json()
         assert len(proj_after_del["items"]) == 0
+
+    async def test_transfer_debits_source_and_credits_destination(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """A TRANSFER must always debit source account and credit destination account, never add to both."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+
+        src = Account(
+            household_id=test_user_household_id,
+            name="Courant",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("1000.00"),
+        )
+        dst = Account(
+            household_id=test_user_household_id,
+            name="Livret A",
+            type=AccountType.SAVINGS,
+            initial_balance=Decimal("500.00"),
+        )
+        db_session.add_all([src, dst])
+        await db_session.commit()
+        await db_session.refresh(src)
+        await db_session.refresh(dst)
+
+        # Even if caller passes a positive amount for TRANSFER, backend must normalize & debit source / credit dest
+        res = await client.post(
+            "/api/v1/transactions",
+            json={
+                "description": "Virement épargne",
+                "amount": 200.0,
+                "transaction_date": (date.today() - timedelta(days=1)).isoformat(),
+                "type": "TRANSFER",
+                "account_id": src.id,
+                "destination_account_id": dst.id,
+            },
+            headers=headers,
+        )
+        assert res.status_code == 201
+        assert float(res.json()["amount"]) == pytest.approx(-200.0)
+
+        accounts_res = await client.get("/api/v1/accounts", headers=headers)
+        assert accounts_res.status_code == 200
+        by_id = {a["id"]: float(a["current_balance"]) for a in accounts_res.json()}
+        assert by_id[src.id] == pytest.approx(800.0)
+        assert by_id[dst.id] == pytest.approx(700.0)
+
+        # Also check single-account balance endpoint
+        src_detail = (await client.get(f"/api/v1/accounts/{src.id}", headers=headers)).json()
+        dst_detail = (await client.get(f"/api/v1/accounts/{dst.id}", headers=headers)).json()
+        assert float(src_detail["current_balance"]) == pytest.approx(800.0)
+        assert float(dst_detail["current_balance"]) == pytest.approx(700.0)
+
+    async def test_goals_reflect_existing_realized_transactions_on_read(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session: AsyncSession,
+        test_user_household_id: str,
+    ):
+        """GET /api/v1/goals must reflect already-REALIZED linked transactions even if stored current_amount was 0."""
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+
+        account = Account(
+            household_id=test_user_household_id,
+            name="SG",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("5000.00"),
+        )
+        db_session.add(account)
+        await db_session.commit()
+        await db_session.refresh(account)
+
+        goal_res = await client.post(
+            "/api/v1/goals",
+            json={
+                "name": "MacBook Proled",
+                "target_amount": 3299.0,
+                "current_amount": 0.0,
+                "goal_type": "personal",
+            },
+            headers=headers,
+        )
+        assert goal_res.status_code == 201
+        goal_id = goal_res.json()["id"]
+
+        # Simulate pre-existing DB rows: 1 REALIZED installment + 1 PROJECTED installment, while goal.current_amount is still 0
+        tx_realized = Transaction(
+            household_id=test_user_household_id,
+            account_id=account.id,
+            goal_id=goal_id,
+            description="MacBook Proled (1/4)",
+            amount=Decimal("-908.87"),
+            transaction_date=date.today() - timedelta(days=10),
+            type=TransactionType.EXPENSE,
+            state=TransactionState.REALIZED,
+        )
+        tx_projected = Transaction(
+            household_id=test_user_household_id,
+            account_id=account.id,
+            goal_id=goal_id,
+            description="MacBook Proled (2/4)",
+            amount=Decimal("-824.75"),
+            transaction_date=date.today() + timedelta(days=20),
+            type=TransactionType.EXPENSE,
+            state=TransactionState.PROJECTED,
+        )
+        db_session.add_all([tx_realized, tx_projected])
+        await db_session.commit()
+
+        # GET /api/v1/goals and GET /api/v1/goals/{id} must both report 908.87 (only REALIZED)
+        goals_list = (await client.get("/api/v1/goals", headers=headers)).json()
+        matching = [g for g in goals_list if g["id"] == goal_id]
+        assert len(matching) == 1
+        assert float(matching[0]["current_amount"]) == pytest.approx(908.87)
+
+        goal_detail = (await client.get(f"/api/v1/goals/{goal_id}", headers=headers)).json()
+        assert float(goal_detail["current_amount"]) == pytest.approx(908.87)

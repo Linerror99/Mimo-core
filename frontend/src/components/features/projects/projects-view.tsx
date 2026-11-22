@@ -40,6 +40,7 @@ import { AmountDisplay } from "@/components/shared/amount-display";
 import { cn, formatDateFr, getTodayIso } from "@/lib/utils";
 import type { Account } from "@/types/account";
 import type { Category } from "@/types/category";
+import { TRANSACTION_STATE_LABELS } from "@/types/transaction";
 import {
   PROJECT_STATUS_LABELS,
   type Project,
@@ -559,7 +560,11 @@ export function ProjectsView({
                     0
                   );
                   const disbursed = selectedProject.items
-                    .filter((it) => it.planned_date.slice(0, 10) <= todayIso)
+                    .filter((it) =>
+                      it.transaction_state
+                        ? it.transaction_state === "REALIZED"
+                        : it.planned_date.slice(0, 10) <= todayIso
+                    )
                     .reduce((sum, it) => sum + Math.abs(Number(it.amount)), 0);
                   const remaining = Math.max(0, totalPlanned - disbursed);
                   const disbursedPct =
@@ -567,6 +572,11 @@ export function ProjectsView({
                       ? Math.min(100, Math.round((disbursed / totalPlanned) * 100))
                       : 0;
                   const remainingPct = Math.max(0, 100 - disbursedPct);
+                  const allRealized =
+                    selectedProject.items.length > 0 &&
+                    selectedProject.items.every(
+                      (it) => it.transaction_state === "REALIZED"
+                    );
 
                   return (
                     <div
@@ -574,9 +584,14 @@ export function ProjectsView({
                       className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] p-4 dark:bg-emerald-500/[0.07]"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <span className="font-semibold text-slate-800 dark:text-zinc-100">
-                          Avancement des décaissements
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800 dark:text-zinc-100">
+                            Avancement des décaissements
+                          </span>
+                          {allRealized && (
+                            <Badge variant="success">Terminé · 100 % payé</Badge>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-4">
                           <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -677,54 +692,86 @@ export function ProjectsView({
                     />
                   ) : (
                     <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-zinc-800 dark:border-zinc-800">
-                      {selectedProject.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 dark:text-zinc-100">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-zinc-400">
-                              {formatDateFr(item.planned_date)}
-                              {item.account_name
-                                ? ` · ${item.account_name}`
-                                : ""}
-                              {item.category_name
-                                ? ` · ${item.category_name}`
-                                : ""}
-                            </p>
+                      {selectedProject.items.map((item) => {
+                        const txState = item.transaction_state;
+                        const isRealized = txState === "REALIZED";
+                        const isPending = txState === "PENDING";
+                        const isProjected = txState === "PROJECTED";
+                        const stateBadgeVariant = isRealized
+                          ? "success"
+                          : isPending
+                            ? "warning"
+                            : "neutral";
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
+                              isProjected && "opacity-70"
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="text-sm font-medium text-slate-900 dark:text-zinc-100">
+                                  {item.name}
+                                </p>
+                                {txState ? (
+                                  <Badge
+                                    variant={stateBadgeVariant}
+                                    className={cn(isProjected && "border-dashed")}
+                                  >
+                                    {TRANSACTION_STATE_LABELS[txState]}
+                                  </Badge>
+                                ) : selectedProject.status === "DRAFT" ? (
+                                  <Badge variant="neutral">Simulation</Badge>
+                                ) : null}
+                              </div>
+                              <p className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
+                                {formatDateFr(item.planned_date)}
+                                {item.account_name
+                                  ? ` · ${item.account_name}`
+                                  : ""}
+                                {item.category_name
+                                  ? ` · ${item.category_name}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <AmountDisplay
+                                amount={Number(item.amount)}
+                                className={cn(
+                                  "mr-1 text-sm font-semibold",
+                                  isRealized
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-slate-900 dark:text-zinc-100"
+                                )}
+                              />
+                              <ActionMenu
+                                ariaLabel={`Actions pour ${item.name}`}
+                                items={[
+                                  {
+                                    label: "Modifier",
+                                    icon: <Edit3 className="h-3.5 w-3.5" />,
+                                    onClick: () => openEditItem(item),
+                                  },
+                                  {
+                                    label: "Supprimer",
+                                    icon: <Trash2 className="h-3.5 w-3.5" />,
+                                    variant: "danger",
+                                    dividerBefore: true,
+                                    onClick: () =>
+                                      onDeleteProjectItem(
+                                        selectedProject.id,
+                                        item.id
+                                      ),
+                                  },
+                                ]}
+                              />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <AmountDisplay
-                              amount={Number(item.amount)}
-                              className="mr-1 text-sm font-semibold text-slate-900 dark:text-zinc-100"
-                            />
-                            <ActionMenu
-                              ariaLabel={`Actions pour ${item.name}`}
-                              items={[
-                                {
-                                  label: "Modifier",
-                                  icon: <Edit3 className="h-3.5 w-3.5" />,
-                                  onClick: () => openEditItem(item),
-                                },
-                                {
-                                  label: "Supprimer",
-                                  icon: <Trash2 className="h-3.5 w-3.5" />,
-                                  variant: "danger",
-                                  dividerBefore: true,
-                                  onClick: () =>
-                                    onDeleteProjectItem(
-                                      selectedProject.id,
-                                      item.id
-                                    ),
-                                },
-                              ]}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

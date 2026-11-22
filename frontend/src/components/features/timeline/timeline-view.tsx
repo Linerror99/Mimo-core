@@ -645,7 +645,7 @@ export function TimelineView({
     const numericAmount = Number.parseFloat(amount);
     if (!description.trim() || !accountId || Number.isNaN(numericAmount)) return;
     const signedTxAmount =
-      txType === "EXPENSE"
+      txType === "EXPENSE" || txType === "TRANSFER"
         ? -Math.abs(numericAmount)
         : Math.abs(numericAmount);
     setSubmitting(true);

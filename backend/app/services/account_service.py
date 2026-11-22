@@ -119,6 +119,7 @@ class AccountService:
     ) -> Decimal:
         """Calculate current account balance (initial + realized transactions up to today, including incoming transfers)"""
         from datetime import date
+        from sqlalchemy import case
         from app.models.transaction import Transaction, TransactionState, TransactionType
 
         account = await db.get(Account, account_id)
@@ -127,9 +128,15 @@ class AccountService:
 
         today = date.today()
 
+        signed_amount_expr = case(
+            (Transaction.type == TransactionType.INCOME, func.abs(Transaction.amount)),
+            (Transaction.type.in_([TransactionType.EXPENSE, TransactionType.TRANSFER]), -func.abs(Transaction.amount)),
+            else_=Transaction.amount,
+        )
+
         # 1. Transactions où le compte est le compte principal (EXPENSE, INCOME, et compte source pour TRANSFER)
         outgoing_and_incomes_res = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount), 0))
+            select(func.coalesce(func.sum(signed_amount_expr), 0))
             .where(
                 Transaction.account_id == account_id,
                 Transaction.deleted_at.is_(None),
@@ -163,6 +170,7 @@ class AccountService:
     ) -> dict[str, Decimal]:
         """Calculate current balances for multiple accounts in 2 SQL queries (avoids N+1)."""
         from datetime import date
+        from sqlalchemy import case
         from app.models.transaction import Transaction, TransactionState, TransactionType
 
         if not accounts:
@@ -171,10 +179,16 @@ class AccountService:
         account_ids = [acc.id for acc in accounts]
         today = date.today()
 
+        signed_amount_expr = case(
+            (Transaction.type == TransactionType.INCOME, func.abs(Transaction.amount)),
+            (Transaction.type.in_([TransactionType.EXPENSE, TransactionType.TRANSFER]), -func.abs(Transaction.amount)),
+            else_=Transaction.amount,
+        )
+
         outgoing_res = await db.execute(
             select(
                 Transaction.account_id,
-                func.coalesce(func.sum(Transaction.amount), 0)
+                func.coalesce(func.sum(signed_amount_expr), 0)
             )
             .where(
                 Transaction.account_id.in_(account_ids),

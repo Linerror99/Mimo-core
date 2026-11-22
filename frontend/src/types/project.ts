@@ -1,3 +1,5 @@
+import type { TransactionState } from "@/types/transaction";
+
 export type ProjectStatus = "DRAFT" | "COMMITTED" | "COMPLETED" | "CANCELLED";
 
 export interface ProjectItem {
@@ -10,6 +12,7 @@ export interface ProjectItem {
   category_id?: string | null;
   owner_user_id?: string | null;
   transaction_id?: string | null;
+  transaction_state?: TransactionState | null;
   notes?: string | null;
   created_at: string;
   updated_at: string;

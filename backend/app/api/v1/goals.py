@@ -147,6 +147,7 @@ async def list_goals(
                 partner_goals = await service.list_goals(user_id=partner.id)
                 goals.extend(partner_goals)
 
+    await service.enrich_goals_with_realized_amounts(goals)
     return goals
 
 
@@ -166,6 +167,8 @@ async def get_goal(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Objectif introuvable"
         )
+
+    await service.enrich_goals_with_realized_amounts([goal])
 
     # Vérifier l'accès (personnel = même user, foyer = même household)
     has_access = (

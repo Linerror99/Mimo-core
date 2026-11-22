@@ -27,6 +27,21 @@ class TransactionService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @staticmethod
+    def _normalize_amount_sign(tx_type: TransactionType, amount: Decimal) -> Decimal:
+        """
+        Normalise le signe du montant sur le compte principal :
+        - INCOME   -> positif (+abs)
+        - EXPENSE  -> négatif (-abs)
+        - TRANSFER -> négatif (-abs) sur le compte source (crédité en +abs sur destination_account_id)
+        """
+        dec = Decimal(str(amount))
+        if tx_type == TransactionType.INCOME:
+            return abs(dec)
+        if tx_type in (TransactionType.EXPENSE, TransactionType.TRANSFER):
+            return -abs(dec)
+        return dec
+
     async def create_transaction(
         self,
         household_id: str,
@@ -58,7 +73,7 @@ class TransactionService:
             destination_account_id=transaction_data.destination_account_id,
             goal_id=transaction_data.goal_id,
             description=transaction_data.description,
-            amount=transaction_data.amount,
+            amount=self._normalize_amount_sign(transaction_data.type, transaction_data.amount),
             transaction_date=transaction_data.transaction_date,
             type=transaction_data.type,
             state=state,
@@ -127,7 +142,7 @@ class TransactionService:
             destination_account_id=transaction_data.destination_account_id,
             goal_id=transaction_data.goal_id,
             description=transaction_data.description,
-            amount=transaction_data.amount,
+            amount=self._normalize_amount_sign(transaction_data.type, transaction_data.amount),
             transaction_date=transaction_data.transaction_date,
             type=transaction_data.type,
             state=state,
@@ -345,6 +360,11 @@ class TransactionService:
         update_data = transaction_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(transaction, field, value)
+
+        if "amount" in update_data or "type" in update_data:
+            transaction.amount = self._normalize_amount_sign(
+                transaction.type, transaction.amount
+            )
 
         # Recalculer l'état si la date a changé et que la transaction n'est pas encore réalisée
         if "state" not in update_data and transaction.transaction_date:
@@ -568,9 +588,11 @@ class TransactionService:
         if not transaction:
             return None
 
-        # Modifier le montant si fourni
+        # Modifier le montant si fourni (en normalisant le signe selon le type)
         if new_amount is not None:
-            transaction.amount = new_amount
+            transaction.amount = self._normalize_amount_sign(
+                transaction.type, Decimal(str(new_amount))
+            )
 
         # Marquer comme validée
         transaction.state = TransactionState.REALIZED
