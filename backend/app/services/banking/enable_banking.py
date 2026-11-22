@@ -162,7 +162,7 @@ class EnableBankingProvider(BankProvider):
                 ),
                 balances[0],
             )
-            amt_str = preferred.get("balance_amount", {}).get("amount")
+            amt_str = (preferred.get("balance_amount") or {}).get("amount")
             return Decimal(str(amt_str)) if amt_str is not None else None
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Could not fetch balance for %s: %s", account_uid, exc)
@@ -176,10 +176,10 @@ class EnableBankingProvider(BankProvider):
                 headers=self._headers(),
             )
             resp.raise_for_status()
-            data = resp.json()
+            data = resp.json() or {}
 
             session_id = data["session_id"]
-            valid_until_raw = data.get("access", {}).get("valid_until")
+            valid_until_raw = (data.get("access") or {}).get("valid_until")
             expires_at: Optional[datetime] = None
             if valid_until_raw:
                 try:
@@ -192,11 +192,23 @@ class EnableBankingProvider(BankProvider):
                 expires_at = datetime.utcnow() + timedelta(days=90)
 
             accounts: List[ExternalAccount] = []
-            for raw_acc in data.get("accounts", []):
-                uid = raw_acc.get("uid") or raw_acc.get("account_id", {}).get("iban")
+            for raw_acc in data.get("accounts") or []:
+                if not isinstance(raw_acc, dict):
+                    continue
+                account_id_obj = raw_acc.get("account_id") or {}
+                iban = (
+                    account_id_obj.get("iban")
+                    if isinstance(account_id_obj, dict)
+                    else None
+                )
+                other_id = (
+                    (account_id_obj.get("other") or {}).get("identification")
+                    if isinstance(account_id_obj, dict)
+                    else None
+                )
+                uid = raw_acc.get("uid") or iban or other_id
                 if not uid:
                     continue
-                iban = raw_acc.get("account_id", {}).get("iban")
                 name = (
                     raw_acc.get("name")
                     or raw_acc.get("details")
@@ -209,10 +221,10 @@ class EnableBankingProvider(BankProvider):
                 balance = await self._fetch_account_balance(client, uid)
                 accounts.append(
                     ExternalAccount(
-                        external_account_id=uid,
-                        name=name[:100],
+                        external_account_id=str(uid),
+                        name=str(name)[:100],
                         iban_masked=mask_iban(iban),
-                        currency=currency[:3],
+                        currency=str(currency)[:3],
                         balance=balance,
                         account_type=acc_type,
                     )
@@ -236,7 +248,7 @@ class EnableBankingProvider(BankProvider):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             for _page in range(20):  # Safety cap
-                params: dict[str, str] = {"transaction_status": "BOOKED"}
+                params: dict[str, str] = {"transaction_status": "BOOK"}
                 if date_from:
                     params["date_from"] = date_from.isoformat()
                 if continuation_key:
@@ -247,10 +259,13 @@ class EnableBankingProvider(BankProvider):
                     params=params,
                     headers=self._headers(),
                 )
-                resp.raise_for_status()
-                data = resp.json()
+                if resp.is_error:
+                    raise RuntimeError(
+                        f"Enable Banking HTTP {resp.status_code}: {resp.text[:300]}"
+                    )
+                data = resp.json() or {}
 
-                for raw in data.get("transactions", []):
+                for raw in data.get("transactions") or []:
                     parsed = self._parse_transaction(raw)
                     if parsed:
                         results.append(parsed)
@@ -263,10 +278,10 @@ class EnableBankingProvider(BankProvider):
 
     @staticmethod
     def _parse_transaction(raw: dict) -> Optional[ExternalTransaction]:
-        status_str = (raw.get("status") or "BOOKED").upper()
-        if status_str not in ("BOOKED", "PDNG"):
+        if not isinstance(raw, dict):
             return None
-        if status_str != "BOOKED":
+        status_str = (raw.get("status") or "BOOK").upper()
+        if status_str not in ("BOOK", "BOOKED"):
             return None
 
         amt_obj = raw.get("transaction_amount") or {}

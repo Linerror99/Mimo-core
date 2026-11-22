@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, Landmark, Loader2 } from "lucide-react";
@@ -47,6 +47,7 @@ function BankCallbackContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [rows, setRows] = useState<Record<string, RowMappingState>>({});
+  const exchangedRef = useRef(false);
 
   const { data: existingAccounts = [] } = useQuery({
     queryKey: ["accounts", false],
@@ -64,12 +65,12 @@ function BankCallbackContent() {
       setLoading(false);
       return;
     }
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
 
-    let cancelled = false;
     bankingService
       .callback(code, state)
       .then((res) => {
-        if (cancelled) return;
         setCallbackData(res);
         const initial: Record<string, RowMappingState> = {};
         for (const acc of res.discovered_accounts) {
@@ -83,7 +84,6 @@ function BankCallbackContent() {
         setRows(initial);
       })
       .catch((err) => {
-        if (cancelled) return;
         setErrorMsg(
           err instanceof Error
             ? err.message
@@ -91,12 +91,8 @@ function BankCallbackContent() {
         );
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [code, state, errorParam]);
 
   const handleLinkAndSync = async (e: React.FormEvent) => {

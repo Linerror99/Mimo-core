@@ -130,6 +130,26 @@ class BankingSyncService:
                 detail="Session de connexion bancaire introuvable ou expirée.",
             )
 
+        # Idempotence : si le code OAuth a déjà été échangé (ex. double appel React StrictMode / refresh),
+        # renvoyer directement les comptes découverts déjà enregistrés.
+        if conn.status == BankConnectionStatus.ACTIVE.value and conn.session_id:
+            cached: List[DiscoveredAccountSchema] = []
+            if conn.discovered_accounts_json:
+                try:
+                    cached = [
+                        DiscoveredAccountSchema(**item)
+                        for item in json.loads(conn.discovered_accounts_json)
+                    ]
+                except Exception:
+                    cached = []
+            return BankCallbackResponse(
+                connection_id=conn.id,
+                institution_name=conn.institution_name,
+                status=conn.status,
+                consent_expires_at=conn.consent_expires_at,
+                discovered_accounts=cached,
+            )
+
         provider = self.provider
         try:
             session_res = await provider.exchange_code(code)

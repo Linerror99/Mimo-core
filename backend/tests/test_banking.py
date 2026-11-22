@@ -33,8 +33,11 @@ class TestOpenBanking:
         test_user_token: str,
         db_session: AsyncSession,
         test_user_household_id: str,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         """Flow complet connect -> callback -> link existing account -> sync x2 = 0 doublon."""
+        from app.config import settings
+        monkeypatch.setattr(settings, "BANKING_PROVIDER", "mock")
         headers = {"Authorization": f"Bearer {test_user_token}"}
 
         # 1. Liste des institutions françaises
