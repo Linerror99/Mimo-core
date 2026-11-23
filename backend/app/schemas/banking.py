@@ -121,7 +121,9 @@ class MergeTransactionResponse(BaseModel):
     amount: Decimal
     transaction_date: date
     state: str
+    type: Optional[str] = None
     external_transaction_id: Optional[str] = None
+    destination_external_transaction_id: Optional[str] = None
     import_source: str
 
 
@@ -129,3 +131,4 @@ class UnlinkTransactionResponse(BaseModel):
     transaction_id: str
     import_source: str
     external_transaction_id: Optional[str] = None
+    destination_external_transaction_id: Optional[str] = None

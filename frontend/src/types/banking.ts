@@ -87,6 +87,8 @@ export interface MergeBankTransactionResponse {
   amount: number;
   transaction_date: string;
   state: string;
+  type?: string | null;
   external_transaction_id?: string | null;
+  destination_external_transaction_id?: string | null;
   import_source: string;
 }

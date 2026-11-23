@@ -384,11 +384,18 @@ class ProjectionService:
         start_year: int,
         start_month: int,
         end_year: int,
-        end_month: int
+        end_month: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        exclude_future_income: bool = False,
     ) -> List[dict]:
         """
-        Calculer les projections pour une plage complète de mois (ex: 1 an, 2 ans, 5 ans)
-        en UNE SEULE passe optimisée, sans requêtes N+1 et avec calcul séquentiel en mémoire.
+        Calculer les projections pour une plage complète de mois ou de dates exactes
+        en UNE SEULE passe optimisée, sans requêtes N+1 et avec calcul chronologique jour par jour.
+
+        - `start_date` / `end_date` : bornes exactes au jour près (ex. finir au 25 pour exclure le salaire du 28).
+        - `exclude_future_income` : ignore les revenus futurs (projette uniquement avec l'argent déjà en compte).
+        - Calcule aussi `min_balance` et `min_treasury_balance` (vrai point bas intra-mois avant salaire de fin de mois).
         """
         today = date.today()
 
@@ -435,20 +442,55 @@ class ProjectionService:
                 current_balance -= float(abs(tx.amount))
 
         # 3. Déterminer les bornes temporelles globales
-        calc_start_date = min(date(start_year, start_month, 1), today.replace(day=1))
+        requested_start = start_date or date(start_year, start_month, 1)
         last_day_end = monthrange(end_year, end_month)[1]
-        calc_end_date = date(end_year, end_month, last_day_end)
+        requested_end = end_date or date(end_year, end_month, last_day_end)
 
-        # 4. Récupérer les transactions futures (start_future_date jusqu'à calc_end_date)
+        calc_start_date = min(requested_start.replace(day=1), today.replace(day=1))
+        calc_end_date = requested_end
+
+        # 4. Récupérer les transactions futures (demain jusqu'à calc_end_date)
+        # + les opérations non encore réalisées (PENDING/PROJECTED) du jour même (today)
         start_future_date = today + timedelta(days=1)
         future_projections = []
-        if calc_end_date >= start_future_date:
-            future_projections = await ProjectionService.generate_projections(
-                db=db,
-                household_id=household_id,
-                start_date=start_future_date,
-                end_date=calc_end_date
+        if calc_end_date >= today:
+            today_unfinalized_res = await db.execute(
+                select(Transaction).where(
+                    Transaction.household_id == household_id,
+                    Transaction.transaction_date == today,
+                    Transaction.state.in_(["PENDING", "PROJECTED"]),
+                    Transaction.deleted_at.is_(None),
+                ).order_by(Transaction.transaction_date)
             )
+            for tx in today_unfinalized_res.scalars().all():
+                future_projections.append({
+                    "id": tx.id,
+                    "template_id": tx.recurring_template_id or "",
+                    "template_name": tx.description,
+                    "date": tx.transaction_date,
+                    "amount": tx.amount,
+                    "type": tx.type.value if hasattr(tx.type, "value") else str(tx.type),
+                    "account_id": tx.account_id,
+                    "destination_account_id": tx.destination_account_id,
+                    "category_id": tx.category_id,
+                    "goal_id": tx.goal_id,
+                    "frequency": "NONE",
+                })
+
+        if calc_end_date >= start_future_date:
+            future_projections.extend(
+                await ProjectionService.generate_projections(
+                    db=db,
+                    household_id=household_id,
+                    start_date=start_future_date,
+                    end_date=calc_end_date
+                )
+            )
+
+        if exclude_future_income:
+            future_projections = [
+                p for p in future_projections if p.get("type") != "INCOME"
+            ]
 
         for p in future_projections:
             p["is_saving"] = is_real_saving(
@@ -458,7 +500,7 @@ class ProjectionService:
             )
 
         # Indexer les transactions futures par (year, month)
-        future_by_month: Dict[tuple, List[dict]] = {}
+        future_by_month: dict[tuple, List[dict]] = {}
         for p in future_projections:
             p_date = p["date"]
             p_year = p_date.year if hasattr(p_date, "year") else int(str(p_date).split("-")[0])
@@ -469,13 +511,14 @@ class ProjectionService:
             future_by_month[key].append(p)
 
         # 5. Récupérer les transactions réalisées en DB pour les mois passés ou en cours dans la plage
-        db_tx_by_month: Dict[tuple, List[dict]] = {}
+        db_tx_by_month: dict[tuple, List[dict]] = {}
         if calc_start_date <= today:
             cur_month_tx_res = await db.execute(
                 select(Transaction).where(
                     Transaction.household_id == household_id,
                     Transaction.transaction_date >= calc_start_date,
                     Transaction.transaction_date <= min(today, calc_end_date),
+                    Transaction.state == "REALIZED",
                     Transaction.deleted_at.is_(None)
                 ).order_by(Transaction.transaction_date)
             )
@@ -507,21 +550,42 @@ class ProjectionService:
         cur_y = calc_start_date.year
         cur_m = calc_start_date.month
 
+        def _tx_sort_key(p: dict) -> tuple:
+            p_date = p["date"]
+            iso = p_date.isoformat() if hasattr(p_date, "isoformat") else str(p_date)
+            # Prudence : le même jour, on applique d'abord dépenses/épargnes puis revenus
+            type_order = 1 if p.get("type") == "INCOME" else 0
+            return (iso, type_order)
+
         while cur_y < end_year or (cur_y == end_year and cur_m <= end_month):
             m_key = (cur_y, cur_m)
-            month_futures = future_by_month.get(m_key, [])
+            month_futures = sorted(future_by_month.get(m_key, []), key=_tx_sort_key)
             month_db_txs = db_tx_by_month.get(m_key, [])
 
-            # Calcul des flux de ce mois (réalisés DB + futurs)
+            # Calcul des flux de ce mois (filtrés par requested_start / requested_end pour l'affichage)
             month_projections = []
-            month_projections.extend(month_db_txs)
-            month_projections.extend(month_futures)
+            for tx in month_db_txs:
+                tx_d = tx["date"]
+                if requested_start <= tx_d <= requested_end:
+                    month_projections.append(tx)
+            for p in month_futures:
+                p_d = p["date"]
+                if requested_start <= p_d <= requested_end:
+                    month_projections.append(p)
 
             income = sum(float(p["amount"]) for p in month_projections if p["type"] == "INCOME")
             expense = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "EXPENSE")
-            transfers = sum(float(abs(p["amount"])) for p in month_projections if p["type"] == "TRANSFER" and p.get("is_saving", False))
+            transfers = sum(
+                float(abs(p["amount"]))
+                for p in month_projections
+                if p["type"] == "TRANSFER" and p.get("is_saving", False)
+            )
 
-            # Mise à jour des soldes cumulés (uniquement pour les flux futurs après aujourd'hui)
+            # Mise à jour chronologique des soldes cumulés + suivi du vrai point bas intra-mois
+            # (capture le creux après charges et AVANT le salaire de fin de mois !)
+            month_min_balance = running_balance
+            month_min_treasury = running_treasury
+
             for p in month_futures:
                 amt = float(abs(p["amount"]))
                 if p["type"] == "INCOME":
@@ -532,6 +596,11 @@ class ProjectionService:
                     running_treasury -= amt
                 elif p["type"] == "TRANSFER" and p.get("is_saving", False):
                     running_treasury -= amt
+
+                if running_balance < month_min_balance:
+                    month_min_balance = running_balance
+                if running_treasury < month_min_treasury:
+                    month_min_treasury = running_treasury
 
             # Si ce mois fait partie de la plage demandée (>= start_year, start_month), on l'ajoute
             if cur_y > start_year or (cur_y == start_year and cur_m >= start_month):
@@ -550,6 +619,8 @@ class ProjectionService:
                     "transfers": round(transfers, 2),
                     "balance": round(running_balance, 2),
                     "treasury_balance": round(running_treasury, 2),
+                    "min_balance": round(month_min_balance, 2),
+                    "min_treasury_balance": round(month_min_treasury, 2),
                     "projections": formatted_projections
                 })
 

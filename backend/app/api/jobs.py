@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.services.daily_maintenance_job import DailyMaintenanceJob
 
@@ -24,10 +25,10 @@ def verify_job_token(x_job_token: Optional[str] = Header(None)) -> bool:
     En DEV : pas de vérification (ou token simple).
     En PROD : vérification en temps constant.
     """
-    env = os.getenv("ENVIRONMENT", os.getenv("ENV", "development"))
+    env = os.getenv("ENVIRONMENT") or os.getenv("ENV") or settings.ENVIRONMENT or "development"
 
-    if env == "production":
-        expected_token = os.getenv("JOB_TOKEN")
+    if env.lower() == "production":
+        expected_token = os.getenv("JOB_TOKEN") or settings.JOB_TOKEN
         if not expected_token or not x_job_token or not secrets.compare_digest(x_job_token, expected_token):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -84,7 +85,8 @@ async def run_daily_maintenance(
 
 @router.get("/daily-maintenance/preview")
 async def preview_daily_maintenance(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_job_token),
 ):
     """
     Prévisualise les transactions qui seraient marquées PENDING

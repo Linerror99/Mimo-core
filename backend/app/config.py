@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = True
     COOKIE_SAMESITE: str = "none"  # "none" for cross-origin frontend/backend on Cloud Run
     COOKIE_DOMAIN: Optional[str] = None
+    ALLOW_PUBLIC_REGISTRATION: bool = True  # Mettre à False en prod pour fermer les inscriptions publiques
+    AUTH_RATE_LIMIT_REQUESTS: int = 10  # Max tentatives auth par fenêtre en production
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = 900  # Fenêtre 15 minutes
+    BANKING_ENCRYPTION_KEY: Optional[str] = None  # Clé Fernet dédiée (fallback dérivé de JWT_SECRET_KEY)
 
     # Logging
     LOG_LEVEL: str = "INFO"

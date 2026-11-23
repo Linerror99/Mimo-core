@@ -14,6 +14,7 @@ Endpoints:
 - POST /api/v1/banking/transactions/{tx_id}/merge   (fusionner une tx importée dans une tx prévue)
 - POST /api/v1/banking/transactions/{tx_id}/unlink  (délier une tx de la banque)
 """
+import secrets
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
@@ -179,7 +180,7 @@ async def cron_sync_all_banks(
 ):
     """Endpoint protégé pour Cloud Scheduler (synchronisation automatique toutes les 6h)."""
     expected = settings.CRON_SYNC_SECRET or settings.JOB_TOKEN
-    if not expected or x_cron_secret != expected:
+    if not expected or not x_cron_secret or not secrets.compare_digest(x_cron_secret, expected):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Secret cron invalide ou non configuré.",

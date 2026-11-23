@@ -45,12 +45,12 @@ async def run_migrations(x_admin_token: str = Header(...)) -> MigrationResponse:
     verify_admin_token(x_admin_token)
     
     try:
-        # Debug: Check environment variables
+        # Metadata safe for diagnostics (never expose DATABASE_URL credentials)
         env_debug = f"""
         DATABASE_CONNECTION_NAME: {os.getenv('DATABASE_CONNECTION_NAME', 'NOT SET')}
         DATABASE_NAME: {os.getenv('DATABASE_NAME', 'NOT SET')}
         DATABASE_USER: {os.getenv('DATABASE_USER', 'NOT SET')}
-        DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT SET')[:50]}...
+        DATABASE_URL: [REDACTED]
         """
         
         # Run alembic upgrade head

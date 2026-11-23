@@ -59,7 +59,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 py-12 dark:bg-[#09090B]">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#F8FAFC] bg-[radial-gradient(ellipse_at_top,_rgba(124,58,237,0.10),_transparent_60%)] px-4 py-12 dark:bg-[#09090B] dark:bg-[radial-gradient(ellipse_at_top,_rgba(124,58,237,0.16),_transparent_60%)]">
       <MimoAuthCard
         initialMode="login"
         onLoginSubmit={handleLogin}

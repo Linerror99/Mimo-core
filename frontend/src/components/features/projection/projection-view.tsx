@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calculator,
+  CalendarRange,
   Check,
   CheckCircle2,
   PiggyBank,
@@ -38,12 +39,17 @@ import type {
   SimulationPaymentType,
 } from "@/types/projection";
 
-export type ProjectionHorizonMonths = 3 | 6 | 12 | 36 | 60;
+export type ProjectionHorizonMonths = 3 | 6 | 12 | 36 | 60 | "custom";
 
 interface ProjectionViewProps {
   isLoading: boolean;
   horizonMonths: ProjectionHorizonMonths;
   onChangeHorizon: (months: ProjectionHorizonMonths) => void;
+  customStartDate?: string;
+  customEndDate?: string;
+  onChangeCustomRange?: (startDate: string, endDate: string) => void;
+  excludeFutureIncome?: boolean;
+  onToggleExcludeFutureIncome?: (exclude: boolean) => void;
   projections: MonthlyProjection[];
   accounts: Account[];
   onSimulatePurchase?: (
@@ -60,6 +66,7 @@ const HORIZONS: Array<{ months: ProjectionHorizonMonths; label: string }> = [
   { months: 12, label: "1 an" },
   { months: 36, label: "3 ans" },
   { months: 60, label: "5 ans" },
+  { months: "custom", label: "Personnalisé" },
 ];
 
 export function ProjectionSkeleton() {
@@ -83,11 +90,19 @@ export function ProjectionView({
   isLoading,
   horizonMonths,
   onChangeHorizon,
+  customStartDate = "",
+  customEndDate = "",
+  onChangeCustomRange,
+  excludeFutureIncome = false,
+  onToggleExcludeFutureIncome,
   projections,
   accounts,
   onSimulatePurchase,
   onCommitSimulation,
 }: ProjectionViewProps) {
+  const [balanceDisplayMode, setBalanceDisplayMode] = useState<
+    "before_salary" | "end_of_month"
+  >("before_salary");
   const [simOpen, setSimOpen] = useState(false);
   const [simName, setSimName] = useState("");
   const [simIsSaving, setSimIsSaving] = useState(false);
@@ -111,20 +126,25 @@ export function ProjectionView({
     if (projections.length === 0) {
       return {
         finalBalance: 0,
+        finalMinBalance: 0,
         minTreasury: 0,
         deficitMonths: 0,
         avgMonthlyNet: 0,
       };
     }
-    const finalBalance = Number(
-      projections[projections.length - 1]?.balance ?? 0
+    const lastProj = projections[projections.length - 1];
+    const finalBalance = Number(lastProj?.balance ?? 0);
+    const finalMinBalance = Number(
+      lastProj?.min_balance ?? lastProj?.balance ?? 0
     );
     let minTreasury = Infinity;
     let deficitMonths = 0;
     let totalNet = 0;
 
     for (const p of projections) {
-      const treasury = Number(p.treasury_balance ?? p.balance);
+      const treasury = Number(
+        p.min_treasury_balance ?? p.treasury_balance ?? p.balance
+      );
       if (treasury < minTreasury) minTreasury = treasury;
       const net = Number(p.income) - Math.abs(Number(p.expense));
       totalNet += net;
@@ -133,6 +153,7 @@ export function ProjectionView({
 
     return {
       finalBalance,
+      finalMinBalance,
       minTreasury: minTreasury === Infinity ? 0 : minTreasury,
       deficitMonths,
       avgMonthlyNet: totalNet / projections.length,
@@ -141,11 +162,22 @@ export function ProjectionView({
 
   if (isLoading) return <ProjectionSkeleton />;
 
-  const chartData = projections.map((p) => ({
-    label: formatMonthLabel(p.month, p.year),
-    Patrimoine: Math.round(Number(p.balance)),
-    Trésorerie: Math.round(Number(p.treasury_balance ?? p.balance)),
-  }));
+  const chartData = projections.map((p) => {
+    const useBeforeSalary = balanceDisplayMode === "before_salary";
+    return {
+      label: formatMonthLabel(p.month, p.year),
+      Patrimoine: Math.round(
+        Number(useBeforeSalary ? (p.min_balance ?? p.balance) : p.balance)
+      ),
+      Trésorerie: Math.round(
+        Number(
+          useBeforeSalary
+            ? (p.min_treasury_balance ?? p.treasury_balance ?? p.balance)
+            : (p.treasury_balance ?? p.balance)
+        )
+      ),
+    };
+  });
 
   const buildPayload = (): PurchaseSimulationPayload => {
     const parsedAmount = Number.parseFloat(simAmount);
@@ -250,23 +282,137 @@ export function ProjectionView({
         </div>
       </div>
 
+      {/* Projection Options Bar: Custom Dates + Before-Salary / No-Future-Income Controls */}
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-[#121215]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+              Mode de solde :
+            </span>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setBalanceDisplayMode("before_salary")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  balanceDisplayMode === "before_salary"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
+                    : "text-slate-600 dark:text-zinc-400"
+                )}
+              >
+                Avant salaire (point bas)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBalanceDisplayMode("end_of_month")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  balanceDisplayMode === "end_of_month"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50"
+                    : "text-slate-600 dark:text-zinc-400"
+                )}
+              >
+                Fin de mois
+              </button>
+            </div>
+          </div>
+
+          {onToggleExcludeFutureIncome && (
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={excludeFutureIncome}
+                onChange={(e) => onToggleExcludeFutureIncome(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              Sans revenus futurs (solde actuel uniquement)
+            </label>
+          )}
+        </div>
+
+        {horizonMonths === "custom" && onChangeCustomRange && (
+          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 dark:border-zinc-800/80">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-violet-700 dark:text-violet-300">
+              <CalendarRange className="h-4 w-4" />
+              Période personnalisée :
+            </div>
+            <div>
+              <label
+                htmlFor="proj-start-date"
+                className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+              >
+                Du
+              </label>
+              <input
+                id="proj-start-date"
+                type="date"
+                value={customStartDate}
+                onChange={(e) =>
+                  onChangeCustomRange(e.target.value, customEndDate)
+                }
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="proj-end-date"
+                className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-zinc-400"
+              >
+                Au
+              </label>
+              <input
+                id="proj-end-date"
+                type="date"
+                value={customEndDate}
+                min={customStartDate || undefined}
+                onChange={(e) =>
+                  onChangeCustomRange(customStartDate, e.target.value)
+                }
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+              Astuce : choisissez une date de fin avant votre jour de paie (ex.
+              le 25) pour exclure le salaire de fin de mois.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* KPI Strip */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Solde fin d&apos;horizon
+                {balanceDisplayMode === "before_salary"
+                  ? "Solde fin d'horizon (avant salaire)"
+                  : "Solde fin d'horizon"}
               </span>
               <TrendingUp className="h-4 w-4 text-emerald-500" />
             </div>
             <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-zinc-50">
-              <AmountDisplay amount={stats.finalBalance} />
+              <AmountDisplay
+                amount={
+                  balanceDisplayMode === "before_salary"
+                    ? stats.finalMinBalance
+                    : stats.finalBalance
+                }
+              />
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
-              Flux net moyen :{" "}
-              <AmountDisplay amount={stats.avgMonthlyNet} signed colored /> /
-              mois
+              {balanceDisplayMode === "before_salary" ? (
+                <>
+                  Après salaire fin de mois :{" "}
+                  <AmountDisplay amount={stats.finalBalance} />
+                </>
+              ) : (
+                <>
+                  Flux net moyen :{" "}
+                  <AmountDisplay amount={stats.avgMonthlyNet} signed colored />{" "}
+                  / mois
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -329,8 +475,16 @@ export function ProjectionView({
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Évolution du patrimoine & de la trésorerie</CardTitle>
-              <Badge variant="info">{horizonMonths} mois</Badge>
+              <CardTitle>
+                {balanceDisplayMode === "before_salary"
+                  ? "Évolution réelle (point bas avant salaire)"
+                  : "Évolution du patrimoine & de la trésorerie (fin de mois)"}
+              </CardTitle>
+              <Badge variant="info">
+                {horizonMonths === "custom"
+                  ? `${projections.length} mois`
+                  : `${horizonMonths} mois`}
+              </Badge>
             </CardHeader>
             <CardContent>
               <div className="h-72 w-full">
@@ -411,12 +565,16 @@ export function ProjectionView({
                     <th className="px-4 py-3 text-right">Revenus</th>
                     <th className="px-4 py-3 text-right">Dépenses</th>
                     <th className="px-4 py-3 text-right">Flux net</th>
+                    <th className="px-4 py-3 text-right">
+                      Point bas (avant salaire)
+                    </th>
                     <th className="px-4 py-3 text-right">Solde fin de mois</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
                   {projections.map((p) => {
                     const net = Number(p.income) - Math.abs(Number(p.expense));
+                    const minBal = Number(p.min_balance ?? p.balance);
                     return (
                       <tr
                         key={`${p.year}-${p.month}`}
@@ -446,6 +604,9 @@ export function ProjectionView({
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right font-medium">
                           <AmountDisplay amount={net} signed colored />
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold">
+                          <AmountDisplay amount={minBal} colored />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-900 dark:text-zinc-50">
                           <AmountDisplay amount={Number(p.balance)} />

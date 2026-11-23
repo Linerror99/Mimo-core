@@ -131,6 +131,62 @@ describe("Open Banking UI — Connexions, Synchro manuelle & Fusion Timeline", (
     expect(onSyncAll).toHaveBeenCalledTimes(1);
   });
 
+  it("permet de modifier sync_from_date et de délier un compte synchronisé dans AccountsView", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const onUnlinkBankAccount = vi.fn().mockResolvedValue(undefined);
+
+    const syncedAccounts: Account[] = [
+      {
+        ...ACCOUNTS[0],
+        sync_from_date: "2026-11-18",
+      },
+    ];
+
+    render(
+      <AccountsView
+        isLoading={false}
+        accounts={syncedAccounts}
+        bankConnections={CONNECTIONS}
+        isSyncingBanks={false}
+        includeInactive={false}
+        onToggleIncludeInactive={vi.fn()}
+        onCreate={vi.fn()}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+        onStartConnectBank={vi.fn()}
+        onSyncAllBanks={vi.fn()}
+        onSyncBankConnection={vi.fn()}
+        onDeleteBankConnection={vi.fn()}
+        onUnlinkBankAccount={onUnlinkBankAccount}
+      />
+    );
+
+    // Ouvrir le menu ⋯ du compte SG -> Modifier -> changer sync_from_date
+    await user.click(screen.getByRole("button", { name: /actions pour sg/i }));
+    await user.click(screen.getByRole("menuitem", { name: /modifier/i }));
+
+    const dateInput = screen.getByLabelText(
+      /importer les opérations banque à partir du/i
+    );
+    expect(dateInput).toHaveValue("2026-11-18");
+    await user.clear(dateInput);
+    await user.type(dateInput, "2026-11-10");
+    await user.click(screen.getByRole("button", { name: /enregistrer/i }));
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      "acc-sg",
+      expect.objectContaining({ sync_from_date: "2026-11-10" })
+    );
+
+    // Ouvrir le menu ⋯ -> Délier la synchro banque
+    await user.click(screen.getByRole("button", { name: /actions pour sg/i }));
+    await user.click(
+      screen.getByRole("menuitem", { name: /délier la synchro banque/i })
+    );
+    expect(onUnlinkBankAccount).toHaveBeenCalledWith("acc-sg");
+  });
+
   it("permet de fusionner une écriture bancaire importée avec une opération prévue dans TimelineView", async () => {
     const user = userEvent.setup();
     const onMerge = vi.fn();
@@ -311,5 +367,152 @@ describe("Open Banking UI — Connexions, Synchro manuelle & Fusion Timeline", (
       within(dialog).getByRole("button", { name: /fusionner et valider/i })
     );
     expect(onMerge).toHaveBeenCalledWith("tx-bank-95", "tx-transfer-95");
+  });
+
+  it("affiche Banque 1/2 et 2/2 sur les virements et permet de relier la 2e banque ou une paire inter-banques", async () => {
+    const user = userEvent.setup();
+    const onMerge = vi.fn();
+
+    const twoAccounts: Account[] = [
+      ...ACCOUNTS,
+      {
+        id: "acc-bnp",
+        household_id: "h-1",
+        name: "BNP",
+        type: "CHECKING",
+        initial_balance: 500,
+        current_balance: 800,
+        currency: "EUR",
+        is_active: true,
+        closed_at: null,
+        sync_enabled: true,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+
+    const txs: Transaction[] = [
+      {
+        id: "tx-tr-half",
+        household_id: "h-1",
+        account_id: "acc-sg",
+        category_id: null,
+        destination_account_id: "acc-bnp",
+        description: "Virement SG -> BNP",
+        amount: -95,
+        transaction_date: "2026-11-19",
+        type: "TRANSFER",
+        notes: null,
+        state: "REALIZED",
+        recurrence_frequency: "NONE",
+        recurrence_end_date: null,
+        parent_transaction_id: null,
+        recurring_template_id: null,
+        is_active: true,
+        deleted_at: null,
+        external_transaction_id: "sg_tx_95",
+        destination_external_transaction_id: null,
+        import_source: "open_banking",
+        created_at: "2026-11-19T00:00:00Z",
+        updated_at: "2026-11-19T00:00:00Z",
+      },
+      {
+        id: "tx-tr-full",
+        household_id: "h-1",
+        account_id: "acc-sg",
+        category_id: null,
+        destination_account_id: "acc-bnp",
+        description: "Virement déjà complet",
+        amount: -50,
+        transaction_date: "2026-11-18",
+        type: "TRANSFER",
+        notes: null,
+        state: "REALIZED",
+        recurrence_frequency: "NONE",
+        recurrence_end_date: null,
+        parent_transaction_id: null,
+        recurring_template_id: null,
+        is_active: true,
+        deleted_at: null,
+        external_transaction_id: "sg_tx_50",
+        destination_external_transaction_id: "bnp_tx_50",
+        import_source: "open_banking",
+        created_at: "2026-11-18T00:00:00Z",
+        updated_at: "2026-11-18T00:00:00Z",
+      },
+      {
+        id: "tx-bnp-credit",
+        household_id: "h-1",
+        account_id: "acc-bnp",
+        category_id: null,
+        destination_account_id: null,
+        description: "VIR RECU DE SG",
+        amount: 95,
+        transaction_date: "2026-11-20",
+        type: "INCOME",
+        notes: null,
+        state: "REALIZED",
+        recurrence_frequency: "NONE",
+        recurrence_end_date: null,
+        parent_transaction_id: null,
+        recurring_template_id: null,
+        is_active: true,
+        deleted_at: null,
+        external_transaction_id: "bnp_tx_95",
+        destination_external_transaction_id: null,
+        import_source: "open_banking",
+        created_at: "2026-11-20T00:00:00Z",
+        updated_at: "2026-11-20T00:00:00Z",
+      },
+    ];
+
+    render(
+      <TimelineView
+        isLoading={false}
+        year={2026}
+        month={11}
+        onChangeMonth={vi.fn()}
+        transactions={txs}
+        allTransactions={txs}
+        templates={[]}
+        accounts={twoAccounts}
+        categories={[]}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+        onDeleteTransaction={vi.fn()}
+        onValidateTransaction={vi.fn()}
+        onCreateTemplate={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onMergeBankTransaction={onMerge}
+        onUnlinkBankTransaction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Banque 1/2")).toBeInTheDocument();
+    expect(screen.getByText("Banque 2/2")).toBeInTheDocument();
+
+    // Ouvrir Fusionner sur le crédit BNP (+95€) -> le virement SG -> BNP (1/2 lié) doit apparaître !
+    await user.click(
+      screen.getByRole("button", { name: /actions pour vir recu de sg/i })
+    );
+    await user.click(
+      screen.getByRole("menuitem", {
+        name: /fusionner avec une opération prévue/i,
+      })
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: /fusionner avec une opération déjà prévue/i,
+    });
+    expect(within(dialog).getByText("Virement SG -> BNP")).toBeInTheDocument();
+    expect(within(dialog).getByText("Virement (1/2 lié)")).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: /virement sg -> bnp/i })
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: /fusionner et valider/i })
+    );
+    expect(onMerge).toHaveBeenCalledWith("tx-bnp-credit", "tx-tr-half");
   });
 });

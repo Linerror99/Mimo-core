@@ -31,6 +31,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.crypto import decrypt_secret, encrypt_secret, is_encrypted
 from app.models.account import Account, AccountType
 from app.models.bank_connection import BankConnection, BankConnectionStatus
 from app.models.household import Household
@@ -175,7 +176,7 @@ class BankingSyncService:
             for acc in session_res.accounts
         ]
 
-        conn.session_id = session_res.session_id
+        conn.session_id = encrypt_secret(session_res.session_id)
         conn.consent_expires_at = session_res.consent_expires_at
         conn.status = BankConnectionStatus.ACTIVE.value
         conn.last_error = None
@@ -429,6 +430,11 @@ class BankingSyncService:
             summary.errors.append(f"{conn.institution_name}: session non initialisée.")
             return summary
 
+        plain_session_id = decrypt_secret(conn.session_id)
+        if not is_encrypted(conn.session_id):
+            # Migration silencieuse au repos : chiffre les anciens session_id en clair
+            conn.session_id = encrypt_secret(plain_session_id)
+
         # Check consent expiration
         now = datetime.utcnow()
         if conn.consent_expires_at:
@@ -476,7 +482,7 @@ class BankingSyncService:
 
             try:
                 external_txs = await self.provider.fetch_transactions(
-                    session_id=conn.session_id,
+                    session_id=plain_session_id,
                     external_account_id=account.external_account_id,
                     date_from=account.sync_from_date,
                 )
@@ -519,14 +525,21 @@ class BankingSyncService:
         tx_service: TransactionService,
         category_hints: dict[str, str],
     ) -> str:
-        # 1. Strict deduplication by (account_id or destination_account_id, external_transaction_id)
+        # 1. Strict deduplication across BOTH legs:
+        #    - source leg: (account_id, external_transaction_id)
+        #    - destination leg (two-legged transfer): (destination_account_id, destination_external_transaction_id)
         dup_res = await self.db.execute(
             select(Transaction.id).where(
                 or_(
-                    Transaction.account_id == account.id,
-                    Transaction.destination_account_id == account.id,
+                    and_(
+                        Transaction.account_id == account.id,
+                        Transaction.external_transaction_id == ext_tx.external_transaction_id,
+                    ),
+                    and_(
+                        Transaction.destination_account_id == account.id,
+                        Transaction.destination_external_transaction_id == ext_tx.external_transaction_id,
+                    ),
                 ),
-                Transaction.external_transaction_id == ext_tx.external_transaction_id,
                 Transaction.deleted_at.is_(None),
             )
         )
@@ -539,26 +552,82 @@ class BankingSyncService:
         normalized_amount = TransactionService._normalize_amount_sign(
             tx_type, ext_tx.amount
         )
-
-        # 2. Auto-matching EXACT au centime près (zero tolerance!) sur PENDING/PROJECTED (±3 jours)
-        # Inclut les virements internes (TRANSFER sortant pour un débit, entrant pour un crédit)
         window_start = ext_tx.booking_date - timedelta(days=AUTO_MATCH_DATE_WINDOW_DAYS)
         window_end = ext_tx.booking_date + timedelta(days=AUTO_MATCH_DATE_WINDOW_DAYS)
 
+        # 2a. Rattachement de la 2e jambe d'un virement interne (TRANSFER) déjà lié à l'autre banque
+        # Ex: SG a déjà lié le débit (-95€) sur `external_transaction_id`, maintenant BNP envoie +95€ ->
+        # on attache `destination_external_transaction_id` sans créer de doublon !
         if tx_type == TransactionType.EXPENSE:
-            account_and_type_filter = and_(
+            second_leg_filter = and_(
+                Transaction.type == TransactionType.TRANSFER,
                 Transaction.account_id == account.id,
-                Transaction.type.in_([TransactionType.EXPENSE, TransactionType.TRANSFER]),
+                Transaction.external_transaction_id.is_(None),
+                Transaction.destination_external_transaction_id.is_not(None),
+            )
+        else:
+            second_leg_filter = and_(
+                Transaction.type == TransactionType.TRANSFER,
+                Transaction.destination_account_id == account.id,
+                Transaction.destination_external_transaction_id.is_(None),
+                Transaction.external_transaction_id.is_not(None),
+            )
+
+        second_leg_res = await self.db.execute(
+            select(Transaction).where(
+                Transaction.household_id == account.household_id,
+                second_leg_filter,
+                Transaction.deleted_at.is_(None),
+                Transaction.transaction_date >= window_start,
+                Transaction.transaction_date <= window_end,
+            )
+        )
+        second_leg_matches = [
+            c
+            for c in second_leg_res.scalars().all()
+            if abs(Decimal(str(c.amount))) == abs(normalized_amount)
+        ]
+        if second_leg_matches:
+            second_leg_matches.sort(
+                key=lambda c: abs((c.transaction_date - ext_tx.booking_date).days)
+            )
+            matched_tr = second_leg_matches[0]
+            if tx_type == TransactionType.EXPENSE:
+                matched_tr.external_transaction_id = ext_tx.external_transaction_id
+                matched_tr.transaction_date = ext_tx.booking_date
+            else:
+                matched_tr.destination_external_transaction_id = ext_tx.external_transaction_id
+            matched_tr.state = TransactionState.REALIZED
+            matched_tr.import_source = "open_banking"
+            await self.db.flush()
+            return "matched"
+
+        # 2b. Auto-matching EXACT au centime près (zero tolerance!) sur PENDING/PROJECTED (±3 jours)
+        # Inclut les virements internes prévus (TRANSFER sortant pour un débit, entrant pour un crédit)
+        if tx_type == TransactionType.EXPENSE:
+            account_and_type_filter = or_(
+                and_(
+                    Transaction.account_id == account.id,
+                    Transaction.type == TransactionType.EXPENSE,
+                    Transaction.external_transaction_id.is_(None),
+                ),
+                and_(
+                    Transaction.account_id == account.id,
+                    Transaction.type == TransactionType.TRANSFER,
+                    Transaction.external_transaction_id.is_(None),
+                ),
             )
         else:
             account_and_type_filter = or_(
                 and_(
                     Transaction.account_id == account.id,
                     Transaction.type == TransactionType.INCOME,
+                    Transaction.external_transaction_id.is_(None),
                 ),
                 and_(
                     Transaction.destination_account_id == account.id,
                     Transaction.type == TransactionType.TRANSFER,
+                    Transaction.destination_external_transaction_id.is_(None),
                 ),
             )
 
@@ -567,7 +636,6 @@ class BankingSyncService:
                 Transaction.household_id == account.household_id,
                 account_and_type_filter,
                 Transaction.deleted_at.is_(None),
-                Transaction.external_transaction_id.is_(None),
                 Transaction.state.in_([TransactionState.PENDING, TransactionState.PROJECTED]),
                 Transaction.transaction_date >= window_start,
                 Transaction.transaction_date <= window_end,
@@ -579,7 +647,6 @@ class BankingSyncService:
         ]
 
         if exact_matches:
-            # Pick the candidate closest in date to the bank booking_date
             exact_matches.sort(
                 key=lambda c: abs((c.transaction_date - ext_tx.booking_date).days)
             )
@@ -588,13 +655,70 @@ class BankingSyncService:
             matched.amount = TransactionService._normalize_amount_sign(
                 matched.type, ext_tx.amount
             )
-            matched.transaction_date = ext_tx.booking_date
-            matched.external_transaction_id = ext_tx.external_transaction_id
+            if (
+                matched.type == TransactionType.TRANSFER
+                and matched.destination_account_id == account.id
+                and tx_type == TransactionType.INCOME
+            ):
+                matched.destination_external_transaction_id = ext_tx.external_transaction_id
+                if not matched.external_transaction_id:
+                    matched.transaction_date = ext_tx.booking_date
+            else:
+                matched.external_transaction_id = ext_tx.external_transaction_id
+                matched.transaction_date = ext_tx.booking_date
             matched.import_source = "open_banking"
             await self.db.flush()
             await tx_service._sync_linked_project_item(matched)
             if matched.goal_id:
                 await tx_service._sync_linked_goal_amount(matched.goal_id)
+            return "matched"
+
+        # 2c. Auto-détection de virement inter-banques (2 comptes synchronisés du même foyer) :
+        # Si une opération bancaire opposée (EXPENSE <-> INCOME) de montant EXACT existe déjà
+        # sur un AUTRE compte du foyer à ±3 jours -> fusion en un seul TRANSFER à 2 jambes !
+        opposite_type = (
+            TransactionType.EXPENSE if tx_type == TransactionType.INCOME else TransactionType.INCOME
+        )
+        interbank_res = await self.db.execute(
+            select(Transaction).where(
+                Transaction.household_id == account.household_id,
+                Transaction.account_id != account.id,
+                Transaction.type == opposite_type,
+                Transaction.import_source == "open_banking",
+                Transaction.external_transaction_id.is_not(None),
+                Transaction.destination_account_id.is_(None),
+                Transaction.deleted_at.is_(None),
+                Transaction.transaction_date >= window_start,
+                Transaction.transaction_date <= window_end,
+            )
+        )
+        interbank_matches = [
+            c
+            for c in interbank_res.scalars().all()
+            if abs(Decimal(str(c.amount))) == abs(normalized_amount)
+        ]
+        if interbank_matches:
+            interbank_matches.sort(
+                key=lambda c: abs((c.transaction_date - ext_tx.booking_date).days)
+            )
+            other = interbank_matches[0]
+            if tx_type == TransactionType.EXPENSE:
+                # La nouvelle écriture est le débit source (ex. SG), `other` était le crédit destination (ex. BNP)
+                other.destination_account_id = other.account_id
+                other.destination_external_transaction_id = other.external_transaction_id
+                other.account_id = account.id
+                other.external_transaction_id = ext_tx.external_transaction_id
+                other.transaction_date = ext_tx.booking_date
+            else:
+                # La nouvelle écriture est le crédit destination (ex. BNP), `other` était le débit source (ex. SG)
+                other.destination_account_id = account.id
+                other.destination_external_transaction_id = ext_tx.external_transaction_id
+            other.type = TransactionType.TRANSFER
+            other.amount = -abs(normalized_amount)
+            other.category_id = None
+            other.state = TransactionState.REALIZED
+            other.import_source = "open_banking"
+            await self.db.flush()
             return "matched"
 
         # 3. No exact match -> create a new REALIZED transaction with history-based category guess
@@ -623,12 +747,16 @@ class BankingSyncService:
         target_tx_id: str,
     ) -> MergeTransactionResponse:
         """
-        Fusionne une opération bancaire importée (`imported_tx_id`) dans une opération Mimo
-        déjà prévue/existante (`target_tx_id`) :
-        - Transfère `external_transaction_id` & `import_source="open_banking"` vers `target`
-        - Applique le montant exact de la banque et la date exacte de la banque sur `target`
-        - Passe `target` en `REALIZED` (tout en conservant ses liens récurrence / projet / objectif)
-        - Supprime définitivement le doublon `imported_tx` pour éviter tout doublon futur
+        Fusionne une opération bancaire importée (`imported_tx_id`) dans une opération Mimo (`target_tx_id`) :
+        1. Virement interne existant (`target_tx.type == TRANSFER`) :
+           - Permet de lier la jambe source (`external_transaction_id`, débit) ET la jambe destination
+             (`destination_external_transaction_id`, crédit) sur le MÊME virement interne !
+        2. Deux opérations de sens opposé sur deux comptes différents (`EXPENSE` <-> `INCOME`) :
+           - Les convertit en un seul `TRANSFER` reliant compte source -> compte destination
+             avec les 2 identifiants bancaires mémorisés (zéro doublon aux prochaines synchros).
+        3. Fusion classique (`EXPENSE` -> `EXPENSE` ou `INCOME` -> `INCOME`) :
+           - Applique le montant et la date de la banque sur `target`, passe en `REALIZED`,
+             conserve les liens récurrence/projet/objectif et supprime le doublon.
         """
         if imported_tx_id == target_tx_id:
             raise HTTPException(
@@ -646,43 +774,127 @@ class BankingSyncService:
                 detail="Transaction introuvable.",
             )
 
-        if imported_tx.import_source != "open_banking" and not imported_tx.external_transaction_id:
+        if (
+            imported_tx.import_source != "open_banking"
+            and not imported_tx.external_transaction_id
+            and not imported_tx.destination_external_transaction_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La transaction source n'est pas issue d'une synchronisation bancaire.",
             )
 
-        if target_tx.external_transaction_id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="La transaction cible est déjà liée à une opération bancaire.",
-            )
-
-        ext_id = imported_tx.external_transaction_id
+        ext_id = imported_tx.external_transaction_id or imported_tx.destination_external_transaction_id
         bank_date = imported_tx.transaction_date
         bank_account_id = imported_tx.account_id
-        bank_amount = TransactionService._normalize_amount_sign(
-            target_tx.type, Decimal(str(imported_tx.amount))
-        )
+        imported_type = imported_tx.type
+        imported_amount_abs = abs(Decimal(str(imported_tx.amount)))
 
-        # Release unique index on imported_tx first, then delete imported_tx
-        imported_tx.external_transaction_id = None
-        await self.db.flush()
-        await self.db.delete(imported_tx)
-        await self.db.flush()
+        # CAS 1 : Fusion dans un virement interne existant (supporte 2 jambes : source + destination)
+        if target_tx.type == TransactionType.TRANSFER:
+            is_destination_leg = (
+                bank_account_id == target_tx.destination_account_id
+                or (
+                    imported_type == TransactionType.INCOME
+                    and bank_account_id != target_tx.account_id
+                )
+            )
+            if is_destination_leg:
+                if target_tx.destination_external_transaction_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="La réception (destination) de ce virement est déjà liée à une opération bancaire.",
+                    )
+            else:
+                if target_tx.external_transaction_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="L'envoi (source) de ce virement est déjà lié à une opération bancaire.",
+                    )
 
-        # Apply bank ground-truth data onto the planned/existing transaction
-        # Preserve source/destination accounts when merging into an incoming TRANSFER
-        if (
-            target_tx.type != TransactionType.TRANSFER
-            or target_tx.destination_account_id != bank_account_id
+            imported_tx.external_transaction_id = None
+            imported_tx.destination_external_transaction_id = None
+            await self.db.flush()
+            await self.db.delete(imported_tx)
+            await self.db.flush()
+
+            if is_destination_leg:
+                if not target_tx.destination_account_id:
+                    target_tx.destination_account_id = bank_account_id
+                target_tx.destination_external_transaction_id = ext_id
+                # Conserve la date source si la jambe source est déjà liée
+                if not target_tx.external_transaction_id:
+                    target_tx.transaction_date = bank_date
+            else:
+                target_tx.account_id = bank_account_id
+                target_tx.external_transaction_id = ext_id
+                target_tx.transaction_date = bank_date
+
+            target_tx.amount = -imported_amount_abs
+            target_tx.state = TransactionState.REALIZED
+            target_tx.import_source = "open_banking"
+
+        # CAS 2 : Fusion de 2 opérations de sens opposé sur 2 comptes différents -> conversion en TRANSFER 2 jambes
+        elif (
+            bank_account_id != target_tx.account_id
+            and {imported_type, target_tx.type} == {TransactionType.EXPENSE, TransactionType.INCOME}
         ):
+            if imported_type == TransactionType.EXPENSE:
+                # imported = débit source (ex. SG), target = crédit destination (ex. BNP)
+                source_acc = bank_account_id
+                source_ext = ext_id
+                source_date = bank_date
+                dest_acc = target_tx.account_id
+                dest_ext = target_tx.external_transaction_id
+            else:
+                # imported = crédit destination (ex. BNP), target = débit source (ex. SG)
+                source_acc = target_tx.account_id
+                source_ext = target_tx.external_transaction_id
+                source_date = target_tx.transaction_date
+                dest_acc = bank_account_id
+                dest_ext = ext_id
+
+            imported_tx.external_transaction_id = None
+            imported_tx.destination_external_transaction_id = None
+            await self.db.flush()
+            await self.db.delete(imported_tx)
+            await self.db.flush()
+
+            target_tx.type = TransactionType.TRANSFER
+            target_tx.account_id = source_acc
+            target_tx.destination_account_id = dest_acc
+            target_tx.external_transaction_id = source_ext
+            target_tx.destination_external_transaction_id = dest_ext
+            target_tx.amount = -imported_amount_abs
+            target_tx.transaction_date = source_date
+            target_tx.category_id = None
+            target_tx.state = TransactionState.REALIZED
+            target_tx.import_source = "open_banking"
+
+        # CAS 3 : Fusion classique (même sens : EXPENSE -> EXPENSE ou INCOME -> INCOME)
+        else:
+            if target_tx.external_transaction_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="La transaction cible est déjà liée à une opération bancaire.",
+                )
+
+            bank_amount = TransactionService._normalize_amount_sign(
+                target_tx.type, Decimal(str(imported_tx.amount))
+            )
+
+            imported_tx.external_transaction_id = None
+            imported_tx.destination_external_transaction_id = None
+            await self.db.flush()
+            await self.db.delete(imported_tx)
+            await self.db.flush()
+
             target_tx.account_id = bank_account_id
-        target_tx.amount = bank_amount
-        target_tx.transaction_date = bank_date
-        target_tx.state = TransactionState.REALIZED
-        target_tx.external_transaction_id = ext_id
-        target_tx.import_source = "open_banking"
+            target_tx.amount = bank_amount
+            target_tx.transaction_date = bank_date
+            target_tx.state = TransactionState.REALIZED
+            target_tx.external_transaction_id = ext_id
+            target_tx.import_source = "open_banking"
 
         await self.db.flush()
         await tx_service._sync_linked_project_item(target_tx)
@@ -698,7 +910,9 @@ class BankingSyncService:
             amount=target_tx.amount,
             transaction_date=target_tx.transaction_date,
             state=target_tx.state.value,
+            type=target_tx.type.value,
             external_transaction_id=target_tx.external_transaction_id,
+            destination_external_transaction_id=target_tx.destination_external_transaction_id,
             import_source=target_tx.import_source,
         )
 
@@ -707,7 +921,7 @@ class BankingSyncService:
         household_id: str,
         tx_id: str,
     ) -> UnlinkTransactionResponse:
-        """Détache une transaction de sa provenance Open Banking."""
+        """Détache une transaction de sa provenance Open Banking (source et destination)."""
         tx_service = TransactionService(self.db)
         tx = await tx_service.get_transaction(tx_id, household_id)
         if not tx:
@@ -717,6 +931,7 @@ class BankingSyncService:
             )
 
         tx.external_transaction_id = None
+        tx.destination_external_transaction_id = None
         tx.import_source = "manual"
         await self.db.commit()
         await self.db.refresh(tx)
@@ -725,6 +940,7 @@ class BankingSyncService:
             transaction_id=tx.id,
             import_source=tx.import_source,
             external_transaction_id=tx.external_transaction_id,
+            destination_external_transaction_id=tx.destination_external_transaction_id,
         )
 
     async def _load_category_hints(self, household_id: str) -> dict[str, str]:

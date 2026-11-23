@@ -2,7 +2,15 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -89,8 +97,19 @@ export function MimoAuthCard({
   };
 
   return (
-    <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 shadow-sm dark:border-zinc-800 dark:bg-[#121215]">
-      {/* Header & Mode Switch */}
+    <div className="w-full max-w-md">
+      <div className="mb-3 flex items-center justify-between">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Retour à l&apos;accueil
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-7 shadow-lg shadow-slate-900/[0.04] dark:border-zinc-800 dark:bg-[#121215] dark:shadow-black/30">
+        {/* Header & Mode Switch */}
       <div className="mb-6">
         <div className="mb-4 flex items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-2.5">
@@ -240,7 +259,7 @@ export function MimoAuthCard({
             {mode === "login" && (
               <Link
                 href="/forgot-password"
-                className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                className="text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
               >
                 Mot de passe oublié ?
               </Link>
@@ -329,6 +348,7 @@ export function MimoAuthCard({
         <Link href="/terms" className="underline hover:text-slate-700 dark:hover:text-zinc-200">
           Conditions
         </Link>
+      </div>
       </div>
     </div>
   );

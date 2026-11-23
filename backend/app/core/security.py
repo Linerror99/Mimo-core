@@ -101,24 +101,46 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
+AUTH_RATE_LIMITED_PATHS = frozenset(
+    {
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/forgot-password",
+        "/api/v1/auth/verify-reset-code",
+        "/api/v1/auth/reset-password",
+    }
+)
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
-    Rate limiting middleware to prevent abuse.
+    Rate limiting middleware to prevent abuse & brute-force attacks.
     Uses Redis for distributed state across Cloud Run instances,
     with automatic fallback to in-memory if Redis is unavailable.
 
     Limits:
-    - 100 requests per minute per IP address
-    - Burst allowed: 20 requests in 1 second
+    - Global: 100 requests per minute per IP address (burst: 20/s)
+    - Auth endpoints (POST login/register/forgot-password/reset-password):
+      strict brute-force window (default 10 requests / 15 min in production)
     """
 
-    def __init__(self, app: FastAPI, requests_per_minute: int = 100, burst_limit: int = 20):
+    def __init__(
+        self,
+        app: FastAPI,
+        requests_per_minute: int = 100,
+        burst_limit: int = 20,
+        auth_requests_per_window: Optional[int] = None,
+        auth_window_seconds: int = 900,
+    ):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.burst_limit = burst_limit
+        self.auth_requests_per_window = auth_requests_per_window
+        self.auth_window_seconds = auth_window_seconds
 
         # Fallback in-memory storage: {ip: [(timestamp, count), ...]}
         self.request_history: dict[str, list[tuple[datetime, int]]] = defaultdict(list)
+        self.auth_request_history: dict[str, list[datetime]] = defaultdict(list)
         self._redis_client = None
 
     def _get_redis(self):
@@ -182,6 +204,45 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.debug(f"Redis rate limiting failed, falling back to memory: {e}")
             return self._check_rate_limit_memory(ip, current_time)
 
+    def _check_auth_rate_limit_memory(
+        self, ip: str, path: str, current_time: datetime
+    ) -> tuple[bool, int]:
+        key = f"{ip}:{path}"
+        cutoff = current_time - timedelta(seconds=self.auth_window_seconds)
+        self.auth_request_history[key] = [
+            ts for ts in self.auth_request_history[key] if ts > cutoff
+        ]
+        count = len(self.auth_request_history[key])
+        if self.auth_requests_per_window is not None and count >= self.auth_requests_per_window:
+            return False, count
+        self.auth_request_history[key].append(current_time)
+        return True, count + 1
+
+    async def _check_auth_rate_limit(
+        self, ip: str, path: str, current_time: datetime
+    ) -> tuple[bool, int]:
+        if self.auth_requests_per_window is None:
+            return True, 0
+
+        redis = self._get_redis()
+        if not redis:
+            return self._check_auth_rate_limit_memory(ip, path, current_time)
+
+        try:
+            bucket = int(current_time.timestamp() // self.auth_window_seconds)
+            auth_key = f"ratelimit:auth:{path}:{ip}:{bucket}"
+            async with redis.pipeline(transaction=True) as pipe:
+                pipe.incr(auth_key)
+                pipe.expire(auth_key, self.auth_window_seconds + 5)
+                results = await pipe.execute()
+            auth_count = results[0]
+            if auth_count > self.auth_requests_per_window:
+                return False, auth_count
+            return True, auth_count
+        except Exception as e:
+            logger.debug(f"Redis auth rate limiting failed, falling back to memory: {e}")
+            return self._check_auth_rate_limit_memory(ip, path, current_time)
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Apply rate limiting."""
         # Skip rate limiting for health checks
@@ -198,7 +259,40 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         current_time = datetime.utcnow()
 
-        # Check rate limit via Redis (with in-memory fallback)
+        # Dedicated anti brute-force limit on sensitive auth endpoints
+        if (
+            self.auth_requests_per_window is not None
+            and request.method.upper() == "POST"
+            and request.url.path in AUTH_RATE_LIMITED_PATHS
+        ):
+            auth_allowed, auth_count = await self._check_auth_rate_limit(
+                client_ip, request.url.path, current_time
+            )
+            if not auth_allowed:
+                logger.warning(
+                    f"Auth rate limit exceeded for IP: {client_ip} on {request.url.path}",
+                    extra={
+                        "ip": client_ip,
+                        "endpoint": request.url.path,
+                        "method": request.method,
+                        "requests_count": auth_count,
+                    },
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error": "Trop de tentatives d'authentification. Veuillez réessayer dans quelques minutes.",
+                        "detail": "Trop de tentatives d'authentification. Veuillez réessayer dans quelques minutes.",
+                        "status_code": 429,
+                    },
+                    headers={
+                        "Retry-After": str(self.auth_window_seconds),
+                        "X-RateLimit-Limit": str(self.auth_requests_per_window),
+                        "X-RateLimit-Remaining": "0",
+                    },
+                )
+
+        # Check global rate limit via Redis (with in-memory fallback)
         is_allowed, current_count = await self._check_rate_limit_redis(client_ip, current_time)
 
         if not is_allowed:
@@ -248,8 +342,16 @@ def setup_security_middleware(app: FastAPI, environment: str = "production") -> 
     app.add_middleware(RequestLoggingMiddleware)
 
     # 2. Rate limiting (before auth, to prevent brute force)
+    from app.config import settings
+
     if environment == "production":
-        app.add_middleware(RateLimitMiddleware, requests_per_minute=100, burst_limit=20)
+        app.add_middleware(
+            RateLimitMiddleware,
+            requests_per_minute=100,
+            burst_limit=20,
+            auth_requests_per_window=settings.AUTH_RATE_LIMIT_REQUESTS,
+            auth_window_seconds=settings.AUTH_RATE_LIMIT_WINDOW_SECONDS,
+        )
     else:
         # More permissive in development
         app.add_middleware(RateLimitMiddleware, requests_per_minute=1000, burst_limit=100)

@@ -17,10 +17,26 @@ export const projectionService = {
     startYear: number,
     startMonth: number,
     endYear: number,
-    endMonth: number
+    endMonth: number,
+    options?: {
+      startDate?: string;
+      endDate?: string;
+      excludeFutureIncome?: boolean;
+    }
   ): Promise<MonthlyProjection[]> {
+    const params = new URLSearchParams({
+      start_year: String(startYear),
+      start_month: String(startMonth),
+      end_year: String(endYear),
+      end_month: String(endMonth),
+    });
+    if (options?.startDate) params.set("start_date", options.startDate);
+    if (options?.endDate) params.set("end_date", options.endDate);
+    if (options?.excludeFutureIncome) {
+      params.set("exclude_future_income", "true");
+    }
     return apiRequest<MonthlyProjection[]>(
-      `/projections/range?start_year=${startYear}&start_month=${startMonth}&end_year=${endYear}&end_month=${endMonth}`
+      `/projections/range?${params.toString()}`
     );
   },
 

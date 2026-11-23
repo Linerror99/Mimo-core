@@ -108,3 +108,90 @@ class TestProjectionsAPI:
         assert response.status_code == 200
         projections = response.json()
         assert len(projections) >= 1
+
+    async def test_get_projections_range_custom_dates_min_balance_and_exclude_income(
+        self,
+        client: AsyncClient,
+        test_user_token: str,
+        db_session,
+        test_user_household_id: str,
+    ):
+        """
+        Scénario salaire en fin de mois :
+        - Solde actuel : 8 000 €
+        - Mois prochain le 5 : charges -1 500 € -> point bas = 6 500 €
+        - Mois prochain le 28 : salaire +2 000 € -> fin de mois = 8 500 €
+        Vérifie :
+        1. `min_balance` capture bien 6 500 € (avant salaire) même si `balance` = 8 500 €
+        2. `end_date` au 25 du mois prochain exclut le salaire du 28 -> `balance` = 6 500 €
+        3. `exclude_future_income=true` ignore le salaire -> `balance` = 6 500 €
+        """
+        from decimal import Decimal
+        from app.models import Account, AccountType, Transaction, TransactionState, TransactionType
+
+        headers = {"Authorization": f"Bearer {test_user_token}"}
+        today = date.today()
+        next_month_first = (today.replace(day=1) + relativedelta(months=1))
+        charge_date = next_month_first.replace(day=5)
+        cutoff_date = next_month_first.replace(day=25)
+        salary_date = next_month_first.replace(day=28)
+
+        acc = Account(
+            household_id=test_user_household_id,
+            name="Courant Projection",
+            type=AccountType.CHECKING,
+            initial_balance=Decimal("8000.00"),
+        )
+        db_session.add(acc)
+        await db_session.flush()
+
+        charge_tx = Transaction(
+            household_id=test_user_household_id,
+            account_id=acc.id,
+            description="Loyer + charges",
+            amount=Decimal("-1500.00"),
+            transaction_date=charge_date,
+            type=TransactionType.EXPENSE,
+            state=TransactionState.PROJECTED,
+        )
+        salary_tx = Transaction(
+            household_id=test_user_household_id,
+            account_id=acc.id,
+            description="Salaire fin de mois",
+            amount=Decimal("2000.00"),
+            transaction_date=salary_date,
+            type=TransactionType.INCOME,
+            state=TransactionState.PROJECTED,
+        )
+        db_session.add_all([charge_tx, salary_tx])
+        await db_session.commit()
+
+        # 1. Plage complète incluant le 28 : balance = 8500, mais min_balance = 6500 !
+        res_full = await client.get(
+            f"/api/v1/projections/range?start_year={next_month_first.year}&start_month={next_month_first.month}&end_year={next_month_first.year}&end_month={next_month_first.month}",
+            headers=headers,
+        )
+        assert res_full.status_code == 200
+        m_full = res_full.json()[0]
+        assert m_full["balance"] == pytest.approx(8500.0)
+        assert m_full["min_balance"] == pytest.approx(6500.0)
+
+        # 2. Plage personnalisée coupée au 25 (avant le salaire du 28) -> balance = 6500
+        res_cutoff = await client.get(
+            f"/api/v1/projections/range?start_date={next_month_first.isoformat()}&end_date={cutoff_date.isoformat()}",
+            headers=headers,
+        )
+        assert res_cutoff.status_code == 200
+        m_cutoff = res_cutoff.json()[0]
+        assert m_cutoff["income"] == pytest.approx(0.0)
+        assert m_cutoff["balance"] == pytest.approx(6500.0)
+
+        # 3. Mode exclude_future_income=true -> ignore le salaire -> balance = 6500
+        res_no_inc = await client.get(
+            f"/api/v1/projections/range?start_year={next_month_first.year}&start_month={next_month_first.month}&end_year={next_month_first.year}&end_month={next_month_first.month}&exclude_future_income=true",
+            headers=headers,
+        )
+        assert res_no_inc.status_code == 200
+        m_no_inc = res_no_inc.json()[0]
+        assert m_no_inc["income"] == pytest.approx(0.0)
+        assert m_no_inc["balance"] == pytest.approx(6500.0)
